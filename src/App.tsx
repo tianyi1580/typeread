@@ -506,16 +506,21 @@ function WindowShell({
             )}
           </div>
 
-          <label className="mx-auto flex w-full max-w-[640px] items-center gap-3 rounded-full border border-[var(--border)] bg-[color-mix(in_srgb,var(--panel-soft)_78%,transparent)] px-4 py-3 text-sm shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
-            <span className="text-[var(--text-muted)]">Search</span>
-            <input
-              value={searchQuery}
-              onChange={(event) => setSearchQuery(event.target.value)}
-              placeholder={activeTab === "library" ? "Find books by title, author, or file type" : "Analytics view"}
-              className="w-full bg-transparent text-[var(--text)] outline-none placeholder:text-[var(--text-muted)]"
-              disabled={activeTab !== "library"}
-            />
-          </label>
+          {activeTab === "library" ? (
+            <label className="mx-auto flex w-full max-w-[640px] items-center gap-3 rounded-full border border-[var(--border)] bg-[color-mix(in_srgb,var(--panel-soft)_78%,transparent)] px-4 py-3 text-sm shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
+              <span className="text-[var(--text-muted)]">Search</span>
+              <input
+                value={searchQuery}
+                onChange={(event) => setSearchQuery(event.target.value)}
+                placeholder="Find books by title, author, or file type"
+                className="w-full bg-transparent text-[var(--text)] outline-none placeholder:text-[var(--text-muted)]"
+              />
+            </label>
+          ) : (
+            <div className="flex items-center justify-center">
+              <p className="text-sm font-medium text-[var(--text-muted)] capitalize">{activeTab} View</p>
+            </div>
+          )}
 
           <div className="relative flex items-center justify-end gap-2">
             {busyAction && <span className="text-xs uppercase tracking-[0.2em] text-[var(--text-muted)]">{busyAction}</span>}
@@ -531,6 +536,14 @@ function WindowShell({
               <>
                 <button type="button" aria-label="Close menu" className="fixed inset-0" onClick={onCloseLibraryMenu} />
                 <div className="absolute right-0 top-12 z-30 min-w-[220px] rounded-[24px] border border-[var(--border)] bg-[var(--panel)] p-2 shadow-panel backdrop-blur-xl">
+                  <MenuButton
+                    onClick={() => {
+                      onBackToLibrary();
+                      onCloseLibraryMenu();
+                    }}
+                  >
+                    Library
+                  </MenuButton>
                   <MenuButton onClick={onOpenAnalytics}>Profile & Analytics</MenuButton>
                   <MenuButton onClick={onOpenSettings}>Settings</MenuButton>
                 </div>
