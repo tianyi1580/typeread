@@ -31,16 +31,30 @@ export function TypingLayer({ tokens, snapshot, visibleRange, className, faded =
       .map((token, index) => ({ token, index: start + index }));
   }, [tokens, visibleRange, snapshot.currentWordIndex]);
 
-  const lastOffsetTop = useRef<number>(0);
+  const lastOffsetTop = useRef<number>(-1);
   useEffect(() => {
     const el = currentWordRef.current;
     if (!visibleRange && el) {
       const currentOffset = el.offsetTop;
       
-      // Only scroll if the word has moved to a new line (vertical offset changed significantly)
-      if (Math.abs(currentOffset - lastOffsetTop.current) > 5) {
+      // Initialize on first word
+      if (lastOffsetTop.current === -1) {
+        lastOffsetTop.current = currentOffset;
+        return;
+      }
+
+      // Only scroll if we've moved to a NEW line (significant increase in offsetTop)
+      // We use 15px to be safe against sub-pixel font rendering differences
+      if (currentOffset > lastOffsetTop.current + 15) {
         lastOffsetTop.current = currentOffset;
         
+        el.scrollIntoView({
+          block: "center",
+          behavior: "smooth",
+        });
+      } else if (currentOffset < lastOffsetTop.current - 15) {
+        // Handle jumping back (backspacing to previous line)
+        lastOffsetTop.current = currentOffset;
         el.scrollIntoView({
           block: "center",
           behavior: "smooth",

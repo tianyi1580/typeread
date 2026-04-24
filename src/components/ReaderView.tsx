@@ -115,7 +115,14 @@ export function ReaderView({
 
   useEffect(() => {
     const interval = window.setInterval(() => setClock(Date.now()), 1000);
-    const onMouseMove = () => setLastMouseAt(Date.now());
+    const lastPos = { x: 0, y: 0 };
+    const onMouseMove = (event: MouseEvent) => {
+      if (event.clientX !== lastPos.x || event.clientY !== lastPos.y) {
+        lastPos.x = event.clientX;
+        lastPos.y = event.clientY;
+        setLastMouseAt(Date.now());
+      }
+    };
     window.addEventListener("mousemove", onMouseMove);
 
     return () => {

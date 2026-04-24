@@ -46,35 +46,35 @@ export function Hud({
           <Metric label="WPM" value={metrics.wpm.toFixed(1)} />
           <Metric label="Accuracy" value={formatPercent(metrics.accuracy)} />
           <Metric label="Session" value={formatDuration(metrics.elapsedSeconds)} />
-          {!minimal && <Metric label="Chapter" value={`${chapterIndex + 1}/${chapterCount}`} />}
+          <div className={minimal ? "opacity-0 pointer-events-none" : "opacity-100 transition-opacity duration-300"}>
+            <Metric label="Chapter" value={`${chapterIndex + 1}/${chapterCount}`} />
+          </div>
         </div>
 
-        {!minimal && (
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="rounded-full bg-[var(--panel-soft)] p-1">
-              <Button variant={interactionMode === "type" ? "primary" : "ghost"} onClick={() => onInteractionModeChange("type")}>
-                Type
-              </Button>
-              <Button variant={interactionMode === "read" ? "primary" : "ghost"} onClick={() => onInteractionModeChange("read")}>
-                Read
-              </Button>
-            </div>
-            <div className="rounded-full bg-[var(--panel-soft)] p-1">
-              <Button variant={readerMode === "scroll" ? "primary" : "ghost"} onClick={() => onReaderModeChange("scroll")}>
-                Scroll
-              </Button>
-              <Button variant={readerMode === "spread" ? "primary" : "ghost"} onClick={() => onReaderModeChange("spread")}>
-                Spread
-              </Button>
-            </div>
-            <Button variant="secondary" onClick={onPreviousChapter} disabled={chapterIndex === 0}>
-              Previous Chapter
+        <div className={`flex flex-wrap items-center gap-2 transition-opacity duration-300 ${minimal ? "opacity-0 pointer-events-none" : "opacity-100"}`}>
+          <div className="rounded-full bg-[var(--panel-soft)] p-1">
+            <Button variant={interactionMode === "type" ? "primary" : "ghost"} onClick={() => onInteractionModeChange("type")}>
+              Type
             </Button>
-            <Button variant="secondary" onClick={onNextChapter} disabled={chapterIndex >= chapterCount - 1}>
-              Next Chapter
+            <Button variant={interactionMode === "read" ? "primary" : "ghost"} onClick={() => onInteractionModeChange("read")}>
+              Read
             </Button>
           </div>
-        )}
+          <div className="rounded-full bg-[var(--panel-soft)] p-1">
+            <Button variant={readerMode === "scroll" ? "primary" : "ghost"} onClick={() => onReaderModeChange("scroll")}>
+              Scroll
+            </Button>
+            <Button variant={readerMode === "spread" ? "primary" : "ghost"} onClick={() => onReaderModeChange("spread")}>
+              Spread
+            </Button>
+          </div>
+          <Button variant="secondary" onClick={onPreviousChapter} disabled={chapterIndex === 0}>
+            Previous
+          </Button>
+          <Button variant="secondary" onClick={onNextChapter} disabled={chapterIndex >= chapterCount - 1}>
+            Next
+          </Button>
+        </div>
       </div>
     </Card>
   );
