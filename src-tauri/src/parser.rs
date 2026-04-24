@@ -3,6 +3,7 @@ use std::{
     fs,
     io::Read,
     path::{Path, PathBuf},
+    sync::OnceLock,
 };
 
 use anyhow::{anyhow, bail, Context, Result};
@@ -186,7 +187,10 @@ fn parse_epub(path: &Path, covers_dir: &Path) -> Result<ParsedImport> {
 }
 
 fn split_plain_text_into_chapters(source: &str, fallback: &str) -> Vec<BookChapter> {
-    let chapter_pattern = Regex::new(r"(?im)^(chapter|part|section)\s+[\w\divxlc]+.*$").expect("valid chapter regex");
+    static CHAPTER_REGEX: OnceLock<Regex> = OnceLock::new();
+    let chapter_pattern = CHAPTER_REGEX.get_or_init(|| {
+        Regex::new(r"(?im)^(chapter|part|section)\s+[\w\divxlc]+.*$").expect("valid chapter regex")
+    });
     let mut sections = Vec::new();
     let mut last_title = fallback.to_string();
     let mut current = String::new();
@@ -309,17 +313,27 @@ fn markdown_to_text(source: &str) -> String {
 }
 
 fn html_to_text(source: &str) -> (Option<String>, String) {
+    static SANITIZE_REGEXES: OnceLock<Vec<Regex>> = OnceLock::new();
+    let regexes = SANITIZE_REGEXES.get_or_init(|| {
+        ["script", "style", "table", "svg", "nav", "footer", "header"]
+            .iter()
+            .map(|tag| {
+                Regex::new(&format!(r"(?is)<{tag}[^>]*>.*?</{tag}>"))
+                    .expect("valid block sanitizing regex")
+            })
+            .collect()
+    });
+
     let mut sanitized = source.to_string();
-    for tag in ["script", "style", "table", "svg", "nav", "footer", "header"] {
-        let pattern = format!(r"(?is)<{tag}[^>]*>.*?</{tag}>");
-        sanitized = Regex::new(&pattern)
-            .expect("valid block sanitizing regex")
-            .replace_all(&sanitized, "")
-            .into_owned();
+    for pattern in regexes {
+        sanitized = pattern.replace_all(&sanitized, "").into_owned();
     }
-    let stripped = Regex::new(r"(?is)<img[^>]*>")
-        .expect("valid img sanitizing regex")
-        .replace_all(&sanitized, "");
+
+    static IMG_REGEX: OnceLock<Regex> = OnceLock::new();
+    let img_pattern = IMG_REGEX.get_or_init(|| {
+        Regex::new(r"(?is)<img[^>]*>").expect("valid img sanitizing regex")
+    });
+    let stripped = img_pattern.replace_all(&sanitized, "");
     let document = Html::parse_document(&stripped);
     let title_selector = Selector::parse("h1, h2, h3, title").expect("valid title selector");
     let block_selector = Selector::parse("h1, h2, h3, h4, h5, h6, p, li, blockquote, pre").expect("valid block selector");
@@ -424,10 +438,12 @@ fn normalize_text(source: &str) -> String {
         .trim()
         .to_string();
 
-    Regex::new(r"\s+([,.;:!?])")
-        .expect("valid punctuation spacing regex")
-        .replace_all(&compacted, "$1")
-        .to_string()
+    static PUNCTUATION_REGEX: OnceLock<Regex> = OnceLock::new();
+    let punct_pattern = PUNCTUATION_REGEX.get_or_init(|| {
+        Regex::new(r"\s+([,.;:!?])").expect("valid punctuation spacing regex")
+    });
+
+    punct_pattern.replace_all(&compacted, "$1").to_string()
 }
 
 fn fallback_title(path: &Path) -> String {

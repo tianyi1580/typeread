@@ -14,13 +14,22 @@ interface TypingLayerProps {
 export function TypingLayer({ tokens, snapshot, visibleRange, className, faded = true }: TypingLayerProps) {
   const currentWordRef = useRef<HTMLSpanElement | null>(null);
   const visibleTokens = useMemo(() => {
-    if (!visibleRange) {
-      return tokens.map((token, index) => ({ token, index }));
+    if (visibleRange) {
+      return tokens
+        .map((token, index) => ({ token, index }))
+        .filter(({ token }) => token.start >= visibleRange.start && token.end <= visibleRange.end);
     }
+
+    // Virtualization Window: Only render words within a relative distance to the current typing position.
+    // This prevents DOM bloat in long chapters while keeping enough context for scrolling.
+    const WINDOW_SIZE = 400; // Render 200 before and 200 after
+    const start = Math.max(0, snapshot.currentWordIndex - WINDOW_SIZE / 2);
+    const end = Math.min(tokens.length, start + WINDOW_SIZE);
+    
     return tokens
-      .map((token, index) => ({ token, index }))
-      .filter(({ token }) => token.start >= visibleRange.start && token.end <= visibleRange.end);
-  }, [tokens, visibleRange]);
+      .slice(start, end)
+      .map((token, index) => ({ token, index: start + index }));
+  }, [tokens, visibleRange, snapshot.currentWordIndex]);
 
   useEffect(() => {
     if (!visibleRange && currentWordRef.current) {

@@ -161,7 +161,19 @@ export function ReaderView({
         sessionStartRef.current = now;
       }
 
-      const nextSnapshot: TypingSnapshot = structuredClone(snapshotRef.current);
+      const prevSnapshot = snapshotRef.current;
+      const nextSnapshot: TypingSnapshot = {
+        ...prevSnapshot,
+        // We only clone the words array when we actually modify a word's state.
+        // For a single character change, we only need to clone the current word object.
+        words: [...prevSnapshot.words],
+      };
+
+      // Clone only the current word to avoid mutating the previous state directly
+      nextSnapshot.words[nextSnapshot.currentWordIndex] = {
+        ...nextSnapshot.words[nextSnapshot.currentWordIndex],
+      };
+
       const result = applyTypingInput(nextSnapshot, tokens, event.key, now);
       setSnapshot(result.snapshot);
       snapshotRef.current = result.snapshot;
