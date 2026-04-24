@@ -25,7 +25,7 @@ export function TypingLayer({ tokens, snapshot, visibleRange, className, faded =
     const WINDOW_SIZE = 400; // Render 200 before and 200 after
     const start = Math.max(0, snapshot.currentWordIndex - WINDOW_SIZE / 2);
     const end = Math.min(tokens.length, start + WINDOW_SIZE);
-    
+
     return tokens
       .slice(start, end)
       .map((token, index) => ({ token, index: start + index }));
@@ -36,7 +36,7 @@ export function TypingLayer({ tokens, snapshot, visibleRange, className, faded =
     const el = currentWordRef.current;
     if (!visibleRange && el) {
       const currentOffset = el.offsetTop;
-      
+
       // Initialize on first word
       if (lastOffsetTop.current === -1) {
         lastOffsetTop.current = currentOffset;
@@ -44,21 +44,34 @@ export function TypingLayer({ tokens, snapshot, visibleRange, className, faded =
       }
 
       // Only scroll if we've moved to a NEW line (significant increase in offsetTop)
-      // We use 15px to be safe against sub-pixel font rendering differences
-      if (currentOffset > lastOffsetTop.current + 15) {
+      if (Math.abs(currentOffset - lastOffsetTop.current) > 15) {
         lastOffsetTop.current = currentOffset;
-        
-        el.scrollIntoView({
-          block: "center",
-          behavior: "smooth",
-        });
-      } else if (currentOffset < lastOffsetTop.current - 15) {
-        // Handle jumping back (backspacing to previous line)
-        lastOffsetTop.current = currentOffset;
-        el.scrollIntoView({
-          block: "center",
-          behavior: "smooth",
-        });
+
+        // Custom slow smooth scroll to center
+        const targetY = el.getBoundingClientRect().top + window.scrollY - (window.innerHeight / 2);
+        const startY = window.scrollY;
+        const distance = targetY - startY;
+        const duration = 500; // Slower, more premium feel
+        let startTime: number | null = null;
+
+        const animate = (currentTime: number) => {
+          if (startTime === null) startTime = currentTime;
+          const timeElapsed = currentTime - startTime;
+          const progress = Math.min(timeElapsed / duration, 1);
+
+          // easeInOutQuad
+          const ease = progress < 0.5
+            ? 2 * progress * progress
+            : 1 - Math.pow(-2 * progress + 2, 2) / 2;
+
+          window.scrollTo(0, startY + distance * ease);
+
+          if (timeElapsed < duration) {
+            requestAnimationFrame(animate);
+          }
+        };
+
+        requestAnimationFrame(animate);
       }
     }
   }, [snapshot.currentWordIndex, visibleRange]);
@@ -75,7 +88,7 @@ export function TypingLayer({ tokens, snapshot, visibleRange, className, faded =
         const isCurrent = index === snapshot.currentWordIndex;
         const isCompleted = index < snapshot.currentWordIndex;
         const isUpcoming = index > snapshot.currentWordIndex;
-        
+
         const distance = Math.abs(index - snapshot.currentWordIndex);
         const opacity =
           !faded || visibleRange
