@@ -1,0 +1,252 @@
+import type { KeystrokeEvent, LiveMetrics, TokenizedWord, TypingSnapshot, WordTypingState } from "../types";
+import { clamp } from "../lib/utils";
+
+export function normalizeTypingChar(input: string) {
+  return input
+    .replace(/[“”]/g, "\"")
+    .replace(/[‘’]/g, "'")
+    .replace(/—/g, "--")
+    .replace(/\u00a0/g, " ");
+}
+
+export function normalizeForCompare(input: string) {
+  return normalizeTypingChar(input).normalize("NFKC");
+}
+
+export function tokenizeText(text: string): TokenizedWord[] {
+  const tokens: TokenizedWord[] = [];
+  const regex = /(\S+)(\s*)/g;
+  let match: RegExpExecArray | null;
+
+  while ((match = regex.exec(text)) !== null) {
+    const [full, word, separator] = match;
+    tokens.push({
+      id: `${tokens.length}-${match.index}`,
+      word,
+      separator,
+      start: match.index,
+      end: match.index + full.length,
+    });
+  }
+
+  return tokens;
+}
+
+export function createTypingSnapshot(tokens: TokenizedWord[]): TypingSnapshot {
+  return {
+    currentWordIndex: 0,
+    words: tokens.map<WordTypingState>(() => ({
+      typed: "",
+      completed: false,
+      skipped: false,
+    })),
+  };
+}
+
+export function computeWordScore(expected: string, typed: string) {
+  const normalizedExpected = normalizeForCompare(expected);
+  const normalizedTyped = normalizeForCompare(typed);
+  const overlap = Math.max(normalizedExpected.length, normalizedTyped.length);
+  let correctChars = 0;
+  let errors = 0;
+
+  for (let index = 0; index < overlap; index += 1) {
+    const exp = normalizedExpected[index];
+    const got = normalizedTyped[index];
+    if (!got && exp) {
+      continue;
+    }
+    if (exp === got) {
+      correctChars += 1;
+    } else if (got) {
+      errors += 1;
+    }
+  }
+
+  return {
+    correctChars,
+    typedChars: normalizedTyped.length,
+    errors,
+  };
+}
+
+export function moveToPreviousWord(snapshot: TypingSnapshot) {
+  if (snapshot.currentWordIndex === 0) {
+    return snapshot;
+  }
+
+  const previous = snapshot.words[snapshot.currentWordIndex - 1];
+  previous.completed = false;
+  previous.skipped = false;
+  snapshot.currentWordIndex -= 1;
+  return snapshot;
+}
+
+export function applyTypingInput(
+  snapshot: TypingSnapshot,
+  tokens: TokenizedWord[],
+  key: string,
+  timestamp: number,
+): { snapshot: TypingSnapshot; event?: KeystrokeEvent } {
+  const current = snapshot.words[snapshot.currentWordIndex];
+  const token = tokens[snapshot.currentWordIndex];
+
+  if (!current || !token) {
+    return { snapshot };
+  }
+
+  if (key === "Backspace") {
+    if (current.typed.length > 0) {
+      current.typed = current.typed.slice(0, -1);
+      current.completed = false;
+      current.skipped = false;
+    } else {
+      moveToPreviousWord(snapshot);
+    }
+    return {
+      snapshot,
+      event: { at: timestamp, type: "backspace" },
+    };
+  }
+
+  if (key === " ") {
+    // Space is the anchor: it advances regardless of local mismatch so the user can recover from desync fast.
+    current.completed = true;
+    const score = computeWordScore(token.word, current.typed);
+    if (snapshot.currentWordIndex < snapshot.words.length - 1) {
+      snapshot.currentWordIndex += 1;
+    }
+    return {
+      snapshot,
+      event: {
+        at: timestamp,
+        type: "space",
+        correctChars: score.correctChars,
+        typedChars: score.typedChars,
+        errors: score.errors,
+      },
+    };
+  }
+
+  if (key === "Enter") {
+    current.completed = true;
+    current.skipped = true;
+    current.typed = "";
+    if (snapshot.currentWordIndex < snapshot.words.length - 1) {
+      snapshot.currentWordIndex += 1;
+    }
+    return {
+      snapshot,
+      event: {
+        at: timestamp,
+        type: "enter",
+        skippedWord: true,
+      },
+    };
+  }
+
+  if (key.length === 1) {
+    current.typed += key;
+    return {
+      snapshot,
+      event: {
+        at: timestamp,
+        type: "char",
+      },
+    };
+  }
+
+  return { snapshot };
+}
+
+export function currentProgress(snapshot: TypingSnapshot, tokens: TokenizedWord[]) {
+  const currentToken = tokens[snapshot.currentWordIndex];
+  if (!currentToken) {
+    return 1;
+  }
+
+  const lastToken = tokens[tokens.length - 1];
+  return currentToken.start / Math.max(lastToken?.end ?? 1, 1);
+}
+
+export function currentChapterIndex(snapshot: TypingSnapshot, tokens: TokenizedWord[]) {
+  const currentToken = tokens[snapshot.currentWordIndex];
+  return currentToken?.start ?? 0;
+}
+
+export function computeMetrics(
+  events: KeystrokeEvent[],
+  elapsedSeconds: number,
+  snapshot: TypingSnapshot,
+  tokens: TokenizedWord[],
+): LiveMetrics {
+  let typedWords = 0;
+  let typedChars = 0;
+  let correctChars = 0;
+  let errors = 0;
+
+  for (const event of events) {
+    if (event.type === "space" && !event.skippedWord) {
+      typedWords += 1;
+      typedChars += event.typedChars ?? 0;
+      correctChars += event.correctChars ?? 0;
+      errors += event.errors ?? 0;
+    }
+  }
+
+  const minutes = Math.max(elapsedSeconds / 60, 1 / 60);
+  const wpm = correctChars / 5 / minutes;
+  const accuracy = typedChars === 0 ? 100 : clamp((correctChars / typedChars) * 100, 0, 100);
+  const progress = currentProgress(snapshot, tokens);
+  const chapterProgress = progress;
+
+  return {
+    wpm,
+    accuracy,
+    elapsedSeconds,
+    typedWords,
+    typedChars,
+    errors,
+    progress,
+    chapterProgress,
+  };
+}
+
+export function finalizeMetrics(
+  events: KeystrokeEvent[],
+  startTime: number,
+  endTime: number,
+  discardedTailMs = 0,
+) {
+  // Inactivity cleanup trims the dead tail so sessions reflect active typing instead of idle inflation.
+  const effectiveEnd = Math.max(startTime, endTime - discardedTailMs);
+  const filteredEvents = events.filter((event) => event.at <= effectiveEnd);
+  let typedWords = 0;
+  let typedChars = 0;
+  let correctChars = 0;
+  let errors = 0;
+
+  for (const event of filteredEvents) {
+    if (event.type === "space" && !event.skippedWord) {
+      typedWords += 1;
+      typedChars += event.typedChars ?? 0;
+      correctChars += event.correctChars ?? 0;
+      errors += event.errors ?? 0;
+    }
+  }
+
+  const durationSeconds = Math.max(1, Math.round((effectiveEnd - startTime) / 1000));
+  const minutes = durationSeconds / 60;
+  const wpm = minutes <= 0 ? 0 : correctChars / 5 / minutes;
+  const accuracy = typedChars === 0 ? 100 : clamp((correctChars / typedChars) * 100, 0, 100);
+
+  return {
+    wordsTyped: typedWords,
+    charsTyped: typedChars,
+    errors,
+    wpm,
+    accuracy,
+    durationSeconds,
+    effectiveEndTimeMs: effectiveEnd,
+  };
+}

@@ -1,0 +1,6 @@
+{
+  "identifier": "default-capability",
+  "description": "Default capability for the main application window.",
+  "windows": ["main"],
+  "permissions": ["core:default"]
+}

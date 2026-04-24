@@ -1,0 +1,62 @@
+import { create } from "zustand";
+import type { AnalyticsSummary, AppSettings, BookRecord, InteractionMode, ParsedBook, ReaderMode } from "../types";
+
+interface AppState {
+  activeTab: "library" | "analytics" | "settings";
+  books: BookRecord[];
+  currentBook: ParsedBook | null;
+  selectedBookId: number | null;
+  selectedChapterIndex: number;
+  readerMode: ReaderMode;
+  interactionMode: InteractionMode;
+  settings: AppSettings | null;
+  analytics: AnalyticsSummary | null;
+  desktopReady: boolean;
+  setDesktopReady: (ready: boolean) => void;
+  setActiveTab: (tab: AppState["activeTab"]) => void;
+  setBooks: (books: BookRecord[]) => void;
+  setCurrentBook: (book: ParsedBook | null) => void;
+  setSelectedBookId: (bookId: number | null) => void;
+  setSelectedChapterIndex: (index: number) => void;
+  setReaderMode: (mode: ReaderMode) => void;
+  setInteractionMode: (mode: InteractionMode) => void;
+  setSettings: (settings: AppSettings) => void;
+  setAnalytics: (analytics: AnalyticsSummary | null) => void;
+}
+
+export const defaultSettings: AppSettings = {
+  theme: "catppuccin-macchiato",
+  typeFont: "jetbrains-mono",
+  readFont: "inter",
+  readerMode: "scroll",
+  interactionMode: "type",
+  focusMode: true,
+};
+
+export const useAppStore = create<AppState>((set) => ({
+  activeTab: "library",
+  books: [],
+  currentBook: null,
+  selectedBookId: null,
+  selectedChapterIndex: 0,
+  readerMode: defaultSettings.readerMode,
+  interactionMode: defaultSettings.interactionMode,
+  settings: defaultSettings,
+  analytics: null,
+  desktopReady: false,
+  setDesktopReady: (desktopReady) => set({ desktopReady }),
+  setActiveTab: (activeTab) => set({ activeTab }),
+  setBooks: (books) => set({ books }),
+  setCurrentBook: (currentBook) => set({ currentBook }),
+  setSelectedBookId: (selectedBookId) => set({ selectedBookId }),
+  setSelectedChapterIndex: (selectedChapterIndex) => set({ selectedChapterIndex }),
+  setReaderMode: (readerMode) => set({ readerMode }),
+  setInteractionMode: (interactionMode) => set({ interactionMode }),
+  setSettings: (settings) =>
+    set({
+      settings,
+      readerMode: settings.readerMode,
+      interactionMode: settings.interactionMode,
+    }),
+  setAnalytics: (analytics) => set({ analytics }),
+}));

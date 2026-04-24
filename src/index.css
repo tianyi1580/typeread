@@ -1,0 +1,56 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg: #1e2030;
+  --panel: rgba(36, 39, 58, 0.86);
+  --panel-soft: rgba(54, 58, 79, 0.72);
+  --border: rgba(145, 215, 227, 0.16);
+  --text: #cad3f5;
+  --text-muted: #a5adce;
+  --accent: #8aadf4;
+  --accent-soft: rgba(138, 173, 244, 0.16);
+  --success: #a6da95;
+  --danger: #ed8796;
+  --shadow: rgba(0, 0, 0, 0.38);
+  --font-type: "JetBrains Mono", ui-monospace, monospace;
+  --font-read: "Inter", Georgia, serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  color: var(--text);
+  font-family: var(--font-read);
+  background: var(--bg);
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+::selection {
+  background: color-mix(in srgb, var(--accent) 55%, white);
+  color: black;
+}
+
+.font-\[var\(--font-type\)\] {
+  font-family: var(--font-type);
+}
+
+.font-\[var\(--font-read\)\] {
+  font-family: var(--font-read);
+}

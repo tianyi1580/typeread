@@ -51,7 +51,7 @@
     * Left and right buttons control page navigation as well as visible buttons on the left and right of the screen.
 
 ### 2.4 Typing Engine & Analytics
-* **Live Overlay:** Minimal, toggleable HUD showing current WPM, Accuracy (%), session time, and chapter navigation buttons.
+* **Live Overlay:** Minimal HUD showing current WPM, Accuracy (%), session time, and chapter navigation buttons.
 * **Analytics Handling:**
     * Skipped words (via `Enter`) are omitted from WPM and Accuracy calculations.
     * **Session End:** A session ends automatically after **30 seconds of inactivity** or when the user exits.
@@ -61,10 +61,9 @@
     * Global statistics (Total words typed, total time spent).
     * All analytics exclude words skipped via `Enter`.
     * **Themes:** Catppuccin Macchiato, Gruvbox Dark, Sepia, Solarized Light.
-*   **Focus Mode:** HUD fades out during active typing, reappearing on pause or mouse movement.
+    * **Typography Settings:**
+        * **Type Mode Fonts:** JetBrains Mono, Fira Code, Geist Mono (Mono-spaced priority).
+        * **Read Mode Fonts:** Inter (Sans), Liberata (Serif), Merriweather (Serif).
+
+*   **Focus Mode:** Non-essential HUD elements fade out during active typing. Only **Current WPM**, **Session Time**, and the **Chapter Progress Bar** remain visible (at reduced opacity). All elements reappear on pause or mouse movement.
 *   **Progress Tracking:** Minimalist progress bar at the bottom/top showing book completion % with another smaller bar under it showing chapter/chunk completion.
-
-
-## 3. Open Questions & Next Steps
-1.  **Content Virtualization:** Implement a windowing system to handle long-form text within a chapter if it exceeds performance thresholds.
-2.  **Rust Command Interface:** Define the Tauri commands for streaming text chapters and metadata from the backend.
