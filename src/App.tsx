@@ -12,28 +12,27 @@ import { useAppStore } from "./store/app-store";
 import type { AppSettings, InteractionMode, ParsedBook, TypingSessionInput } from "./types";
 
 export default function App() {
-  const {
-    activeTab,
-    books,
-    currentBook,
-    selectedBookId,
-    selectedChapterIndex,
-    readerMode,
-    interactionMode,
-    settings,
-    analytics,
-    desktopReady,
-    setDesktopReady,
-    setActiveTab,
-    setBooks,
-    setCurrentBook,
-    setSelectedBookId,
-    setSelectedChapterIndex,
-    setReaderMode,
-    setInteractionMode,
-    setSettings,
-    setAnalytics,
-  } = useAppStore();
+  const activeTab = useAppStore((s) => s.activeTab);
+  const books = useAppStore((s) => s.books);
+  const currentBook = useAppStore((s) => s.currentBook);
+  const selectedBookId = useAppStore((s) => s.selectedBookId);
+  const selectedChapterIndex = useAppStore((s) => s.selectedChapterIndex);
+  const readerMode = useAppStore((s) => s.readerMode);
+  const interactionMode = useAppStore((s) => s.interactionMode);
+  const settings = useAppStore((s) => s.settings);
+  const analytics = useAppStore((s) => s.analytics);
+  const desktopReady = useAppStore((s) => s.desktopReady);
+  
+  const setDesktopReady = useAppStore((s) => s.setDesktopReady);
+  const setActiveTab = useAppStore((s) => s.setActiveTab);
+  const setBooks = useAppStore((s) => s.setBooks);
+  const setCurrentBook = useAppStore((s) => s.setCurrentBook);
+  const setSelectedBookId = useAppStore((s) => s.setSelectedBookId);
+  const setSelectedChapterIndex = useAppStore((s) => s.setSelectedChapterIndex);
+  const setReaderMode = useAppStore((s) => s.setReaderMode);
+  const setInteractionMode = useAppStore((s) => s.setInteractionMode);
+  const setSettings = useAppStore((s) => s.setSettings);
+  const setAnalytics = useAppStore((s) => s.setAnalytics);
 
   const [loadingBook, setLoadingBook] = useState(false);
   const [error, setError] = useState<string | null>(null);

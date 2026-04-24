@@ -58,7 +58,10 @@ export function TypingLayer({ tokens, snapshot, visibleRange, className, faded =
     >
       {visibleTokens.map(({ token, index }) => {
         const state = snapshot.words[index];
-        const current = index === snapshot.currentWordIndex;
+        const isCurrent = index === snapshot.currentWordIndex;
+        const isCompleted = index < snapshot.currentWordIndex;
+        const isUpcoming = index > snapshot.currentWordIndex;
+        
         const distance = Math.abs(index - snapshot.currentWordIndex);
         const opacity =
           !faded || visibleRange
@@ -71,15 +74,34 @@ export function TypingLayer({ tokens, snapshot, visibleRange, className, faded =
                   ? 0.62
                   : 1;
 
+        if (isCompleted) {
+          const isPerfect = state ? normalizeForCompare(state.typed) === normalizeForCompare(token.word + token.separator) : true;
+          if (isPerfect) {
+            return (
+              <span key={token.id} className="text-[var(--success)]" style={{ opacity }}>
+                {token.word + token.separator}
+              </span>
+            );
+          }
+          // If the word was imperfect, we render the detailed view so the user can see exactly where the errors were.
+          return (
+            <span key={token.id} className="transition-opacity duration-300" style={{ opacity }}>
+              {renderWord(token.word + token.separator, state?.typed ?? "", false, true, false)}
+            </span>
+          );
+        }
+
+        if (isUpcoming) {
+          return (
+            <span key={token.id} className="text-[var(--text-muted)]" style={{ opacity }}>
+              {token.word + token.separator}
+            </span>
+          );
+        }
+
         return (
-          <span
-            key={token.id}
-            ref={current ? currentWordRef : null}
-            className={cn("transition-opacity duration-300", current && "rounded-md bg-[var(--accent-soft)]")}
-            style={{ opacity }}
-          >
-            {renderWord(token.word, state?.typed ?? "", current, state?.completed ?? false, state?.skipped ?? false)}
-            <span className="text-[var(--text-muted)]">{token.separator}</span>
+          <span key={token.id} ref={currentWordRef} className="transition-opacity duration-300" style={{ opacity }}>
+            {renderWord(token.word + token.separator, state?.typed ?? "", true, state?.completed ?? false, state?.skipped ?? false)}
           </span>
         );
       })}
@@ -91,60 +113,43 @@ function renderWord(expected: string, typed: string, current: boolean, completed
   const expectedChars = [...expected];
   const typedChars = [...typed];
   const output: JSX.Element[] = [];
-  let cursorPlaced = false;
+  let cursorIndex: number | null = current ? typedChars.length : null;
 
-  if (current && typedChars.length === 0 && !skipped) {
-    output.push(cursor("cursor-start"));
-    cursorPlaced = true;
-  }
-
-  const total = Math.max(expectedChars.length, typedChars.length);
-  for (let index = 0; index < total; index += 1) {
+  // We loop ONLY through the expected characters to keep layout static.
+  for (let index = 0; index < expectedChars.length; index += 1) {
     const expectedChar = expectedChars[index];
     const typedChar = typedChars[index];
 
+    let charClass = "text-[var(--text-muted)]";
     if (typedChar !== undefined) {
-      const correct = normalizeForCompare(typedChar) === normalizeForCompare(expectedChar ?? "");
-      output.push(
-        <span
-          key={`typed-${index}`}
-          className={correct ? "text-[var(--success)]" : "text-[var(--danger)] underline decoration-[var(--danger)]/60"}
-        >
-          {typedChar}
-        </span>,
-      );
-    } else if (expectedChar !== undefined) {
-      if (current && !cursorPlaced) {
-        output.push(cursor(`cursor-${index}`));
-        cursorPlaced = true;
-      }
-
-      output.push(
-        <span
-          key={`expected-${index}`}
-          className={cn(
-            skipped && "text-[var(--text-muted)]/60 line-through",
-            !skipped && completed && "text-[var(--text-muted)]",
-            !skipped && !completed && "text-[var(--text)]",
-          )}
-        >
-          {expectedChar}
-        </span>,
-      );
+      const correct = normalizeForCompare(typedChar) === normalizeForCompare(expectedChar);
+      charClass = correct ? "text-[var(--success)]" : "text-[var(--danger)] underline decoration-[var(--danger)]/60";
+    } else if (skipped) {
+      charClass = "text-[var(--text-muted)]/60 line-through";
+    } else if (completed) {
+      charClass = "text-[var(--text-muted)]";
+    } else if (current) {
+      charClass = "text-[var(--text)]";
     }
+
+    output.push(
+      <span key={`char-${index}`} className={cn("relative", charClass)}>
+        {index === cursorIndex && (
+          <span className="absolute -left-[0.5px] top-[10%] h-[80%] w-[2px] animate-pulse bg-[var(--accent)]" />
+        )}
+        {expectedChar}
+      </span>
+    );
   }
 
-  if (current && !cursorPlaced) {
-    output.push(cursor("cursor-end"));
+  // If the cursor is at the very end of the word (e.g. word fully typed but not yet advanced)
+  if (cursorIndex === expectedChars.length) {
+    output.push(
+      <span key="cursor-end" className="relative">
+        <span className="absolute -left-[0.5px] top-[10%] h-[80%] w-[2px] animate-pulse bg-[var(--accent)]" />
+      </span>
+    );
   }
 
   return output;
-}
-
-function cursor(key: string) {
-  return (
-    <span key={key} className="animate-pulse text-[var(--accent)]">
-      |
-    </span>
-  );
 }

@@ -424,26 +424,13 @@ fn chapter_title_from_path(index: usize, href: &str) -> String {
 }
 
 fn normalize_text(source: &str) -> String {
-    let compacted = source
+    source
         .replace('\u{00a0}', " ")
         .replace("\r\n", "\n")
         .replace('\r', "\n")
-        .lines()
-        .map(|line| line.split_whitespace().collect::<Vec<_>>().join(" "))
-        .collect::<Vec<_>>()
-        .join("\n")
-        .split("\n\n\n")
-        .collect::<Vec<_>>()
-        .join("\n\n")
+        .replace('\t', "    ")
         .trim()
-        .to_string();
-
-    static PUNCTUATION_REGEX: OnceLock<Regex> = OnceLock::new();
-    let punct_pattern = PUNCTUATION_REGEX.get_or_init(|| {
-        Regex::new(r"\s+([,.;:!?])").expect("valid punctuation spacing regex")
-    });
-
-    punct_pattern.replace_all(&compacted, "$1").to_string()
+        .to_string()
 }
 
 fn fallback_title(path: &Path) -> String {

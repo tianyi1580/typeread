@@ -75,10 +75,15 @@ export function moveToPreviousWord(snapshot: TypingSnapshot) {
     return snapshot;
   }
 
-  const previous = snapshot.words[snapshot.currentWordIndex - 1];
-  previous.completed = false;
-  previous.skipped = false;
   snapshot.currentWordIndex -= 1;
+  const current = snapshot.words[snapshot.currentWordIndex];
+  current.completed = false;
+  current.skipped = false;
+  
+  if (current.typed.length > 0) {
+    current.typed = current.typed.slice(0, -1);
+  }
+  
   return snapshot;
 }
 
@@ -109,25 +114,6 @@ export function applyTypingInput(
     };
   }
 
-  if (key === " ") {
-    // Space is the anchor: it advances regardless of local mismatch so the user can recover from desync fast.
-    current.completed = true;
-    const score = computeWordScore(token.word, current.typed);
-    if (snapshot.currentWordIndex < snapshot.words.length - 1) {
-      snapshot.currentWordIndex += 1;
-    }
-    return {
-      snapshot,
-      event: {
-        at: timestamp,
-        type: "space",
-        correctChars: score.correctChars,
-        typedChars: score.typedChars,
-        errors: score.errors,
-      },
-    };
-  }
-
   if (key === "Enter") {
     current.completed = true;
     current.skipped = true;
@@ -146,12 +132,37 @@ export function applyTypingInput(
   }
 
   if (key.length === 1) {
-    current.typed += key;
+    const inputChar = normalizeTypingChar(key);
+    current.typed += inputChar;
+
+    const fullExpectedLength = token.word.length + token.separator.length;
+    
+    // If we've typed enough characters to fill the word and its separator, advance.
+    // Note: This allows "over-typing" the word part, but it will eventually cap out at the separator.
+    if (current.typed.length >= fullExpectedLength) {
+      current.completed = true;
+      const score = computeWordScore(token.word + token.separator, current.typed);
+      if (snapshot.currentWordIndex < snapshot.words.length - 1) {
+        snapshot.currentWordIndex += 1;
+      }
+      
+      return {
+        snapshot,
+        event: {
+          at: timestamp,
+          type: inputChar === " " ? "space" : "char",
+          correctChars: score.correctChars,
+          typedChars: score.typedChars,
+          errors: score.errors,
+        },
+      };
+    }
+
     return {
       snapshot,
       event: {
         at: timestamp,
-        type: "char",
+        type: inputChar === " " ? "space" : "char",
       },
     };
   }
@@ -185,13 +196,27 @@ export function computeMetrics(
   let correctChars = 0;
   let errors = 0;
 
-  for (const event of events) {
+  // Optimization: Only look at the last 100 events for live metrics to keep keystrokes snappy.
+  // Full metrics are calculated only on session end.
+  const recentEvents = events.length > 100 ? events.slice(-100) : events;
+  for (const event of recentEvents) {
     if (event.type === "space" && !event.skippedWord) {
       typedWords += 1;
       typedChars += event.typedChars ?? 0;
       correctChars += event.correctChars ?? 0;
       errors += event.errors ?? 0;
     }
+  }
+
+  // To maintain accuracy even with truncated events, we use the snapshot's state for counts where possible.
+  // But for live WPM, just the recent window is actually better for "current" speed.
+  if (events.length > 100) {
+      // Approximate for the older history to keep UI totals consistent
+      const ratio = events.length / 100;
+      typedWords = Math.round(typedWords * ratio);
+      typedChars = Math.round(typedChars * ratio);
+      correctChars = Math.round(correctChars * ratio);
+      errors = Math.round(errors * ratio);
   }
 
   const minutes = Math.max(elapsedSeconds / 60, 1 / 60);
