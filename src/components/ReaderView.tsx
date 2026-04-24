@@ -262,8 +262,8 @@ export function ReaderView({
 
       <div
         className={cn(
-          "absolute inset-x-0 top-0 z-30 px-4 pt-4 transition duration-300 md:px-6",
-          headerVisible ? "translate-y-0 opacity-100" : "-translate-y-5 opacity-0",
+          "fixed inset-x-0 top-0 z-40 px-4 pt-4 transition duration-300 md:px-6",
+          headerVisible ? "translate-y-0 opacity-100" : "-translate-y-20 opacity-0",
         )}
       >
         <div className="mx-auto flex max-w-[1360px] items-center justify-between gap-4 rounded-full border border-[var(--border)] bg-[color-mix(in_srgb,var(--panel)_76%,transparent)] px-4 py-3 shadow-panel backdrop-blur-2xl">
@@ -382,23 +382,24 @@ export function ReaderView({
 
       <div
         className={cn(
-          "pointer-events-none absolute inset-x-0 bottom-5 z-20 flex items-end justify-between px-4 md:px-6",
-          headerVisible ? "opacity-100" : "opacity-70",
+          "pointer-events-none fixed inset-x-0 bottom-6 z-40 flex items-end justify-between px-4 md:px-10 transition-opacity duration-300",
+          headerVisible ? "opacity-100" : "opacity-40",
         )}
       >
         <div className="pointer-events-auto">
-          <Button variant="ghost" onClick={() => onChapterChange(Math.max(chapterIndex - 1, 0))} disabled={chapterIndex === 0}>
+          <Button variant="ghost" className="bg-[var(--panel)]/50 backdrop-blur-lg" onClick={() => onChapterChange(Math.max(chapterIndex - 1, 0))} disabled={chapterIndex === 0}>
             Previous Chapter
           </Button>
         </div>
 
-        <div className="rounded-full bg-transparent px-4 py-2 text-sm text-[var(--text)]">
+        <div className="pointer-events-auto rounded-full border border-[var(--border)] bg-[color-mix(in_srgb,var(--panel)_65%,transparent)] px-6 py-2.5 text-sm font-medium text-[var(--text)] shadow-panel backdrop-blur-xl">
           {Math.round(metrics.wpm)} WPM • {formatPercent(metrics.accuracy)} Acc
         </div>
 
         <div className="pointer-events-auto">
           <Button
             variant="ghost"
+            className="bg-[var(--panel)]/50 backdrop-blur-lg"
             onClick={() => onChapterChange(Math.min(chapterIndex + 1, book.chapters.length - 1))}
             disabled={chapterIndex >= book.chapters.length - 1}
           >
