@@ -15,6 +15,8 @@ export interface BookRecord {
   currentIndex: number;
   currentChapter: number;
   totalChars: number;
+  pinned: boolean;
+  averageWpm: number;
   addedAt: string;
 }
 
@@ -57,6 +59,19 @@ export interface DailyMetric {
   sessions: number;
 }
 
+export interface SessionPoint {
+  id: number;
+  bookId: number;
+  bookTitle: string;
+  startTime: string;
+  endTime: string;
+  durationSeconds: number;
+  wordsTyped: number;
+  charsTyped: number;
+  wpm: number;
+  accuracy: number;
+}
+
 export interface AnalyticsSummary {
   totalWordsTyped: number;
   totalCharsTyped: number;
@@ -65,6 +80,7 @@ export interface AnalyticsSummary {
   averageAccuracy: number;
   sessions: number;
   history: DailyMetric[];
+  sessionPoints: SessionPoint[];
 }
 
 export interface AppSettings {
@@ -73,6 +89,10 @@ export interface AppSettings {
   readFont: ReadFont;
   readerMode: ReaderMode;
   interactionMode: InteractionMode;
+  baseFontSize: number;
+  lineHeight: number;
+  enterToSkip: boolean;
+  ignoreQuotationMarks: boolean;
   focusMode: boolean;
 }
 

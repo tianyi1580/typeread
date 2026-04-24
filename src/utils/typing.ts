@@ -1,6 +1,11 @@
 import type { KeystrokeEvent, LiveMetrics, TokenizedWord, TypingSnapshot, WordTypingState } from "../types";
 import { clamp } from "../lib/utils";
 
+interface TypingBehavior {
+  enterToSkip?: boolean;
+  ignoreQuotationMarks?: boolean;
+}
+
 export function normalizeTypingChar(input: string) {
   return input
     .replace(/[“”]/g, "\"")
@@ -9,8 +14,9 @@ export function normalizeTypingChar(input: string) {
     .replace(/\u00a0/g, " ");
 }
 
-export function normalizeForCompare(input: string) {
-  return normalizeTypingChar(input).normalize("NFKC");
+export function normalizeForCompare(input: string, ignoreQuotationMarks = false) {
+  const normalized = normalizeTypingChar(input).normalize("NFKC");
+  return ignoreQuotationMarks ? normalized.replace(/["“”'‘’]/g, "") : normalized;
 }
 
 export function tokenizeText(text: string): TokenizedWord[] {
@@ -43,9 +49,9 @@ export function createTypingSnapshot(tokens: TokenizedWord[]): TypingSnapshot {
   };
 }
 
-export function computeWordScore(expected: string, typed: string) {
-  const normalizedExpected = normalizeForCompare(expected);
-  const normalizedTyped = normalizeForCompare(typed);
+export function computeWordScore(expected: string, typed: string, options: TypingBehavior = {}) {
+  const normalizedExpected = normalizeForCompare(expected, options.ignoreQuotationMarks);
+  const normalizedTyped = normalizeForCompare(typed, options.ignoreQuotationMarks);
   const overlap = Math.max(normalizedExpected.length, normalizedTyped.length);
   let correctChars = 0;
   let errors = 0;
@@ -92,6 +98,7 @@ export function applyTypingInput(
   tokens: TokenizedWord[],
   key: string,
   timestamp: number,
+  options: TypingBehavior = {},
 ): { snapshot: TypingSnapshot; event?: KeystrokeEvent } {
   const current = snapshot.words[snapshot.currentWordIndex];
   const token = tokens[snapshot.currentWordIndex];
@@ -115,6 +122,9 @@ export function applyTypingInput(
   }
 
   if (key === "Enter") {
+    if (!options.enterToSkip) {
+      return { snapshot };
+    }
     current.completed = true;
     current.skipped = true;
     current.typed = "";
@@ -132,8 +142,15 @@ export function applyTypingInput(
   }
 
   if (key.length === 1) {
+    if (options.ignoreQuotationMarks) {
+      autoConsumeQuotationMarks(current, token);
+    }
+
     const inputChar = normalizeTypingChar(key);
     current.typed += inputChar;
+    if (options.ignoreQuotationMarks) {
+      autoConsumeQuotationMarks(current, token);
+    }
 
     const fullExpectedLength = token.word.length + token.separator.length;
     
@@ -141,7 +158,7 @@ export function applyTypingInput(
     // Note: This allows "over-typing" the word part, but it will eventually cap out at the separator.
     if (current.typed.length >= fullExpectedLength) {
       current.completed = true;
-      const score = computeWordScore(token.word + token.separator, current.typed);
+      const score = computeWordScore(token.word + token.separator, current.typed, options);
       if (snapshot.currentWordIndex < snapshot.words.length - 1) {
         snapshot.currentWordIndex += 1;
       }
@@ -168,6 +185,13 @@ export function applyTypingInput(
   }
 
   return { snapshot };
+}
+
+function autoConsumeQuotationMarks(state: WordTypingState, token: TokenizedWord) {
+  const expected = token.word + token.separator;
+  while (state.typed.length < expected.length && /["“”'‘’]/.test(expected[state.typed.length] ?? "")) {
+    state.typed += expected[state.typed.length];
+  }
 }
 
 export function currentProgress(snapshot: TypingSnapshot, tokens: TokenizedWord[]) {

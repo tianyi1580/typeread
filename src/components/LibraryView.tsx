@@ -1,145 +1,367 @@
-import type { ParsedBook, BookRecord, InteractionMode } from "../types";
+import { type MouseEvent, type ReactNode, useMemo, useState } from "react";
 import { Button } from "./ui/button";
 import { Card } from "./ui/card";
+import { api } from "../lib/tauri";
+import { themeMap } from "../theme";
+import { cn } from "../lib/utils";
+import type { BookRecord, InteractionMode, ThemeName } from "../types";
 
 interface LibraryViewProps {
   books: BookRecord[];
-  currentBook: ParsedBook | null;
   selectedBookId: number | null;
   loadingBook: boolean;
   desktopReady: boolean;
+  draggingFiles: boolean;
+  searchQuery: string;
+  themeName: ThemeName;
   onImportBooks: () => void;
-  onSelectBook: (bookId: number) => void;
+  onOpenBook: (bookId: number) => void;
   onStartMode: (mode: InteractionMode) => void;
-  onSelectChapter: (index: number) => void;
-  selectedChapterIndex: number;
+  onRenameBook: (bookId: number, title: string) => Promise<void>;
+  onTogglePinned: (bookId: number, pinned: boolean) => Promise<void>;
+  onDeleteBook: (bookId: number) => Promise<void>;
 }
 
 export function LibraryView({
   books,
-  currentBook,
   selectedBookId,
   loadingBook,
   desktopReady,
+  draggingFiles,
+  searchQuery,
+  themeName,
   onImportBooks,
-  onSelectBook,
+  onOpenBook,
   onStartMode,
-  onSelectChapter,
-  selectedChapterIndex,
+  onRenameBook,
+  onTogglePinned,
+  onDeleteBook,
 }: LibraryViewProps) {
+  const theme = themeMap[themeName];
+  const [menuBookId, setMenuBookId] = useState<number | null>(null);
+  const [editingBook, setEditingBook] = useState<BookRecord | null>(null);
+  const [draftTitle, setDraftTitle] = useState("");
+
+  const heroStats = useMemo(() => {
+    const totalChars = books.reduce((sum, book) => sum + book.totalChars, 0);
+    const averageProgress =
+      books.length === 0
+        ? 0
+        : books.reduce((sum, book) => sum + progressForBook(book), 0) / books.length;
+
+    return {
+      totalChars,
+      averageProgress,
+    };
+  }, [books]);
+
+  const emptyState = books.length === 0 && !searchQuery;
+
+  async function submitRename() {
+    if (!editingBook) {
+      return;
+    }
+
+    const nextTitle = draftTitle.trim();
+    if (!nextTitle || nextTitle === editingBook.title) {
+      setEditingBook(null);
+      return;
+    }
+
+    await onRenameBook(editingBook.id, nextTitle);
+    setEditingBook(null);
+  }
+
   return (
-    <div className="grid gap-6 xl:grid-cols-[320px_1fr]">
-      <Card className="flex h-full flex-col p-4">
-        <div className="mb-4 flex items-center justify-between">
-          <div>
-            <p className="text-xs uppercase tracking-[0.24em] text-[var(--text-muted)]">Library</p>
-            <h2 className="mt-2 text-2xl font-semibold text-[var(--text)]">{books.length}/10 active books</h2>
+    <>
+      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
+        <Card className="overflow-hidden p-5">
+          <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+            <div>
+              <p className="text-xs uppercase tracking-[0.28em] text-[var(--text-muted)]">Library</p>
+              <h1 className="mt-4 max-w-3xl text-4xl font-semibold leading-tight">
+                The app opens as a library now, because users manage books before they type them.
+              </h1>
+              <p className="mt-4 max-w-2xl text-sm leading-7 text-[var(--text-muted)]">
+                Search, pin, rename, and delete from one grid. Click a book and the reader opens directly on the saved chapter instead of forcing a dead-end tab workflow.
+              </p>
+            </div>
+
+            <div className="flex flex-wrap gap-3">
+              <Button variant="secondary" onClick={() => onStartMode("read")} disabled={!selectedBookId}>
+                Read
+              </Button>
+              <Button variant="secondary" onClick={() => onStartMode("type")} disabled={!selectedBookId}>
+                Type
+              </Button>
+              <Button onClick={onImportBooks} disabled={!desktopReady}>
+                Import Books
+              </Button>
+            </div>
           </div>
-          <Button onClick={onImportBooks} disabled={!desktopReady || books.length >= 10}>
-            Import
-          </Button>
-        </div>
-        {!desktopReady && (
-          <p className="mb-4 rounded-3xl border border-[var(--border)] bg-[var(--panel-soft)] px-4 py-3 text-sm text-[var(--text-muted)]">
-            Running in browser preview mode. Import, persistence, and system dialogs are only available inside Tauri.
-          </p>
-        )}
-        <div className="space-y-3 overflow-y-auto">
-          {books.map((book) => (
-            <button
-              key={book.id}
-              type="button"
-              onClick={() => onSelectBook(book.id)}
-              className={`w-full rounded-[24px] border px-4 py-4 text-left transition ${
-                selectedBookId === book.id
-                  ? "border-[var(--accent)] bg-[var(--accent-soft)]"
-                  : "border-[var(--border)] bg-[var(--panel-soft)] hover:border-[var(--accent)]/50"
-              }`}
-            >
-              <p className="text-xs uppercase tracking-[0.22em] text-[var(--text-muted)]">{book.format}</p>
-              <h3 className="mt-2 text-lg font-semibold text-[var(--text)]">{book.title}</h3>
-              <p className="mt-1 text-sm text-[var(--text-muted)]">{book.author ?? "Unknown author"}</p>
-            </button>
-          ))}
-          {books.length === 0 && (
-            <div className="rounded-[24px] border border-dashed border-[var(--border)] px-4 py-6 text-sm text-[var(--text-muted)]">
-              Import EPUB, Markdown, or plain text to start.
-            </div>
-          )}
-        </div>
-      </Card>
-
-      <div className="grid gap-6 xl:grid-cols-[1fr_280px]">
-        <Card className="p-6">
-          {!currentBook ? (
-            <EmptyBookState />
-          ) : (
-            <div className="space-y-5">
-              <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-                <div>
-                  <p className="text-xs uppercase tracking-[0.24em] text-[var(--text-muted)]">Selected Book</p>
-                  <h2 className="mt-2 text-3xl font-semibold text-[var(--text)]">{currentBook.title}</h2>
-                  <p className="mt-2 text-sm text-[var(--text-muted)]">
-                    {currentBook.author ?? "Unknown author"} • {currentBook.chapters.length} chapters • {currentBook.totalChars.toLocaleString()} characters
-                  </p>
-                </div>
-                <div className="flex gap-2">
-                  <Button variant="secondary" onClick={() => onStartMode("read")}>
-                    Start Reading
-                  </Button>
-                  <Button onClick={() => onStartMode("type")}>Start Typing</Button>
-                </div>
-              </div>
-
-              <div className="rounded-[28px] border border-[var(--border)] bg-[var(--panel-soft)] p-6">
-                <p className="text-sm leading-7 text-[var(--text-muted)]">
-                  {currentBook.chapters[selectedChapterIndex]?.text.slice(0, 420) ?? "Select a chapter to continue."}
-                  {(currentBook.chapters[selectedChapterIndex]?.text.length ?? 0) > 420 ? "..." : ""}
-                </p>
-              </div>
-            </div>
-          )}
         </Card>
 
-        <Card className="p-4">
-          <div className="mb-4 flex items-center justify-between">
-            <div>
-              <p className="text-xs uppercase tracking-[0.24em] text-[var(--text-muted)]">Chapters</p>
-              <h3 className="mt-2 text-xl font-semibold text-[var(--text)]">{currentBook?.chapters.length ?? 0}</h3>
-            </div>
-            {loadingBook && <span className="text-sm text-[var(--text-muted)]">Loading…</span>}
-          </div>
-          <div className="space-y-2 overflow-y-auto">
-            {currentBook?.chapters.map((chapter, index) => (
-              <button
-                key={chapter.id}
-                type="button"
-                onClick={() => onSelectChapter(index)}
-                className={`w-full rounded-2xl px-4 py-3 text-left transition ${
-                  selectedChapterIndex === index
-                    ? "bg-[var(--accent-soft)] text-[var(--text)]"
-                    : "bg-[var(--panel-soft)] text-[var(--text-muted)] hover:text-[var(--text)]"
-                }`}
-              >
-                <p className="font-medium">{chapter.title}</p>
-                <p className="mt-1 text-xs uppercase tracking-[0.18em]">{chapter.text.length.toLocaleString()} chars</p>
-              </button>
-            ))}
-          </div>
+        <Card className="grid gap-4 p-5">
+          <Metric label="Books" value={books.length.toString()} />
+          <Metric label="Pinned" value={books.filter((book) => book.pinned).length.toString()} />
+          <Metric label="Average Progress" value={`${Math.round(heroStats.averageProgress * 100)}%`} />
+          <Metric label="Tracked Characters" value={heroStats.totalChars.toLocaleString()} />
         </Card>
       </div>
+
+      {!desktopReady && (
+        <Card className="mt-5 border-[var(--border)] px-5 py-4">
+          <p className="text-sm text-[var(--text-muted)]">
+            Browser preview mode can show the redesigned shell, but import dialogs, drag and drop, and persistence only work in the Tauri app.
+          </p>
+        </Card>
+      )}
+
+      <div className="mt-5">
+        {emptyState ? (
+          <EmptyLibraryState draggingFiles={draggingFiles} desktopReady={desktopReady} onImportBooks={onImportBooks} />
+        ) : books.length === 0 && searchQuery ? (
+          <EmptySearchState query={searchQuery} />
+        ) : (
+          <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+            {books.map((book) => {
+              const selected = selectedBookId === book.id;
+              const progress = progressForBook(book);
+              const assetUrl = api.assetUrl(book.coverPath);
+
+              return (
+                <button
+                  key={book.id}
+                  type="button"
+                  onClick={() => onOpenBook(book.id)}
+                  className={cn(
+                    "group relative overflow-hidden rounded-[30px] border border-[var(--border)] bg-[color-mix(in_srgb,var(--panel)_92%,transparent)] text-left shadow-panel transition duration-200 hover:-translate-y-1 hover:border-[var(--accent)]",
+                    selected && "border-[var(--accent)] shadow-[0_26px_80px_var(--shadow)]",
+                  )}
+                >
+                  <div className="relative h-[240px] overflow-hidden">
+                    {assetUrl ? (
+                      <img src={assetUrl} alt="" className="h-full w-full object-cover" />
+                    ) : (
+                      <div
+                        className="h-full w-full"
+                        style={{
+                          background: `linear-gradient(145deg, ${theme.accentSoft}, ${theme.panelSoft})`,
+                        }}
+                      />
+                    )}
+                    <div className="absolute inset-0 bg-[linear-gradient(180deg,transparent,rgba(0,0,0,0.38))]" />
+                    <div className="absolute left-4 top-4 flex gap-2">
+                      {book.pinned && (
+                        <span className="rounded-full border border-[var(--border)] bg-[var(--panel)] px-3 py-1 text-[10px] uppercase tracking-[0.24em] text-[var(--text)]">
+                          Pinned
+                        </span>
+                      )}
+                    </div>
+                    <div className="absolute right-4 top-4">
+                      <button
+                        type="button"
+                        aria-label="Book actions"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          setMenuBookId((current) => (current === book.id ? null : book.id));
+                        }}
+                        className="opacity-0 transition group-hover:opacity-100 rounded-full border border-[var(--border)] bg-[var(--panel)]/90 px-3 py-2 text-sm text-[var(--text)] backdrop-blur-lg"
+                      >
+                        ...
+                      </button>
+                      {menuBookId === book.id && (
+                        <>
+                          <button
+                            type="button"
+                            aria-label="Close book actions"
+                            className="fixed inset-0"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              setMenuBookId(null);
+                            }}
+                          />
+                          <div className="absolute right-0 top-12 z-20 min-w-[180px] rounded-[22px] border border-[var(--border)] bg-[var(--panel)] p-2 shadow-panel backdrop-blur-2xl">
+                            <BookActionButton
+                              onClick={async (event) => {
+                                event.stopPropagation();
+                                setMenuBookId(null);
+                                await onTogglePinned(book.id, !book.pinned);
+                              }}
+                            >
+                              {book.pinned ? "Unpin" : "Pin"}
+                            </BookActionButton>
+                            <BookActionButton
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                setDraftTitle(book.title);
+                                setEditingBook(book);
+                                setMenuBookId(null);
+                              }}
+                            >
+                              Edit Name
+                            </BookActionButton>
+                            <BookActionButton
+                              danger
+                              onClick={async (event) => {
+                                event.stopPropagation();
+                                setMenuBookId(null);
+                                await onDeleteBook(book.id);
+                              }}
+                            >
+                              Delete
+                            </BookActionButton>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="space-y-4 px-5 py-5">
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="min-w-0">
+                        <p className="truncate text-xl font-semibold">{book.title}</p>
+                        <p className="mt-1 truncate text-sm text-[var(--text-muted)]">{book.author ?? fileNameFromPath(book.path)}</p>
+                      </div>
+                      <div className="rounded-full bg-[var(--accent-soft)] px-3 py-1 text-xs font-medium text-[var(--text)]">
+                        {book.averageWpm > 0 ? `${Math.round(book.averageWpm)} WPM` : "No WPM"}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between text-xs uppercase tracking-[0.22em] text-[var(--text-muted)]">
+                      <span>{book.format}</span>
+                      <span>{Math.round(progress * 100)}%</span>
+                    </div>
+                  </div>
+
+                  <div className="absolute inset-x-0 bottom-0 h-[2px] bg-white/10">
+                    <div className="h-full bg-[var(--accent)]" style={{ width: `${progress * 100}%` }} />
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        )}
+
+        {loadingBook && (
+          <p className="mt-4 text-sm text-[var(--text-muted)]">Loading book…</p>
+        )}
+      </div>
+
+      {editingBook && (
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/45 px-4">
+          <div className="w-full max-w-md rounded-[30px] border border-[var(--border)] bg-[var(--panel)] p-6 shadow-panel backdrop-blur-2xl">
+            <p className="text-xs uppercase tracking-[0.28em] text-[var(--text-muted)]">Rename Book</p>
+            <h2 className="mt-4 text-2xl font-semibold">{editingBook.title}</h2>
+            <input
+              autoFocus
+              value={draftTitle}
+              onChange={(event) => setDraftTitle(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  void submitRename();
+                }
+              }}
+              className="mt-5 w-full rounded-[20px] border border-[var(--border)] bg-[var(--panel-soft)] px-4 py-3 outline-none focus:border-[var(--accent)]"
+            />
+            <div className="mt-5 flex justify-end gap-3">
+              <Button variant="ghost" onClick={() => setEditingBook(null)}>
+                Cancel
+              </Button>
+              <Button onClick={() => void submitRename()}>Save</Button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
+function EmptyLibraryState({
+  draggingFiles,
+  desktopReady,
+  onImportBooks,
+}: {
+  draggingFiles: boolean;
+  desktopReady: boolean;
+  onImportBooks: () => void;
+}) {
+  return (
+    <Card
+      className={cn(
+        "flex min-h-[62vh] flex-col items-center justify-center border-dashed p-10 text-center transition",
+        draggingFiles && "border-[var(--accent)] bg-[var(--accent-soft)]",
+      )}
+    >
+      <p className="text-xs uppercase tracking-[0.28em] text-[var(--text-muted)]">Dropzone</p>
+      <h2 className="mt-4 max-w-3xl text-5xl font-semibold leading-tight">Drag and drop EPUB, Markdown, or TXT here.</h2>
+      <p className="mt-4 max-w-2xl text-sm leading-7 text-[var(--text-muted)]">
+        The empty library turns the whole workspace into an intake surface. If you do nothing else, at least make the first-run state obvious and useful.
+      </p>
+      <div className="mt-8 flex flex-wrap justify-center gap-3">
+        <Button onClick={onImportBooks} disabled={!desktopReady}>
+          Choose Files
+        </Button>
+        <div className="rounded-full border border-[var(--border)] px-4 py-2 text-sm text-[var(--text-muted)]">
+          {desktopReady ? "Or drop files anywhere in the window" : "Drag and drop requires the desktop app"}
+        </div>
+      </div>
+    </Card>
+  );
+}
+
+function EmptySearchState({ query }: { query: string }) {
+  return (
+    <Card className="flex min-h-[40vh] items-center justify-center p-10 text-center">
+      <div>
+        <p className="text-xs uppercase tracking-[0.28em] text-[var(--text-muted)]">No Results</p>
+        <h2 className="mt-4 text-3xl font-semibold">Nothing matched “{query}”.</h2>
+        <p className="mt-3 text-sm text-[var(--text-muted)]">Your search is too narrow or your library is empty. Those are the only two honest explanations.</p>
+      </div>
+    </Card>
+  );
+}
+
+function Metric({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-[22px] border border-[var(--border)] bg-[var(--panel-soft)] px-4 py-4">
+      <p className="text-[10px] uppercase tracking-[0.28em] text-[var(--text-muted)]">{label}</p>
+      <p className="mt-2 text-2xl font-semibold">{value}</p>
     </div>
   );
 }
 
-function EmptyBookState() {
+function BookActionButton({
+  children,
+  danger = false,
+  onClick,
+}: {
+  children: ReactNode;
+  danger?: boolean;
+  onClick: (event: MouseEvent<HTMLButtonElement>) => void | Promise<void>;
+}) {
   return (
-    <div className="flex min-h-[280px] flex-col items-center justify-center rounded-[28px] border border-dashed border-[var(--border)] bg-[var(--panel-soft)] p-8 text-center">
-      <p className="text-xs uppercase tracking-[0.24em] text-[var(--text-muted)]">Workflow</p>
-      <h3 className="mt-4 text-3xl font-semibold text-[var(--text)]">Select Book → Select Chapter → Start Typing or Reading</h3>
-      <p className="mt-4 max-w-2xl text-sm leading-7 text-[var(--text-muted)]">
-        The app keeps progress at character level, chunks chapters for performance, and records only valid typing work in analytics. Skips are excluded. Idle tails are discarded.
-      </p>
-    </div>
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "flex w-full items-center rounded-[16px] px-3 py-2.5 text-left text-sm transition hover:bg-[var(--accent-soft)]",
+        danger && "text-[var(--danger)] hover:bg-[color-mix(in_srgb,var(--danger)_12%,transparent)]",
+      )}
+    >
+      {children}
+    </button>
   );
+}
+
+function progressForBook(book: BookRecord) {
+  if (book.totalChars <= 0) {
+    return 0;
+  }
+
+  return Math.max(0, Math.min(1, book.currentIndex / book.totalChars));
+}
+
+function fileNameFromPath(path: string) {
+  return path.split(/[\\/]/).pop() ?? path;
 }

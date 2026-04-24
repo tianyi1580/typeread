@@ -1,10 +1,13 @@
-use std::path::{Path, PathBuf};
+use std::{
+    fs,
+    path::{Path, PathBuf},
+};
 
 use anyhow::{Context, Result};
 use chrono::Utc;
-use rusqlite::{params, Connection};
+use rusqlite::{params, Connection, OptionalExtension};
 
-use crate::models::{AnalyticsSummary, AppSettings, BookRecord, DailyMetric, TypingSessionInput};
+use crate::models::{AnalyticsSummary, AppSettings, BookRecord, DailyMetric, SessionPoint, TypingSessionInput};
 
 #[derive(Clone)]
 pub struct Database {
@@ -20,7 +23,7 @@ impl Database {
         Ok(database)
     }
 
-    fn connection(&self) -> Result<Connection> {
+    pub fn connection(&self) -> Result<Connection> {
         Connection::open(&self.path).with_context(|| format!("failed to open database at {}", self.path.display()))
     }
 
@@ -40,6 +43,7 @@ impl Database {
                 current_index INTEGER NOT NULL DEFAULT 0,
                 current_chapter INTEGER NOT NULL DEFAULT 0,
                 total_chars INTEGER NOT NULL DEFAULT 0,
+                pinned INTEGER NOT NULL DEFAULT 0,
                 added_at TEXT NOT NULL
             );
 
@@ -64,16 +68,51 @@ impl Database {
                 read_font TEXT NOT NULL,
                 reader_mode TEXT NOT NULL,
                 interaction_mode TEXT NOT NULL,
+                base_font_size INTEGER NOT NULL DEFAULT 18,
+                line_height REAL NOT NULL DEFAULT 1.7,
+                enter_to_skip INTEGER NOT NULL DEFAULT 1,
+                ignore_quotation_marks INTEGER NOT NULL DEFAULT 0,
                 focus_mode INTEGER NOT NULL DEFAULT 1
             );
-
-            INSERT INTO settings (id, theme, type_font, read_font, reader_mode, interaction_mode, focus_mode)
-            VALUES (1, 'catppuccin-macchiato', 'jetbrains-mono', 'inter', 'scroll', 'type', 1)
-            ON CONFLICT(id) DO NOTHING;
             "#,
         )
         .context("failed to initialize database schema")?;
 
+        self.ensure_columns(&conn)?;
+
+        conn.execute(
+            r#"
+            INSERT INTO settings (
+                id,
+                theme,
+                type_font,
+                read_font,
+                reader_mode,
+                interaction_mode,
+                base_font_size,
+                line_height,
+                enter_to_skip,
+                ignore_quotation_marks,
+                focus_mode
+            )
+            VALUES (1, 'catppuccin-macchiato', 'jetbrains-mono', 'inter', 'scroll', 'type', 18, 1.7, 1, 0, 1)
+            ON CONFLICT(id) DO NOTHING;
+            "#,
+            [],
+        )
+        .context("failed to insert default settings")?;
+
+        Ok(())
+    }
+
+    fn ensure_columns(&self, conn: &Connection) -> Result<()> {
+        // The app already shipped a smaller schema, so migrations must be additive and idempotent.
+        ensure_column(conn, "books", "pinned", "INTEGER NOT NULL DEFAULT 0")?;
+        ensure_column(conn, "settings", "base_font_size", "INTEGER NOT NULL DEFAULT 18")?;
+        ensure_column(conn, "settings", "line_height", "REAL NOT NULL DEFAULT 1.7")?;
+        ensure_column(conn, "settings", "enter_to_skip", "INTEGER NOT NULL DEFAULT 1")?;
+        ensure_column(conn, "settings", "ignore_quotation_marks", "INTEGER NOT NULL DEFAULT 0")?;
+        ensure_column(conn, "settings", "focus_mode", "INTEGER NOT NULL DEFAULT 1")?;
         Ok(())
     }
 
@@ -112,9 +151,26 @@ impl Database {
         let conn = self.connection()?;
         let mut stmt = conn.prepare(
             r#"
-            SELECT id, title, author, path, format, cover_path, current_index, current_chapter, total_chars, added_at
+            SELECT
+                books.id,
+                books.title,
+                books.author,
+                books.path,
+                books.format,
+                books.cover_path,
+                books.current_index,
+                books.current_chapter,
+                books.total_chars,
+                books.pinned,
+                COALESCE(book_sessions.average_wpm, 0),
+                books.added_at
             FROM books
-            ORDER BY added_at DESC
+            LEFT JOIN (
+                SELECT book_id, AVG(wpm) AS average_wpm
+                FROM typing_sessions
+                GROUP BY book_id
+            ) AS book_sessions ON book_sessions.book_id = books.id
+            ORDER BY books.pinned DESC, books.added_at DESC
             "#,
         )?;
         let rows = stmt.query_map([], map_book_row)?;
@@ -126,8 +182,26 @@ impl Database {
         let conn = self.connection()?;
         let mut stmt = conn.prepare(
             r#"
-            SELECT id, title, author, path, format, cover_path, current_index, current_chapter, total_chars, added_at
-            FROM books WHERE id = ?1
+            SELECT
+                books.id,
+                books.title,
+                books.author,
+                books.path,
+                books.format,
+                books.cover_path,
+                books.current_index,
+                books.current_chapter,
+                books.total_chars,
+                books.pinned,
+                COALESCE(book_sessions.average_wpm, 0),
+                books.added_at
+            FROM books
+            LEFT JOIN (
+                SELECT book_id, AVG(wpm) AS average_wpm
+                FROM typing_sessions
+                GROUP BY book_id
+            ) AS book_sessions ON book_sessions.book_id = books.id
+            WHERE books.id = ?1
             "#,
         )?;
         let mut rows = stmt.query(params![id])?;
@@ -145,6 +219,66 @@ impl Database {
             params![book_id, current_index, current_chapter],
         )
         .context("failed to update reading progress")?;
+        Ok(())
+    }
+
+    pub fn rename_book(&self, book_id: i64, title: &str) -> Result<()> {
+        let conn = self.connection()?;
+        conn.execute("UPDATE books SET title = ?2 WHERE id = ?1", params![book_id, title.trim()])?;
+        Ok(())
+    }
+
+    pub fn set_book_pinned(&self, book_id: i64, pinned: bool) -> Result<()> {
+        let conn = self.connection()?;
+        conn.execute(
+            "UPDATE books SET pinned = ?2 WHERE id = ?1",
+            params![book_id, if pinned { 1 } else { 0 }],
+        )?;
+        Ok(())
+    }
+
+    pub fn delete_book(&self, book_id: i64) -> Result<()> {
+        let conn = self.connection()?;
+        let cover_path: Option<String> = conn
+            .query_row("SELECT cover_path FROM books WHERE id = ?1", params![book_id], |row| row.get(0))
+            .optional()
+            .context("failed to read book cover before deletion")?
+            .flatten();
+
+        conn.execute("DELETE FROM typing_sessions WHERE book_id = ?1", params![book_id])?;
+        conn.execute("DELETE FROM books WHERE id = ?1", params![book_id])?;
+
+        if let Some(path) = cover_path {
+            let cover = PathBuf::from(path);
+            if cover.exists() {
+                let _ = fs::remove_file(cover);
+            }
+        }
+
+        Ok(())
+    }
+
+    pub fn clear_session_history(&self) -> Result<()> {
+        let conn = self.connection()?;
+        conn.execute("DELETE FROM typing_sessions", [])?;
+        Ok(())
+    }
+
+    pub fn delete_library(&self) -> Result<()> {
+        let books = self.list_books()?;
+        let conn = self.connection()?;
+        conn.execute("DELETE FROM typing_sessions", [])?;
+        conn.execute("DELETE FROM books", [])?;
+
+        for book in books {
+            if let Some(path) = book.cover_path {
+                let cover = PathBuf::from(path);
+                if cover.exists() {
+                    let _ = fs::remove_file(cover);
+                }
+            }
+        }
+
         Ok(())
     }
 
@@ -223,6 +357,42 @@ impl Database {
             })?
             .collect::<std::result::Result<Vec<_>, _>>()?;
 
+        let mut session_stmt = conn.prepare(
+            r#"
+            SELECT
+                typing_sessions.id,
+                typing_sessions.book_id,
+                books.title,
+                typing_sessions.start_time,
+                typing_sessions.end_time,
+                typing_sessions.duration_seconds,
+                typing_sessions.words_typed,
+                typing_sessions.chars_typed,
+                typing_sessions.wpm,
+                typing_sessions.accuracy
+            FROM typing_sessions
+            INNER JOIN books ON books.id = typing_sessions.book_id
+            ORDER BY typing_sessions.start_time DESC
+            "#,
+        )?;
+
+        let session_points = session_stmt
+            .query_map([], |row| {
+                Ok(SessionPoint {
+                    id: row.get(0)?,
+                    book_id: row.get(1)?,
+                    book_title: row.get(2)?,
+                    start_time: row.get(3)?,
+                    end_time: row.get(4)?,
+                    duration_seconds: row.get(5)?,
+                    words_typed: row.get(6)?,
+                    chars_typed: row.get(7)?,
+                    wpm: row.get(8)?,
+                    accuracy: row.get(9)?,
+                })
+            })?
+            .collect::<std::result::Result<Vec<_>, _>>()?;
+
         Ok(AnalyticsSummary {
             total_words_typed,
             total_chars_typed,
@@ -231,13 +401,28 @@ impl Database {
             average_accuracy,
             sessions,
             history,
+            session_points,
         })
     }
 
     pub fn get_settings(&self) -> Result<AppSettings> {
         let conn = self.connection()?;
         conn.query_row(
-            "SELECT theme, type_font, read_font, reader_mode, interaction_mode, focus_mode FROM settings WHERE id = 1",
+            r#"
+            SELECT
+                theme,
+                type_font,
+                read_font,
+                reader_mode,
+                interaction_mode,
+                base_font_size,
+                line_height,
+                enter_to_skip,
+                ignore_quotation_marks,
+                focus_mode
+            FROM settings
+            WHERE id = 1
+            "#,
             [],
             |row| {
                 Ok(AppSettings {
@@ -246,7 +431,11 @@ impl Database {
                     read_font: row.get(2)?,
                     reader_mode: row.get(3)?,
                     interaction_mode: row.get(4)?,
-                    focus_mode: row.get::<_, i64>(5)? == 1,
+                    base_font_size: row.get(5)?,
+                    line_height: row.get(6)?,
+                    enter_to_skip: row.get::<_, i64>(7)? == 1,
+                    ignore_quotation_marks: row.get::<_, i64>(8)? == 1,
+                    focus_mode: row.get::<_, i64>(9)? == 1,
                 })
             },
         )
@@ -258,7 +447,16 @@ impl Database {
         conn.execute(
             r#"
             UPDATE settings
-            SET theme = ?1, type_font = ?2, read_font = ?3, reader_mode = ?4, interaction_mode = ?5, focus_mode = ?6
+            SET theme = ?1,
+                type_font = ?2,
+                read_font = ?3,
+                reader_mode = ?4,
+                interaction_mode = ?5,
+                base_font_size = ?6,
+                line_height = ?7,
+                enter_to_skip = ?8,
+                ignore_quotation_marks = ?9,
+                focus_mode = ?10
             WHERE id = 1
             "#,
             params![
@@ -267,6 +465,10 @@ impl Database {
                 settings.read_font,
                 settings.reader_mode,
                 settings.interaction_mode,
+                settings.base_font_size,
+                settings.line_height,
+                if settings.enter_to_skip { 1 } else { 0 },
+                if settings.ignore_quotation_marks { 1 } else { 0 },
                 if settings.focus_mode { 1 } else { 0 }
             ],
         )
@@ -274,12 +476,62 @@ impl Database {
         self.get_settings()
     }
 
+    pub fn export_to(&self, destination: &Path) -> Result<()> {
+        if destination.exists() {
+            fs::remove_file(destination)
+                .with_context(|| format!("failed to replace {}", destination.display()))?;
+        }
+
+        let conn = self.connection()?;
+        let quoted = destination.to_string_lossy().replace('\'', "''");
+        conn.execute_batch(&format!("VACUUM INTO '{quoted}'"))
+            .with_context(|| format!("failed to export database to {}", destination.display()))?;
+        Ok(())
+    }
+
+    pub fn import_from(&self, source: &Path) -> Result<()> {
+        if !source.exists() {
+            anyhow::bail!("database import source does not exist");
+        }
+
+        let wal_path = self.path.with_extension("sqlite-wal");
+        let shm_path = self.path.with_extension("sqlite-shm");
+        let _ = fs::remove_file(&wal_path);
+        let _ = fs::remove_file(&shm_path);
+        if self.path.exists() {
+            fs::remove_file(&self.path)
+                .with_context(|| format!("failed to replace {}", self.path.display()))?;
+        }
+        fs::copy(source, &self.path)
+            .with_context(|| format!("failed to import database from {}", source.display()))?;
+        self.init()?;
+        Ok(())
+    }
+
     fn get_book_by_path(&self, book_path: &str) -> Result<Option<BookRecord>> {
         let conn = self.connection()?;
         let mut stmt = conn.prepare(
             r#"
-            SELECT id, title, author, path, format, cover_path, current_index, current_chapter, total_chars, added_at
-            FROM books WHERE path = ?1
+            SELECT
+                books.id,
+                books.title,
+                books.author,
+                books.path,
+                books.format,
+                books.cover_path,
+                books.current_index,
+                books.current_chapter,
+                books.total_chars,
+                books.pinned,
+                COALESCE(book_sessions.average_wpm, 0),
+                books.added_at
+            FROM books
+            LEFT JOIN (
+                SELECT book_id, AVG(wpm) AS average_wpm
+                FROM typing_sessions
+                GROUP BY book_id
+            ) AS book_sessions ON book_sessions.book_id = books.id
+            WHERE books.path = ?1
             "#,
         )?;
         let mut rows = stmt.query(params![book_path])?;
@@ -289,6 +541,21 @@ impl Database {
             Ok(None)
         }
     }
+}
+
+fn ensure_column(conn: &Connection, table: &str, column: &str, definition: &str) -> Result<()> {
+    let mut stmt = conn.prepare(&format!("PRAGMA table_info({table})"))?;
+    let columns = stmt
+        .query_map([], |row| row.get::<_, String>(1))?
+        .collect::<std::result::Result<Vec<_>, _>>()?;
+
+    if columns.iter().any(|existing| existing == column) {
+        return Ok(());
+    }
+
+    conn.execute_batch(&format!("ALTER TABLE {table} ADD COLUMN {column} {definition}"))
+        .with_context(|| format!("failed to add {column} to {table}"))?;
+    Ok(())
 }
 
 fn map_book_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<BookRecord> {
@@ -306,6 +573,8 @@ fn map_book(row: &rusqlite::Row<'_>) -> rusqlite::Result<BookRecord> {
         current_index: row.get(6)?,
         current_chapter: row.get(7)?,
         total_chars: row.get(8)?,
-        added_at: row.get(9)?,
+        pinned: row.get::<_, i64>(9)? == 1,
+        average_wpm: row.get(10)?,
+        added_at: row.get(11)?,
     })
 }

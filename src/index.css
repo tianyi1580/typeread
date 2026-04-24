@@ -16,6 +16,8 @@
   --shadow: rgba(0, 0, 0, 0.38);
   --font-type: "JetBrains Mono", ui-monospace, monospace;
   --font-read: "Inter", Georgia, serif;
+  --font-size-base: 18px;
+  --line-height-base: 1.7;
 }
 
 * {
@@ -33,6 +35,10 @@ body {
   color: var(--text);
   font-family: var(--font-read);
   background: var(--bg);
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-base);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 
 button,
@@ -45,6 +51,20 @@ textarea {
 ::selection {
   background: color-mix(in srgb, var(--accent) 55%, white);
   color: black;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--text-muted) 35%, transparent);
+  border-radius: 999px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
 }
 
 .font-\[var\(--font-type\)\] {

@@ -9,9 +9,12 @@ interface TypingLayerProps {
   visibleRange?: { start: number; end: number };
   className?: string;
   faded?: boolean;
+  compareOptions?: {
+    ignoreQuotationMarks?: boolean;
+  };
 }
 
-export function TypingLayer({ tokens, snapshot, visibleRange, className, faded = true }: TypingLayerProps) {
+export function TypingLayer({ tokens, snapshot, visibleRange, className, faded = true, compareOptions }: TypingLayerProps) {
   const currentWordRef = useRef<HTMLSpanElement | null>(null);
   const visibleTokens = useMemo(() => {
     if (visibleRange) {
@@ -102,7 +105,10 @@ export function TypingLayer({ tokens, snapshot, visibleRange, className, faded =
                   : 1;
 
         if (isCompleted) {
-          const isPerfect = state ? normalizeForCompare(state.typed) === normalizeForCompare(token.word + token.separator) : true;
+          const isPerfect = state
+            ? normalizeForCompare(state.typed, compareOptions?.ignoreQuotationMarks) ===
+              normalizeForCompare(token.word + token.separator, compareOptions?.ignoreQuotationMarks)
+            : true;
           if (isPerfect) {
             return (
               <span key={token.id} className="text-[var(--success)]" style={{ opacity }}>

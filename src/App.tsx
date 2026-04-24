@@ -1,4 +1,5 @@
-import { startTransition, useEffect, useState } from "react";
+import { startTransition, type ReactNode, useEffect, useMemo, useState } from "react";
+import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { AnalyticsView } from "./components/AnalyticsView";
 import { LibraryView } from "./components/LibraryView";
 import { ReaderView } from "./components/ReaderView";
@@ -22,7 +23,7 @@ export default function App() {
   const settings = useAppStore((s) => s.settings);
   const analytics = useAppStore((s) => s.analytics);
   const desktopReady = useAppStore((s) => s.desktopReady);
-  
+
   const setDesktopReady = useAppStore((s) => s.setDesktopReady);
   const setActiveTab = useAppStore((s) => s.setActiveTab);
   const setBooks = useAppStore((s) => s.setBooks);
@@ -35,6 +36,11 @@ export default function App() {
   const setAnalytics = useAppStore((s) => s.setAnalytics);
 
   const [loadingBook, setLoadingBook] = useState(false);
+  const [busyAction, setBusyAction] = useState<string | null>(null);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [libraryMenuOpen, setLibraryMenuOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [draggingFiles, setDraggingFiles] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -60,40 +66,102 @@ export default function App() {
     }
   }, [settings]);
 
-  async function refreshAll() {
+  useEffect(() => {
+    if (!desktopReady) {
+      return;
+    }
+
+    let cancelled = false;
+    let unlisten: (() => void) | undefined;
+
+    void getCurrentWebview()
+      .onDragDropEvent((event) => {
+        if (cancelled) {
+          return;
+        }
+
+        if (event.payload.type === "over") {
+          setDraggingFiles(true);
+          return;
+        }
+
+        if (event.payload.type === "drop") {
+          setDraggingFiles(false);
+          void handleImportBookPaths(event.payload.paths);
+          return;
+        }
+
+        setDraggingFiles(false);
+      })
+      .then((listener) => {
+        unlisten = listener;
+      })
+      .catch(() => {
+        setDraggingFiles(false);
+      });
+
+    return () => {
+      cancelled = true;
+      setDraggingFiles(false);
+      unlisten?.();
+    };
+  }, [desktopReady]);
+
+  const theme = settings ? themeMap[settings.theme] : themeMap["catppuccin-macchiato"];
+  const filteredBooks = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    if (!query) {
+      return books;
+    }
+
+    return books.filter((book) =>
+      [book.title, book.author ?? "", book.path, book.format].some((value) => value.toLowerCase().includes(query)),
+    );
+  }, [books, searchQuery]);
+
+  async function refreshAll(preferredBookId?: number | null) {
     try {
+      setError(null);
       const [bookList, nextSettings, nextAnalytics] = await Promise.all([
         api.listBooks(),
         api.getSettings(),
         api.getAnalytics(),
       ]);
+
       startTransition(() => {
         setBooks(bookList);
         setSettings(nextSettings);
         setAnalytics(nextAnalytics);
       });
 
-      const bookToLoad = selectedBookId ?? bookList[0]?.id;
+      const bookToLoad = preferredBookId ?? selectedBookId ?? bookList[0]?.id ?? null;
       if (bookToLoad) {
-        await loadBook(bookToLoad);
+        await loadBook(bookToLoad, false);
+      } else {
+        setCurrentBook(null);
+        setSelectedBookId(null);
       }
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Failed to load application state.");
     }
   }
 
-  async function loadBook(bookId: number) {
+  async function loadBook(bookId: number, switchToReader = true) {
+    setSelectedBookId(bookId);
+    if (switchToReader) {
+      setActiveTab("reader");
+    }
+
     if (!desktopReady) {
-      const demo = bookId === demoBook.id ? demoBook : null;
-      if (demo) {
-        setCurrentBook(demo);
-        setSelectedBookId(demo.id);
-        setSelectedChapterIndex(demo.currentChapter);
+      if (bookId === demoBook.id) {
+        setCurrentBook(demoBook);
+        setSelectedChapterIndex(demoBook.currentChapter);
       }
       return;
     }
 
     try {
+      setError(null);
       setLoadingBook(true);
       const book = await api.loadBook(bookId);
       startTransition(() => {
@@ -102,6 +170,7 @@ export default function App() {
         setSelectedChapterIndex(book.currentChapter);
       });
     } catch (caught) {
+      setActiveTab("library");
       setError(caught instanceof Error ? caught.message : "Failed to load book.");
     } finally {
       setLoadingBook(false);
@@ -114,10 +183,30 @@ export default function App() {
       if (!desktopReady) {
         return;
       }
+      setBusyAction("Importing books…");
       await api.importBooks();
       await refreshAll();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Failed to import books.");
+    } finally {
+      setBusyAction(null);
+    }
+  }
+
+  async function handleImportBookPaths(paths: string[]) {
+    try {
+      setError(null);
+      if (!desktopReady || paths.length === 0) {
+        return;
+      }
+      setBusyAction("Importing dropped books…");
+      await api.importBookPaths(paths);
+      await refreshAll();
+      setActiveTab("library");
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Failed to import dropped books.");
+    } finally {
+      setBusyAction(null);
     }
   }
 
@@ -126,6 +215,7 @@ export default function App() {
     if (!desktopReady) {
       return;
     }
+
     try {
       const saved = await api.saveSettings(nextSettings);
       setSettings(saved);
@@ -151,128 +241,320 @@ export default function App() {
     }
     try {
       await api.saveSession(session);
-      const refreshed = await api.getAnalytics();
-      setAnalytics(refreshed);
+      await refreshAll(session.bookId);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Failed to save typing session.");
     }
   }
 
-  function handleStartMode(mode: InteractionMode) {
-    setActiveTab("library");
-    setInteractionMode(mode);
+  async function handleRenameBook(bookId: number, title: string) {
+    try {
+      setError(null);
+      await api.renameBook(bookId, title);
+      await refreshAll(bookId);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Failed to rename book.");
+    }
   }
 
-  const theme = settings ? themeMap[settings.theme] : themeMap["catppuccin-macchiato"];
+  async function handleTogglePinned(bookId: number, pinned: boolean) {
+    try {
+      setError(null);
+      await api.setBookPinned(bookId, pinned);
+      await refreshAll(bookId);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Failed to update pinned state.");
+    }
+  }
+
+  async function handleDeleteBook(bookId: number) {
+    const book = books.find((item) => item.id === bookId);
+    if (!book || !window.confirm(`Delete "${book.title}" from the library? This also removes its typing sessions.`)) {
+      return;
+    }
+
+    try {
+      setError(null);
+      await api.deleteBook(bookId);
+      const nextSelected = selectedBookId === bookId ? null : selectedBookId;
+      if (selectedBookId === bookId) {
+        setCurrentBook(null);
+        setActiveTab("library");
+      }
+      await refreshAll(nextSelected);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Failed to delete book.");
+    }
+  }
+
+  async function handleExportDatabase() {
+    try {
+      setError(null);
+      setBusyAction("Exporting database…");
+      await api.exportDatabase();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Failed to export the database.");
+    } finally {
+      setBusyAction(null);
+    }
+  }
+
+  async function handleImportDatabase() {
+    try {
+      setError(null);
+      setBusyAction("Importing database…");
+      await api.importDatabase();
+      await refreshAll();
+      setActiveTab("library");
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Failed to import the database.");
+    } finally {
+      setBusyAction(null);
+    }
+  }
+
+  async function handleClearSessionHistory() {
+    if (!window.confirm("Clear all typing session history while keeping the library intact?")) {
+      return;
+    }
+
+    try {
+      setError(null);
+      setBusyAction("Clearing session history…");
+      await api.clearSessionHistory();
+      await refreshAll(selectedBookId);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Failed to clear session history.");
+    } finally {
+      setBusyAction(null);
+    }
+  }
+
+  async function handleDeleteLibrary() {
+    if (!window.confirm("Delete the full library and all session history? This is destructive.")) {
+      return;
+    }
+
+    try {
+      setError(null);
+      setBusyAction("Deleting library…");
+      await api.deleteLibrary();
+      setCurrentBook(null);
+      setSelectedBookId(null);
+      setSelectedChapterIndex(0);
+      setActiveTab("library");
+      await refreshAll(null);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Failed to delete the library.");
+    } finally {
+      setBusyAction(null);
+    }
+  }
+
+  function handleStartMode(mode: InteractionMode) {
+    setInteractionMode(mode);
+    if (selectedBookId) {
+      void loadBook(selectedBookId, true);
+    }
+  }
+
+  const showWindowShell = activeTab !== "reader";
 
   return (
     <div
-      className="min-h-screen bg-[var(--bg)] px-4 py-4 text-[var(--text)] md:px-6 md:py-6"
+      className="min-h-screen bg-[var(--bg)] text-[var(--text)]"
       style={{
-        backgroundImage: `radial-gradient(circle at top left, ${theme.accentSoft}, transparent 28%), radial-gradient(circle at bottom right, ${theme.panelSoft}, transparent 24%)`,
+        backgroundImage: `radial-gradient(circle at top left, ${theme.accentSoft}, transparent 26%), radial-gradient(circle at bottom right, ${theme.panelSoft}, transparent 22%)`,
       }}
     >
-      <div className="mx-auto max-w-[1600px] space-y-6">
-        <header className="grid gap-4 xl:grid-cols-[300px_1fr]">
-          <Card className="overflow-hidden p-6">
-            <p className="text-xs uppercase tracking-[0.28em] text-[var(--text-muted)]">BookTyper</p>
-            <h1 className="mt-4 text-4xl font-semibold">A deliberate typing and reading workstation.</h1>
-            <p className="mt-4 text-sm leading-7 text-[var(--text-muted)]">
-              Import long-form text, choose a chapter, and either read it cleanly or type through it with loose anchors,
-              live analytics, and persistent progress.
-            </p>
-          </Card>
-
-          <Card className="p-4">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="flex flex-wrap gap-2">
-                <TabButton active={activeTab === "library"} onClick={() => setActiveTab("library")}>
-                  Library
-                </TabButton>
-                <TabButton active={activeTab === "analytics"} onClick={() => setActiveTab("analytics")}>
-                  Analytics
-                </TabButton>
-                <TabButton active={activeTab === "settings"} onClick={() => setActiveTab("settings")}>
-                  Settings
-                </TabButton>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                <Button variant="secondary" onClick={() => handleStartMode("read")} disabled={!currentBook}>
-                  Read
-                </Button>
-                <Button onClick={() => handleStartMode("type")} disabled={!currentBook}>
-                  Type
-                </Button>
-              </div>
-            </div>
-          </Card>
-        </header>
-
-        {error && (
-          <Card className="border-[var(--danger)] bg-[color-mix(in_oklab,var(--panel)_90%,var(--danger))] px-4 py-3">
-            <p className="text-sm text-white">{error}</p>
-          </Card>
+      <div className="min-h-screen px-4 py-4 md:px-6 md:py-6">
+        {showWindowShell && (
+          <WindowShell
+            activeTab={activeTab}
+            busyAction={busyAction}
+            error={error}
+            searchQuery={searchQuery}
+            setSearchQuery={setSearchQuery}
+            libraryMenuOpen={libraryMenuOpen}
+            onToggleLibraryMenu={() => setLibraryMenuOpen((current) => !current)}
+            onCloseLibraryMenu={() => setLibraryMenuOpen(false)}
+            onOpenAnalytics={() => {
+              setActiveTab("analytics");
+              setLibraryMenuOpen(false);
+            }}
+            onOpenSettings={() => {
+              setSettingsOpen(true);
+              setLibraryMenuOpen(false);
+            }}
+            onBackToLibrary={() => {
+              setActiveTab("library");
+              setSearchQuery("");
+            }}
+          />
         )}
 
-        {activeTab === "library" && (
-          <div className="space-y-6">
+        <main className={showWindowShell ? "mx-auto mt-5 max-w-[1480px]" : ""}>
+          {activeTab === "library" && (
             <LibraryView
-              books={books}
-              currentBook={currentBook}
+              books={filteredBooks}
               selectedBookId={selectedBookId}
               loadingBook={loadingBook}
               desktopReady={desktopReady}
+              draggingFiles={draggingFiles}
+              searchQuery={searchQuery}
+              themeName={settings?.theme ?? "catppuccin-macchiato"}
               onImportBooks={handleImportBooks}
-              onSelectBook={(bookId) => {
-                setError(null);
-                void loadBook(bookId);
-              }}
+              onOpenBook={(bookId) => void loadBook(bookId, true)}
               onStartMode={handleStartMode}
-              onSelectChapter={setSelectedChapterIndex}
-              selectedChapterIndex={selectedChapterIndex}
+              onRenameBook={handleRenameBook}
+              onTogglePinned={handleTogglePinned}
+              onDeleteBook={handleDeleteBook}
             />
+          )}
 
-            {currentBook && settings && (
-              <ReaderView
-                book={currentBook}
-                chapterIndex={selectedChapterIndex}
-                readerMode={readerMode}
-                interactionMode={interactionMode}
-                settings={settings}
-                desktopReady={desktopReady}
-                onChapterChange={setSelectedChapterIndex}
-                onReaderModeChange={setReaderMode}
-                onInteractionModeChange={setInteractionMode}
-                onProgress={handleProgress}
-                onSaveSession={handleSaveSession}
-              />
-            )}
-          </div>
-        )}
+          {activeTab === "analytics" && <AnalyticsView analytics={analytics} />}
 
-        {activeTab === "analytics" && <AnalyticsView analytics={analytics} />}
-        {activeTab === "settings" && settings && <SettingsView settings={settings} onChange={handleSettingsChange} />}
+          {activeTab === "reader" && currentBook && settings && (
+            <ReaderView
+              book={currentBook}
+              chapterIndex={selectedChapterIndex}
+              readerMode={readerMode}
+              interactionMode={interactionMode}
+              settings={settings}
+              desktopReady={desktopReady}
+              loadingBook={loadingBook}
+              onBackToLibrary={() => setActiveTab("library")}
+              onChapterChange={setSelectedChapterIndex}
+              onInteractionModeChange={setInteractionMode}
+              onOpenSettings={() => setSettingsOpen(true)}
+              onProgress={handleProgress}
+              onSaveSession={handleSaveSession}
+            />
+          )}
+
+          {activeTab === "reader" && !currentBook && (
+            <Card className="mx-auto max-w-3xl p-10 text-center">
+              <p className="text-sm uppercase tracking-[0.24em] text-[var(--text-muted)]">Reader</p>
+              <h2 className="mt-4 text-3xl font-semibold">Pick a book from the library first.</h2>
+              <p className="mt-3 text-sm text-[var(--text-muted)]">
+                The old tab shell is gone. The library is the entry point now, which is how it should have worked from the start.
+              </p>
+              <Button className="mt-6" onClick={() => setActiveTab("library")}>
+                Back to Library
+              </Button>
+            </Card>
+          )}
+        </main>
       </div>
+
+      {settings && (
+        <SettingsView
+          isOpen={settingsOpen}
+          settings={settings}
+          desktopReady={desktopReady}
+          onClose={() => setSettingsOpen(false)}
+          onChange={handleSettingsChange}
+          onExportDatabase={() => void handleExportDatabase()}
+          onImportDatabase={() => void handleImportDatabase()}
+          onClearSessionHistory={() => void handleClearSessionHistory()}
+          onDeleteLibrary={() => void handleDeleteLibrary()}
+        />
+      )}
     </div>
   );
 }
 
-function TabButton({
-  active,
-  children,
-  onClick,
-}: {
-  active: boolean;
-  children: React.ReactNode;
-  onClick: () => void;
-}) {
+interface WindowShellProps {
+  activeTab: "library" | "reader" | "analytics";
+  busyAction: string | null;
+  error: string | null;
+  searchQuery: string;
+  setSearchQuery: (query: string) => void;
+  libraryMenuOpen: boolean;
+  onToggleLibraryMenu: () => void;
+  onCloseLibraryMenu: () => void;
+  onOpenAnalytics: () => void;
+  onOpenSettings: () => void;
+  onBackToLibrary: () => void;
+}
+
+function WindowShell({
+  activeTab,
+  busyAction,
+  error,
+  searchQuery,
+  setSearchQuery,
+  libraryMenuOpen,
+  onToggleLibraryMenu,
+  onCloseLibraryMenu,
+  onOpenAnalytics,
+  onOpenSettings,
+  onBackToLibrary,
+}: WindowShellProps) {
+  return (
+    <div className="mx-auto max-w-[1480px] space-y-4">
+      <div className="relative z-20 rounded-[30px] border border-[var(--border)] bg-[color-mix(in_srgb,var(--panel)_86%,transparent)] px-4 py-3 shadow-panel backdrop-blur-2xl">
+        <div data-tauri-drag-region className="absolute inset-0" />
+        <div className="relative z-10 grid gap-3 md:grid-cols-[180px_minmax(0,1fr)_180px] md:items-center">
+          <div className="flex items-center gap-3">
+            {activeTab === "analytics" ? (
+              <Button variant="ghost" className="rounded-full px-3 py-2" onClick={onBackToLibrary}>
+                Back to Library
+              </Button>
+            ) : (
+              <div className="pl-3 text-xs uppercase tracking-[0.28em] text-[var(--text-muted)]">BookTyper</div>
+            )}
+          </div>
+
+          <label className="mx-auto flex w-full max-w-[640px] items-center gap-3 rounded-full border border-[var(--border)] bg-[color-mix(in_srgb,var(--panel-soft)_78%,transparent)] px-4 py-3 text-sm shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
+            <span className="text-[var(--text-muted)]">Search</span>
+            <input
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+              placeholder={activeTab === "library" ? "Find books by title, author, or file type" : "Analytics view"}
+              className="w-full bg-transparent text-[var(--text)] outline-none placeholder:text-[var(--text-muted)]"
+              disabled={activeTab !== "library"}
+            />
+          </label>
+
+          <div className="relative flex items-center justify-end gap-2">
+            {busyAction && <span className="text-xs uppercase tracking-[0.2em] text-[var(--text-muted)]">{busyAction}</span>}
+            <button
+              type="button"
+              onClick={onToggleLibraryMenu}
+              className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[var(--border)] bg-[color-mix(in_srgb,var(--panel-soft)_80%,transparent)] text-lg text-[var(--text)] transition hover:border-[var(--accent)]"
+            >
+              ≡
+            </button>
+
+            {libraryMenuOpen && (
+              <>
+                <button type="button" aria-label="Close menu" className="fixed inset-0" onClick={onCloseLibraryMenu} />
+                <div className="absolute right-0 top-12 z-30 min-w-[220px] rounded-[24px] border border-[var(--border)] bg-[var(--panel)] p-2 shadow-panel backdrop-blur-xl">
+                  <MenuButton onClick={onOpenAnalytics}>Profile & Analytics</MenuButton>
+                  <MenuButton onClick={onOpenSettings}>Settings</MenuButton>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {error && (
+        <Card className="border-[var(--danger)] bg-[color-mix(in_srgb,var(--panel)_90%,var(--danger)_10%)] px-4 py-3">
+          <p className="text-sm text-[var(--text)]">{error}</p>
+        </Card>
+      )}
+    </div>
+  );
+}
+
+function MenuButton({ children, onClick }: { children: ReactNode; onClick: () => void }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
-        active ? "bg-[var(--accent)] text-black" : "bg-[var(--panel-soft)] text-[var(--text-muted)] hover:text-[var(--text)]"
-      }`}
+      className="flex w-full items-center rounded-[18px] px-4 py-3 text-left text-sm text-[var(--text)] transition hover:bg-[var(--accent-soft)]"
     >
       {children}
     </button>

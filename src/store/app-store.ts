@@ -2,7 +2,7 @@ import { create } from "zustand";
 import type { AnalyticsSummary, AppSettings, BookRecord, InteractionMode, ParsedBook, ReaderMode } from "../types";
 
 interface AppState {
-  activeTab: "library" | "analytics" | "settings";
+  activeTab: "library" | "reader" | "analytics";
   books: BookRecord[];
   currentBook: ParsedBook | null;
   selectedBookId: number | null;
@@ -30,6 +30,10 @@ export const defaultSettings: AppSettings = {
   readFont: "inter",
   readerMode: "scroll",
   interactionMode: "type",
+  baseFontSize: 18,
+  lineHeight: 1.7,
+  enterToSkip: true,
+  ignoreQuotationMarks: false,
   focusMode: true,
 };
 

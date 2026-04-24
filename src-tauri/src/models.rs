@@ -12,6 +12,8 @@ pub struct BookRecord {
     pub current_index: i64,
     pub current_chapter: i64,
     pub total_chars: i64,
+    pub pinned: bool,
+    pub average_wpm: f64,
     pub added_at: String,
 }
 
@@ -68,6 +70,21 @@ pub struct DailyMetric {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct SessionPoint {
+    pub id: i64,
+    pub book_id: i64,
+    pub book_title: String,
+    pub start_time: String,
+    pub end_time: String,
+    pub duration_seconds: i64,
+    pub words_typed: i64,
+    pub chars_typed: i64,
+    pub wpm: f64,
+    pub accuracy: f64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct AnalyticsSummary {
     pub total_words_typed: i64,
     pub total_chars_typed: i64,
@@ -76,6 +93,7 @@ pub struct AnalyticsSummary {
     pub average_accuracy: f64,
     pub sessions: i64,
     pub history: Vec<DailyMetric>,
+    pub session_points: Vec<SessionPoint>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -86,6 +104,10 @@ pub struct AppSettings {
     pub read_font: String,
     pub reader_mode: String,
     pub interaction_mode: String,
+    pub base_font_size: i64,
+    pub line_height: f64,
+    pub enter_to_skip: bool,
+    pub ignore_quotation_marks: bool,
     pub focus_mode: bool,
 }
 
