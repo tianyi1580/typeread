@@ -31,12 +31,21 @@ export function TypingLayer({ tokens, snapshot, visibleRange, className, faded =
       .map((token, index) => ({ token, index: start + index }));
   }, [tokens, visibleRange, snapshot.currentWordIndex]);
 
+  const lastOffsetTop = useRef<number>(0);
   useEffect(() => {
-    if (!visibleRange && currentWordRef.current) {
-      currentWordRef.current.scrollIntoView({
-        block: "center",
-        behavior: "smooth",
-      });
+    const el = currentWordRef.current;
+    if (!visibleRange && el) {
+      const currentOffset = el.offsetTop;
+      
+      // Only scroll if the word has moved to a new line (vertical offset changed significantly)
+      if (Math.abs(currentOffset - lastOffsetTop.current) > 5) {
+        lastOffsetTop.current = currentOffset;
+        
+        el.scrollIntoView({
+          block: "center",
+          behavior: "smooth",
+        });
+      }
     }
   }, [snapshot.currentWordIndex, visibleRange]);
 
