@@ -107,6 +107,7 @@ fn save_session(session: TypingSessionInput, state: tauri::State<'_, AppState>) 
     let fallback_finalized = FinalizedAnalytics {
         deep_analytics: DeepAnalytics {
             macro_wpm: Vec::new(),
+            macro_accuracy: Vec::new(),
             recent_wpm: Vec::new(),
             confusion_pairs: Vec::new(),
             transitions: TransitionGroups::default(),

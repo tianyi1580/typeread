@@ -18,6 +18,7 @@ pub struct LiveSessionAnalytics {
     total_events: usize,
     total_keystrokes: i64,
     correct_keystrokes: i64,
+    accuracy_samples: Vec<(i64, bool)>,
 }
 
 #[derive(Clone)]
@@ -81,6 +82,7 @@ impl LiveSessionAnalytics {
             total_events: 0,
             total_keystrokes: 0,
             correct_keystrokes: 0,
+            accuracy_samples: Vec::new(),
         }
     }
 
@@ -104,18 +106,17 @@ impl LiveSessionAnalytics {
         let active_typing_seconds = ((duration_ms - inactive_ms).max(0) as f64 / 1000.0).round() as i64;
         let cadence_cv = coefficient_of_variation(&filtered_intervals);
         let rhythm_score = rhythm_score_from_cv(cadence_cv);
-        let _accuracy = if self.total_keystrokes == 0 {
-            100.0
-        } else {
-            (self.correct_keystrokes as f64 * 100.0 / self.total_keystrokes as f64).clamp(0.0, 100.0)
-        };
+        
         let focus_score = if duration_ms <= 0 {
             0.0
         } else {
             (active_typing_seconds as f64 * 100.0 / session.duration_seconds.max(1) as f64).clamp(0.0, 100.0)
         };
+        
         let endurance_segments = continuous_endurance_segments(&intervals);
         let wpm_points = rolling_wpm_points(&self.correct_char_samples, 60_000);
+        let accuracy_points = compute_rolling_accuracy(&self.accuracy_samples, 10_000);
+
         let transition_stats = self
             .transitions
             .iter()
@@ -125,6 +126,7 @@ impl LiveSessionAnalytics {
         FinalizedAnalytics {
             deep_analytics: DeepAnalytics {
                 macro_wpm: downsample_wpm_points(&wpm_points, 500),
+                macro_accuracy: downsample_wpm_points(&accuracy_points, 500),
                 recent_wpm: wpm_points
                     .iter()
                     .filter(|point| point.at >= end_time_ms - 30_000)
@@ -152,9 +154,11 @@ impl LiveSessionAnalytics {
 
         if is_typed_event {
             self.total_keystrokes += 1;
-            if event.is_correct.unwrap_or(false) {
+            let is_correct = event.is_correct.unwrap_or(false);
+            if is_correct {
                 self.correct_keystrokes += 1;
             }
+            self.accuracy_samples.push((event.at, is_correct));
         }
 
         if !is_typed_event {
@@ -378,6 +382,47 @@ fn rolling_wpm_points(correct_samples: &[(i64, String)], window_ms: i64) -> Vec<
             at: *timestamp,
             value: wpm,
         });
+    }
+
+    points
+}
+
+fn compute_rolling_accuracy(samples: &[(i64, bool)], window_ms: i64) -> Vec<WpmSample> {
+    if samples.is_empty() {
+        return Vec::new();
+    }
+
+    let mut points = Vec::with_capacity(samples.len());
+    let mut correct_count = 0;
+    let mut total_count = 0;
+    let mut queue = VecDeque::<(i64, bool)>::new();
+
+    for (at, is_correct) in samples {
+        queue.push_back((*at, *is_correct));
+        total_count += 1;
+        if *is_correct {
+            correct_count += 1;
+        }
+
+        while let Some((front_at, front_correct)) = queue.front() {
+            if *at - *front_at > window_ms {
+                total_count -= 1;
+                if *front_correct {
+                    correct_count -= 1;
+                }
+                queue.pop_front();
+            } else {
+                break;
+            }
+        }
+
+        let accuracy = if total_count == 0 {
+            100.0
+        } else {
+            (correct_count as f64 * 100.0) / total_count as f64
+        };
+
+        points.push(WpmSample { at: *at, value: accuracy });
     }
 
     points

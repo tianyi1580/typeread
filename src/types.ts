@@ -198,6 +198,7 @@ export interface WpmSample {
 
 export interface DeepAnalytics {
   macroWpm: WpmSample[];
+  macroAccuracy: WpmSample[];
   recentWpm: WpmSample[];
   confusionPairs: ConfusionPair[];
   transitions: TransitionGroups;

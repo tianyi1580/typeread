@@ -65,6 +65,7 @@ export function PracticeView({
   const [lastInputAt, setLastInputAt] = useState<number | null>(null);
   const [clock, setClock] = useState(Date.now());
   const [summary, setSummary] = useState<SessionSummaryResponse | null>(null);
+  const [showSummary, setShowSummary] = useState(false);
   const [botCursorIndex, setBotCursorIndex] = useState(0);
 
   const snapshotRef = useRef(snapshot);
@@ -108,6 +109,7 @@ export function PracticeView({
     setLastInputAt(null);
     setBotCursorIndex(0);
     setSummary(null);
+    setShowSummary(false);
     setStatus("idle");
     transport.resetTransport();
   }, [tokens]);
@@ -369,23 +371,9 @@ export function PracticeView({
               )}
             </div>
 
-            <div className="flex flex-wrap items-center gap-2">
-              <Button variant="ghost" size="sm" onClick={onBackToLibrary}>
-                Library
-              </Button>
-              <Button variant="secondary" size="sm" onClick={restart}>
-                New
-              </Button>
-              <Button variant="secondary" size="sm" onClick={onOpenSettings}>
-                Settings
-              </Button>
-              <Button size="sm" onClick={() => void flushSession("manual")} disabled={status !== "active"}>
-                End
-              </Button>
-            </div>
           </div>
 
-          <div className="relative mt-6 h-[320px] overflow-hidden rounded-[34px] border border-[var(--border)] bg-[color-mix(in_srgb,var(--panel-soft)_74%,transparent)] px-6 py-8 md:px-10 md:py-12">
+          <div className="relative mt-6 h-[440px] overflow-hidden rounded-[34px] border border-[var(--border)] bg-[color-mix(in_srgb,var(--panel-soft)_74%,transparent)] px-6 py-8 md:px-10 md:py-12">
             <TypingLayer
               tokens={tokens}
               snapshot={snapshot}
@@ -438,8 +426,8 @@ export function PracticeView({
                   )}
                   
                   <div className="mt-10 flex flex-col gap-3">
-                    <Button size="lg" className="w-full" onClick={restart}>Start New Test</Button>
-                    <Button variant="ghost" className="w-full" onClick={() => setStatus("idle")}>Review Text</Button>
+                    <Button size="lg" className="w-full" onClick={() => setShowSummary(true)} disabled={!summary}>See Results</Button>
+                    <Button variant="ghost" className="w-full" onClick={restart}>Start New Test</Button>
                   </div>
                 </div>
               </div>
@@ -470,7 +458,7 @@ export function PracticeView({
         )}
       </div>
 
-      <SessionSummaryModal summary={summary} onClose={() => setSummary(null)} onRestart={restart} />
+      <SessionSummaryModal summary={showSummary ? summary : null} onClose={() => setShowSummary(false)} onRestart={restart} />
     </>
   );
 }

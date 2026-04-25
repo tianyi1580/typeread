@@ -266,6 +266,7 @@ impl Database {
         ensure_column(conn, "session_analytics", "keyboard_layout_name", "TEXT NOT NULL DEFAULT 'QWERTY (US)'")?;
         ensure_column(conn, "session_analytics", "keyboard_layout_rows_json", "TEXT NOT NULL DEFAULT '[]'")?;
         ensure_column(conn, "session_analytics", "macro_wpm_json", "TEXT NOT NULL DEFAULT '[]'")?;
+        ensure_column(conn, "session_analytics", "macro_accuracy_json", "TEXT NOT NULL DEFAULT '[]'")?;
         ensure_column(conn, "session_analytics", "recent_wpm_json", "TEXT NOT NULL DEFAULT '[]'")?;
         ensure_column(conn, "session_analytics", "confusion_json", "TEXT NOT NULL DEFAULT '[]'")?;
         ensure_column(conn, "session_analytics", "transition_stats_json", "TEXT NOT NULL DEFAULT '[]'")?;
@@ -660,6 +661,7 @@ impl Database {
 
         let layout_rows_json = serde_json::to_string(&context.keyboard_layout.rows).context("failed to serialize layout rows")?;
         let macro_wpm_json = serde_json::to_string(&finalized.deep_analytics.macro_wpm).context("failed to serialize macro wpm")?;
+        let macro_accuracy_json = serde_json::to_string(&finalized.deep_analytics.macro_accuracy).context("failed to serialize macro accuracy")?;
         let recent_wpm_json = serde_json::to_string(&finalized.deep_analytics.recent_wpm).context("failed to serialize recent wpm")?;
         let confusion_json = serde_json::to_string(&finalized.deep_analytics.confusion_pairs).context("failed to serialize confusion pairs")?;
         let transition_stats_json = serde_json::to_string(&finalized.transition_stats).context("failed to serialize transition stats")?;
@@ -673,13 +675,14 @@ impl Database {
                 keyboard_layout_name,
                 keyboard_layout_rows_json,
                 macro_wpm_json,
+                macro_accuracy_json,
                 recent_wpm_json,
                 confusion_json,
                 transition_stats_json,
                 cadence_cv,
                 active_typing_seconds
             )
-            VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)
+            VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)
             "#,
             params![
                 session_id,
@@ -687,6 +690,7 @@ impl Database {
                 context.keyboard_layout.name,
                 layout_rows_json,
                 macro_wpm_json,
+                macro_accuracy_json,
                 recent_wpm_json,
                 confusion_json,
                 transition_stats_json,
@@ -1051,6 +1055,7 @@ impl Database {
                 r#"
                 SELECT
                     session_analytics.macro_wpm_json,
+                    session_analytics.macro_accuracy_json,
                     session_analytics.recent_wpm_json,
                     session_analytics.confusion_json,
                     session_analytics.transition_stats_json,
@@ -1068,17 +1073,19 @@ impl Database {
                     Ok(DeepAnalytics {
                         macro_wpm: serde_json::from_str::<Vec<crate::models::WpmSample>>(&row.get::<_, String>(0)?)
                             .unwrap_or_default(),
-                        recent_wpm: serde_json::from_str::<Vec<crate::models::WpmSample>>(&row.get::<_, String>(1)?)
+                        macro_accuracy: serde_json::from_str::<Vec<crate::models::WpmSample>>(&row.get::<_, String>(1)?)
                             .unwrap_or_default(),
-                        confusion_pairs: serde_json::from_str::<Vec<ConfusionPair>>(&row.get::<_, String>(2)?)
+                        recent_wpm: serde_json::from_str::<Vec<crate::models::WpmSample>>(&row.get::<_, String>(2)?)
+                            .unwrap_or_default(),
+                        confusion_pairs: serde_json::from_str::<Vec<ConfusionPair>>(&row.get::<_, String>(3)?)
                             .unwrap_or_default(),
                         transitions: group_transition_stats(
-                            &serde_json::from_str::<Vec<TransitionStat>>(&row.get::<_, String>(3)?).unwrap_or_default(),
+                            &serde_json::from_str::<Vec<TransitionStat>>(&row.get::<_, String>(4)?).unwrap_or_default(),
                         ),
-                        rhythm_score: row.get(4)?,
-                        cadence_cv: row.get(5)?,
-                        focus_score: row.get(6)?,
-                        active_typing_seconds: row.get(7)?,
+                        rhythm_score: row.get(5)?,
+                        cadence_cv: row.get(6)?,
+                        focus_score: row.get(7)?,
+                        active_typing_seconds: row.get(8)?,
                     })
                 },
             )

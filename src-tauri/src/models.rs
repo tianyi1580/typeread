@@ -126,6 +126,7 @@ pub struct WpmSample {
 #[serde(rename_all = "camelCase")]
 pub struct DeepAnalytics {
     pub macro_wpm: Vec<WpmSample>,
+    pub macro_accuracy: Vec<WpmSample>,
     pub recent_wpm: Vec<WpmSample>,
     pub confusion_pairs: Vec<ConfusionPair>,
     pub transitions: TransitionGroups,
