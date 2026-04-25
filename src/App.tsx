@@ -468,6 +468,7 @@ export default function App() {
               onBackToLibrary={() => setActiveTab("library")}
               onChapterChange={setSelectedChapterIndex}
               onInteractionModeChange={setInteractionMode}
+              onSettingsChange={handleSettingsChange}
               onOpenSettings={() => setSettingsOpen(true)}
               menuOpen={menuOpen}
               onToggleMenu={() => {

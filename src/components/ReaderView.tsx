@@ -12,6 +12,7 @@ import {
   finalizeMetrics,
   parseIgnoredCharacterSet,
   tokenizeText,
+  wordIndexFromTextIndex,
 } from "../utils/typing";
 import type {
   ActiveTab,
@@ -30,6 +31,7 @@ import type {
 import { SessionSummaryModal } from "./SessionSummaryModal";
 import { TypingLayer } from "./TypingLayer";
 import { Button } from "./ui/button";
+import { VersusConfigModal } from "./VersusConfigModal";
 
 interface ReaderViewProps {
   book: ParsedBook;
@@ -43,6 +45,7 @@ interface ReaderViewProps {
   onBackToLibrary: () => void;
   onChapterChange: (index: number) => void;
   onInteractionModeChange: (mode: InteractionMode) => void;
+  onSettingsChange: (settings: AppSettings) => void;
   onOpenSettings: () => void;
   menuOpen: boolean;
   onToggleMenu: () => void;
@@ -76,6 +79,7 @@ export function ReaderView({
   onBackToLibrary,
   onChapterChange,
   onInteractionModeChange,
+  onSettingsChange,
   onOpenSettings,
   menuOpen,
   onToggleMenu,
@@ -105,6 +109,7 @@ export function ReaderView({
   const [pageIndex, setPageIndex] = useState(0);
   const [summary, setSummary] = useState<SessionSummaryResponse | null>(null);
   const [botCursorIndex, setBotCursorIndex] = useState(0);
+  const [versusConfigOpen, setVersusConfigOpen] = useState(false);
 
   const snapshotRef = useRef(snapshot);
   const eventsRef = useRef(events);
@@ -237,42 +242,47 @@ export function ReaderView({
   }, []);
 
   useEffect(() => {
+    if (interactionMode === "versus" && !sessionStartAt) {
+      const userStartIndex = tokens[snapshot.currentWordIndex]?.start ?? 0;
+      setBotCursorIndex(userStartIndex);
+      botCursorRef.current = userStartIndex;
+      botPausedRef.current = false;
+    }
+  }, [interactionMode, sessionStartAt, snapshot.currentWordIndex, tokens]);
+
+  useEffect(() => {
     if (interactionMode !== "versus" || !sessionStartAt) {
-      setBotCursorIndex(0);
-      botCursorRef.current = 0;
       return;
     }
 
-    let frame = 0;
+    let frameId: number;
     let lastTick = performance.now();
 
-    const tick = (now: number) => {
-      const elapsedMs = now - lastTick;
-      lastTick = now;
-      const currentSnapshot = snapshotRef.current;
-      const userWordIndex = currentSnapshot.currentWordIndex;
-      const nextBotWordIndex = wordIndexFromTextIndex(tokens, botCursorRef.current);
+    const animate = (time: number) => {
+      const delta = (time - lastTick) / 1000;
+      lastTick = time;
 
-      if (!botPausedRef.current && nextBotWordIndex > userWordIndex + 30) {
+      const userWordIndex = snapshotRef.current.currentWordIndex;
+      const botWordIndex = wordIndexFromTextIndex(tokens, botCursorRef.current);
+
+      if (!botPausedRef.current && botWordIndex > userWordIndex + 30) {
         botPausedRef.current = true;
-      } else if (botPausedRef.current && nextBotWordIndex <= userWordIndex + 10) {
+      } else if (botPausedRef.current && botWordIndex <= userWordIndex + 10) {
         botPausedRef.current = false;
       }
 
       if (!botPausedRef.current) {
-        const cps = settings.versusBotCpm / 60;
-        setBotCursorIndex((current) => {
-          const next = Math.min(Math.round(current + cps * (elapsedMs / 1000)), normalizedText.length);
-          botCursorRef.current = next;
-          return next;
-        });
+        const cps = (settings.versusBotCpm || 200) / 60;
+        const next = Math.min(botCursorRef.current + cps * delta, normalizedText.length);
+        botCursorRef.current = next;
+        setBotCursorIndex(next);
       }
 
-      frame = window.requestAnimationFrame(tick);
+      frameId = window.requestAnimationFrame(animate);
     };
 
-    frame = window.requestAnimationFrame(tick);
-    return () => window.cancelAnimationFrame(frame);
+    frameId = window.requestAnimationFrame(animate);
+    return () => window.cancelAnimationFrame(frameId);
   }, [interactionMode, normalizedText.length, sessionStartAt, settings.versusBotCpm, tokens]);
 
   useEffect(() => {
@@ -444,7 +454,7 @@ export function ReaderView({
 
   function handleWordSelect(wordIndex: number) {
     if (interactionMode === "read") {
-      onInteractionModeChange("type");
+      onSettingsChange({ ...settings, interactionMode: "type" });
     }
 
     void flushSession(false, false);
@@ -504,10 +514,10 @@ export function ReaderView({
 
             <div className="flex items-center gap-2">
               <div className="inline-flex rounded-full border border-[var(--border)] bg-[var(--panel-soft)] p-1">
-                <ModePill active={interactionMode === "read"} onClick={() => onInteractionModeChange("read")}>
+                <ModePill active={interactionMode === "read"} onClick={() => onSettingsChange({ ...settings, interactionMode: "read" })}>
                   Read
                 </ModePill>
-                <ModePill active={interactionMode !== "read"} onClick={() => onInteractionModeChange("type")}>
+                <ModePill active={interactionMode !== "read"} onClick={() => onSettingsChange({ ...settings, interactionMode: "type" })}>
                   Type
                 </ModePill>
               </div>
@@ -517,9 +527,9 @@ export function ReaderView({
                 disabled={interactionMode === "read"}
                 onClick={() => {
                   if (interactionMode === "versus") {
-                    onInteractionModeChange("type");
+                    onSettingsChange({ ...settings, interactionMode: "type" });
                   } else {
-                    onInteractionModeChange("versus");
+                    setVersusConfigOpen(true);
                   }
                 }}
                 className={cn(
@@ -645,15 +655,7 @@ export function ReaderView({
             readerMode === "spread" ? "max-w-[1600px] pb-6 pt-20" : "max-w-[1360px] pb-24 pt-24",
           )}
         >
-          {interactionMode === "versus" && (
-            <div className="absolute inset-x-6 top-16 h-8 md:inset-x-10">
-              <div className="absolute inset-x-0 top-1/2 h-px -translate-y-1/2 bg-white/10" />
-              <div
-                className="absolute top-1/2 h-2 w-2 -translate-y-1/2 rounded-full bg-[var(--accent)] shadow-[0_0_18px_var(--accent)] transition-all duration-100"
-                style={{ left: `calc(${(botCursorIndex / normalizedText.length) * 100}% - 4px)` }}
-              />
-            </div>
-          )}
+
           {loadingBook && <p className="mb-4 text-sm text-[var(--text-muted)]">Loading book…</p>}
 
           {readerMode === "scroll" ? (
@@ -669,6 +671,7 @@ export function ReaderView({
                   chapterText={normalizedText}
                   interactionMode={interactionMode}
                   smoothCaret={settings.smoothCaret && analytics?.profile.unlocks.smoothCaret}
+                  botCursorIndex={interactionMode === "versus" ? botCursorIndex : null}
                   compareOptions={{ ignoredCharacters: ignoredCharacterSet }}
                   onWordClick={handleWordSelect}
                 />
@@ -688,6 +691,7 @@ export function ReaderView({
                     faded={false}
                     interactionMode={interactionMode}
                     smoothCaret={settings.smoothCaret && analytics?.profile.unlocks.smoothCaret}
+                    botCursorIndex={interactionMode === "versus" ? botCursorIndex : null}
                     compareOptions={{ ignoredCharacters: ignoredCharacterSet }}
                     onWordClick={handleWordSelect}
                   />
@@ -706,6 +710,7 @@ export function ReaderView({
                     faded={false}
                     interactionMode={interactionMode}
                     smoothCaret={settings.smoothCaret && analytics?.profile.unlocks.smoothCaret}
+                    botCursorIndex={interactionMode === "versus" ? botCursorIndex : null}
                     compareOptions={{ ignoredCharacters: ignoredCharacterSet }}
                     onWordClick={handleWordSelect}
                   />
@@ -750,6 +755,20 @@ export function ReaderView({
       </div>
 
       <SessionSummaryModal summary={summary} onClose={() => setSummary(null)} />
+
+      <VersusConfigModal
+        isOpen={versusConfigOpen}
+        onClose={() => setVersusConfigOpen(false)}
+        onStart={(nextCpm) => {
+          onSettingsChange({ ...settings, versusBotCpm: nextCpm, interactionMode: "versus" });
+          onInteractionModeChange("versus");
+          setSessionStartAt(null);
+          sessionStartRef.current = null;
+          setVersusConfigOpen(false);
+        }}
+        currentCpm={settings.versusBotCpm}
+        averageWpm={analytics?.averageWpm ?? 60}
+      />
     </>
   );
 }

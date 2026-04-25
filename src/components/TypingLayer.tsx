@@ -17,6 +17,7 @@ interface TypingLayerProps {
   onWordClick?: (wordIndex: number) => void;
   interactionMode?: InteractionMode;
   smoothCaret?: boolean;
+  botCursorIndex?: number | null;
 }
 
 export function TypingLayer({
@@ -31,6 +32,7 @@ export function TypingLayer({
   onWordClick,
   interactionMode = "type",
   smoothCaret = false,
+  botCursorIndex = null,
 }: TypingLayerProps) {
   const currentWordRef = useRef<HTMLSpanElement | null>(null);
   const visibleTokens = useMemo(() => {
@@ -184,6 +186,7 @@ export function TypingLayer({
           onClick={onWordClick}
           interactionMode={interactionMode}
           smoothCaret={smoothCaret}
+          botCursorIndex={botCursorIndex}
         />
       ))}
     </div>
@@ -206,8 +209,9 @@ const Word = React.memo(
       onClick?: (index: number) => void;
       interactionMode?: InteractionMode;
       smoothCaret?: boolean;
+      botCursorIndex?: number | null;
     }
-  >(({ index, token, state, isCurrent, isCompleted, isUpcoming, distance, faded, compareOptions, onClick, interactionMode, smoothCaret }, ref) => {
+  >(({ index, token, state, isCurrent, isCompleted, isUpcoming, distance, faded, compareOptions, onClick, interactionMode, smoothCaret, botCursorIndex }, ref) => {
     // Calculate opacity inline to avoid hook overhead in the large word list
     let opacity = 1;
     if (faded) {
@@ -215,6 +219,8 @@ const Word = React.memo(
       else if (distance > 36) opacity = 0.35;
       else if (distance > 12) opacity = 0.62;
     }
+
+    const botInThisWord = botCursorIndex !== null && botCursorIndex !== undefined && botCursorIndex >= token.start && botCursorIndex <= token.end;
 
     if (interactionMode === "read") {
       return (
@@ -227,7 +233,7 @@ const Word = React.memo(
       );
     }
 
-    if (isUpcoming) {
+    if (isUpcoming && !botInThisWord) {
       return (
         <span
           className={cn("text-[var(--text-muted)] transition hover:text-[var(--text)]", onClick && "cursor-text")}
@@ -239,7 +245,7 @@ const Word = React.memo(
       );
     }
 
-    if (isCompleted) {
+    if (isCompleted && !botInThisWord) {
       const isPerfect = state
         ? normalizeForCompare(state.typed, compareOptions?.ignoredCharacters) ===
         normalizeForCompare(token.word + token.separator, compareOptions?.ignoredCharacters)
@@ -273,6 +279,7 @@ const Word = React.memo(
           state?.skipped ?? false,
           compareOptions?.ignoredCharacters,
           smoothCaret ?? false,
+          botCursorIndex !== null && botCursorIndex !== undefined && botCursorIndex >= token.start && botCursorIndex <= token.end ? Math.floor(botCursorIndex) - token.start : null,
         )}
       </span>
     );
@@ -286,6 +293,7 @@ function renderWordParts(
   skipped: boolean,
   ignoredCharacters?: ReadonlySet<string>,
   smoothCaret = false,
+  botCursorOffset: number | null = null,
 ) {
   const expectedChars = [...expected];
   const typedChars = [...typed];
@@ -318,6 +326,11 @@ function renderWordParts(
             )}
           />
         )}
+        {index === (botCursorOffset !== null ? Math.floor(botCursorOffset) : -1) && (
+          <span
+            className="absolute -left-[0.5px] top-[10%] z-50 h-[80%] w-[2px] bg-[#00ffff] opacity-90 shadow-[0_0_8px_#00ffff] transition-all duration-100"
+          />
+        )}
         {expectedChar}
       </span>
     );
@@ -328,9 +341,22 @@ function renderWordParts(
       <span key="cursor-end" className="relative">
         <span
           className={cn(
-            "absolute -left-[0.5px] top-[10%] h-[80%] w-[2px] bg-[var(--accent)]",
+            "absolute -left-[0.5px] top-[10%] z-50 h-[80%] w-[2px] bg-[var(--accent)]",
             smoothCaret ? "transition-all duration-150 ease-out" : "animate-pulse",
           )}
+        />
+        {(botCursorOffset !== null ? Math.floor(botCursorOffset) : -1) === expectedChars.length && (
+          <span
+            className="absolute -left-[0.5px] top-[10%] z-50 h-[80%] w-[2px] bg-[#00ffff] opacity-90 shadow-[0_0_8px_#00ffff] transition-all duration-100"
+          />
+        )}
+      </span>
+    );
+  } else if ((botCursorOffset !== null ? Math.floor(botCursorOffset) : -1) === expectedChars.length) {
+    output.push(
+      <span key="bot-cursor-end" className="relative">
+        <span
+          className="absolute -left-[0.5px] top-[10%] z-50 h-[80%] w-[2px] bg-[#00ffff] opacity-90 shadow-[0_0_8px_#00ffff] transition-all duration-100"
         />
       </span>
     );
