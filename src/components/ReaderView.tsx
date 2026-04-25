@@ -124,10 +124,10 @@ export function ReaderView({
     // Use 0.48 as average character width for modern proportional fonts.
     // This is more conservative than 0.43 and helps prevent text cutoff by ensuring 
     // the pagination logic breaks lines earlier than the browser might.
-    const charsPerLine = Math.floor(usableWidth / (fontSize * 0.48));
+    const charsPerLine = Math.max(20, Math.floor(usableWidth / (fontSize * 0.48)));
     
     return {
-      maxLines,
+      maxLines: Math.max(5, maxLines),
       lineHeightPx,
       charsPerLine
     };
@@ -279,6 +279,12 @@ export function ReaderView({
   }, [book.id, chapter.id, interactionMode]);
 
   useEffect(() => {
+    if (readerMode === "spread") {
+      window.scrollTo(0, 0);
+    }
+  }, [readerMode]);
+
+  useEffect(() => {
     const currentIndex = currentChapterIndex(snapshot, tokens);
     const activePage = pageRanges.findIndex((range) => currentIndex >= range.start && currentIndex < range.end);
     if (activePage >= 0) {
@@ -399,7 +405,7 @@ export function ReaderView({
       <div
         ref={containerRef}
         className={cn(
-          "relative mx-auto flex-1 px-4 md:px-6 transition-all duration-500 w-full",
+          "relative mx-auto flex-1 px-4 md:px-6 w-full",
           readerMode === "spread" ? "max-w-[1600px] pt-20 pb-6" : "max-w-[1360px] pt-24 pb-24",
         )}
       >
@@ -413,6 +419,7 @@ export function ReaderView({
             >
               {interactionMode === "type" ? (
                 <TypingLayer
+                  key="scroll-layer"
                   tokens={tokens}
                   snapshot={snapshot}
                   chapterText={normalizedText}
@@ -433,12 +440,14 @@ export function ReaderView({
         ) : (
           <div className="grid h-full w-full gap-6 lg:grid-cols-2">
             <SpreadPage title={`Page ${pageIndex + 1}`} style={settings} maxLines={maxLines} lineHeightPx={lineHeightPx}>
-              {interactionMode === "type" ? (
+              {interactionMode === "type" && visibleLeft ? (
                 <TypingLayer
+                  key={`spread-left-${pageIndex}`}
                   tokens={tokens}
                   snapshot={snapshot}
                   chapterText={normalizedText}
                   visibleRange={visibleLeft}
+                  noScroll={true}
                   className="tracking-[0.01em]"
                   faded={false}
                   compareOptions={{ ignoreQuotationMarks: settings.ignoreQuotationMarks }}
@@ -449,12 +458,14 @@ export function ReaderView({
             </SpreadPage>
 
             <SpreadPage title={`Page ${pageIndex + 2}`} style={settings} maxLines={maxLines} lineHeightPx={lineHeightPx}>
-              {interactionMode === "type" ? (
+              {interactionMode === "type" && visibleRight ? (
                 <TypingLayer
+                  key={`spread-right-${pageIndex}`}
                   tokens={tokens}
                   snapshot={snapshot}
                   chapterText={normalizedText}
                   visibleRange={visibleRight}
+                  noScroll={true}
                   className="tracking-[0.01em]"
                   faded={false}
                   compareOptions={{ ignoreQuotationMarks: settings.ignoreQuotationMarks }}

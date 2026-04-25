@@ -8,6 +8,7 @@ interface TypingLayerProps {
   snapshot: TypingSnapshot;
   chapterText: string;
   visibleRange?: { start: number; end: number };
+  noScroll?: boolean;
   className?: string;
   faded?: boolean;
   compareOptions?: {
@@ -15,7 +16,7 @@ interface TypingLayerProps {
   };
 }
 
-export function TypingLayer({ tokens, snapshot, chapterText, visibleRange, className, faded = true, compareOptions }: TypingLayerProps) {
+export function TypingLayer({ tokens, snapshot, chapterText, visibleRange, noScroll, className, faded = true, compareOptions }: TypingLayerProps) {
   const currentWordRef = useRef<HTMLSpanElement | null>(null);
   const visibleTokens = useMemo(() => {
     if (visibleRange) {
@@ -39,7 +40,7 @@ export function TypingLayer({ tokens, snapshot, chapterText, visibleRange, class
 
   useEffect(() => {
     const el = currentWordRef.current;
-    if (visibleRange || !el) return;
+    if (noScroll || visibleRange || !el) return;
 
     const currentIndex = snapshot.currentWordIndex;
     const currentOffset = el.offsetTop;
@@ -90,6 +91,13 @@ export function TypingLayer({ tokens, snapshot, chapterText, visibleRange, class
       lastOffsetTop.current = currentOffset;
       lastWordIndex.current = currentIndex;
     }
+
+    return () => {
+      if (scrollAnimationRef.current !== null) {
+        cancelAnimationFrame(scrollAnimationRef.current);
+        scrollAnimationRef.current = null;
+      }
+    };
   }, [snapshot.currentWordIndex, visibleRange]);
 
   // Handle window resizing separately to avoid mixing it with typing logic

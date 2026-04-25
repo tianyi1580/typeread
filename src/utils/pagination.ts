@@ -32,6 +32,11 @@ export function paginateText(
   let cursor = 0;
 
   while (currentTokenIndex < tokens.length) {
+    if (maxLines <= 0 || charsPerLine <= 0) {
+      // Safety break for invalid layout parameters
+      ranges.push({ start: cursor, end: text.length });
+      break;
+    }
     const rangeStart = cursor;
     let linesUsed = 1; // Start with the first line
     let currentLineChars = 0;
