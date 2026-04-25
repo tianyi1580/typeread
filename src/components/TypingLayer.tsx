@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from "react";
+import React, { useEffect, useMemo, useRef } from "react";
 import { cn } from "../lib/utils";
 import type { TokenizedWord, TypingSnapshot } from "../types";
 import { normalizeForCompare } from "../utils/typing";
@@ -23,9 +23,7 @@ export function TypingLayer({ tokens, snapshot, visibleRange, className, faded =
         .filter(({ token }) => token.start >= visibleRange.start && token.end <= visibleRange.end);
     }
 
-    // Virtualization Window: Only render words within a relative distance to the current typing position.
-    // This prevents DOM bloat in long chapters while keeping enough context for scrolling.
-    const WINDOW_SIZE = 400; // Render 200 before and 200 after
+    const WINDOW_SIZE = 400; // Reduced for peak performance during rapid typing
     const start = Math.max(0, snapshot.currentWordIndex - WINDOW_SIZE / 2);
     const end = Math.min(tokens.length, start + WINDOW_SIZE);
 
@@ -34,27 +32,38 @@ export function TypingLayer({ tokens, snapshot, visibleRange, className, faded =
       .map((token, index) => ({ token, index: start + index }));
   }, [tokens, visibleRange, snapshot.currentWordIndex]);
 
+  const scrollAnimationRef = useRef<number | null>(null);
   const lastOffsetTop = useRef<number>(-1);
+  const lastWordIndex = useRef<number>(-1);
+
   useEffect(() => {
     const el = currentWordRef.current;
-    if (!visibleRange && el) {
-      const currentOffset = el.offsetTop;
+    if (visibleRange || !el) return;
 
-      // Initialize on first word
-      if (lastOffsetTop.current === -1) {
-        lastOffsetTop.current = currentOffset;
-        return;
-      }
+    const currentIndex = snapshot.currentWordIndex;
+    const currentOffset = el.offsetTop;
 
-      // Only scroll if we've moved to a NEW line (significant increase in offsetTop)
-      if (Math.abs(currentOffset - lastOffsetTop.current) > 15) {
-        lastOffsetTop.current = currentOffset;
+    // First run initialization
+    if (lastWordIndex.current === -1) {
+      lastWordIndex.current = currentIndex;
+      lastOffsetTop.current = currentOffset;
+      return;
+    }
 
-        // Custom slow smooth scroll to center
-        const targetY = el.getBoundingClientRect().top + window.scrollY - (window.innerHeight / 2);
+    // Only perform expensive layout checks and scrolling when the word index actually changes.
+    // Within-word typing no longer triggers reflows, eliminating input lag.
+    if (currentIndex !== lastWordIndex.current) {
+      const offsetDiff = Math.abs(currentOffset - lastOffsetTop.current);
+
+      if (offsetDiff > 15) {
+        if (scrollAnimationRef.current !== null) {
+          cancelAnimationFrame(scrollAnimationRef.current);
+        }
+
+        const targetY = el.getBoundingClientRect().top + window.scrollY - window.innerHeight / 2;
         const startY = window.scrollY;
         const distance = targetY - startY;
-        const duration = 500; // Slower, more premium feel
+        const duration = 500; // Snappier response
         let startTime: number | null = null;
 
         const animate = (currentTime: number) => {
@@ -62,22 +71,37 @@ export function TypingLayer({ tokens, snapshot, visibleRange, className, faded =
           const timeElapsed = currentTime - startTime;
           const progress = Math.min(timeElapsed / duration, 1);
 
-          // easeInOutQuad
-          const ease = progress < 0.5
-            ? 2 * progress * progress
-            : 1 - Math.pow(-2 * progress + 2, 2) / 2;
+          // smooth easeOutQuint
+          const ease = 1 - Math.pow(1 - progress, 5);
 
           window.scrollTo(0, startY + distance * ease);
 
           if (timeElapsed < duration) {
-            requestAnimationFrame(animate);
+            scrollAnimationRef.current = requestAnimationFrame(animate);
+          } else {
+            scrollAnimationRef.current = null;
           }
         };
 
-        requestAnimationFrame(animate);
+        scrollAnimationRef.current = requestAnimationFrame(animate);
       }
+
+      lastOffsetTop.current = currentOffset;
+      lastWordIndex.current = currentIndex;
     }
   }, [snapshot.currentWordIndex, visibleRange]);
+
+  // Handle window resizing separately to avoid mixing it with typing logic
+  useEffect(() => {
+    const handleResize = () => {
+      const el = currentWordRef.current;
+      if (el) {
+        lastOffsetTop.current = el.offsetTop;
+      }
+    };
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
   return (
     <div
@@ -86,69 +110,82 @@ export function TypingLayer({ tokens, snapshot, visibleRange, className, faded =
         className,
       )}
     >
-      {visibleTokens.map(({ token, index }) => {
-        const state = snapshot.words[index];
-        const isCurrent = index === snapshot.currentWordIndex;
-        const isCompleted = index < snapshot.currentWordIndex;
-        const isUpcoming = index > snapshot.currentWordIndex;
-
-        const distance = Math.abs(index - snapshot.currentWordIndex);
-        const opacity =
-          !faded || visibleRange
-            ? 1
-            : distance > 80
-              ? 0.15
-              : distance > 36
-                ? 0.35
-                : distance > 12
-                  ? 0.62
-                  : 1;
-
-        if (isCompleted) {
-          const isPerfect = state
-            ? normalizeForCompare(state.typed, compareOptions?.ignoreQuotationMarks) ===
-              normalizeForCompare(token.word + token.separator, compareOptions?.ignoreQuotationMarks)
-            : true;
-          if (isPerfect) {
-            return (
-              <span key={token.id} className="text-[var(--success)]" style={{ opacity }}>
-                {token.word + token.separator}
-              </span>
-            );
-          }
-          // If the word was imperfect, we render the detailed view so the user can see exactly where the errors were.
-          return (
-            <span key={token.id} className="transition-opacity duration-300" style={{ opacity }}>
-              {renderWord(token.word + token.separator, state?.typed ?? "", false, true, false)}
-            </span>
-          );
-        }
-
-        if (isUpcoming) {
-          return (
-            <span key={token.id} className="text-[var(--text-muted)]" style={{ opacity }}>
-              {token.word + token.separator}
-            </span>
-          );
-        }
-
-        return (
-          <span key={token.id} ref={currentWordRef} className="transition-opacity duration-300" style={{ opacity }}>
-            {renderWord(token.word + token.separator, state?.typed ?? "", true, state?.completed ?? false, state?.skipped ?? false)}
-          </span>
-        );
-      })}
+      {visibleTokens.map(({ token, index }) => (
+        <Word
+          key={token.id}
+          ref={index === snapshot.currentWordIndex ? currentWordRef : null}
+          token={token}
+          state={snapshot.words[index]}
+          isCurrent={index === snapshot.currentWordIndex}
+          isCompleted={index < snapshot.currentWordIndex}
+          isUpcoming={index > snapshot.currentWordIndex}
+          distance={Math.abs(index - snapshot.currentWordIndex)}
+          faded={faded && !visibleRange}
+          compareOptions={compareOptions}
+        />
+      ))}
     </div>
   );
 }
 
-function renderWord(expected: string, typed: string, current: boolean, completed: boolean, skipped: boolean) {
+const Word = React.memo(
+  React.forwardRef<
+    HTMLSpanElement,
+    {
+      token: TokenizedWord;
+      state: any;
+      isCurrent: boolean;
+      isCompleted: boolean;
+      isUpcoming: boolean;
+      distance: number;
+      faded: boolean;
+      compareOptions?: { ignoreQuotationMarks?: boolean };
+    }
+  >(({ token, state, isCurrent, isCompleted, isUpcoming, distance, faded, compareOptions }, ref) => {
+    // Calculate opacity inline to avoid hook overhead in the large word list
+    let opacity = 1;
+    if (faded) {
+      if (distance > 80) opacity = 0.15;
+      else if (distance > 36) opacity = 0.35;
+      else if (distance > 12) opacity = 0.62;
+    }
+
+    if (isUpcoming) {
+      return (
+        <span className="text-[var(--text-muted)]" style={{ opacity }}>
+          {token.word + token.separator}
+        </span>
+      );
+    }
+
+    if (isCompleted) {
+      const isPerfect = state
+        ? normalizeForCompare(state.typed, compareOptions?.ignoreQuotationMarks) ===
+        normalizeForCompare(token.word + token.separator, compareOptions?.ignoreQuotationMarks)
+        : true;
+
+      if (isPerfect) {
+        return (
+          <span className="text-[var(--success)]" style={{ opacity }}>
+            {token.word + token.separator}
+          </span>
+        );
+      }
+    }
+
+    return (
+      <span ref={ref} className="transition-opacity duration-300" style={{ opacity }}>
+        {renderWordParts(token.word + token.separator, state?.typed ?? "", isCurrent, isCompleted, state?.skipped ?? false)}
+      </span>
+    );
+  }));
+
+function renderWordParts(expected: string, typed: string, current: boolean, completed: boolean, skipped: boolean) {
   const expectedChars = [...expected];
   const typedChars = [...typed];
   const output: JSX.Element[] = [];
-  let cursorIndex: number | null = current ? typedChars.length : null;
+  const cursorIndex = current ? typedChars.length : -1;
 
-  // We loop ONLY through the expected characters to keep layout static.
   for (let index = 0; index < expectedChars.length; index += 1) {
     const expectedChar = expectedChars[index];
     const typedChar = typedChars[index];
@@ -166,7 +203,7 @@ function renderWord(expected: string, typed: string, current: boolean, completed
     }
 
     output.push(
-      <span key={`char-${index}`} className={cn("relative", charClass)}>
+      <span key={index} className={cn("relative", charClass)}>
         {index === cursorIndex && (
           <span className="absolute -left-[0.5px] top-[10%] h-[80%] w-[2px] animate-pulse bg-[var(--accent)]" />
         )}
@@ -175,7 +212,6 @@ function renderWord(expected: string, typed: string, current: boolean, completed
     );
   }
 
-  // If the cursor is at the very end of the word (e.g. word fully typed but not yet advanced)
   if (cursorIndex === expectedChars.length) {
     output.push(
       <span key="cursor-end" className="relative">
