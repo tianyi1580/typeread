@@ -2,8 +2,7 @@ import type { AnalyticsSummary, AppSettings, ParsedBook } from "../types";
 
 export const demoSettings: AppSettings = {
   theme: "sepia",
-  typeFont: "jetbrains-mono",
-  readFont: "literata",
+  font: "jetbrains-mono",
   readerMode: "scroll",
   interactionMode: "type",
   baseFontSize: 19,

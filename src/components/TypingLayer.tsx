@@ -6,6 +6,7 @@ import { normalizeForCompare } from "../utils/typing";
 interface TypingLayerProps {
   tokens: TokenizedWord[];
   snapshot: TypingSnapshot;
+  chapterText: string;
   visibleRange?: { start: number; end: number };
   className?: string;
   faded?: boolean;
@@ -14,13 +15,13 @@ interface TypingLayerProps {
   };
 }
 
-export function TypingLayer({ tokens, snapshot, visibleRange, className, faded = true, compareOptions }: TypingLayerProps) {
+export function TypingLayer({ tokens, snapshot, chapterText, visibleRange, className, faded = true, compareOptions }: TypingLayerProps) {
   const currentWordRef = useRef<HTMLSpanElement | null>(null);
   const visibleTokens = useMemo(() => {
     if (visibleRange) {
       return tokens
         .map((token, index) => ({ token, index }))
-        .filter(({ token }) => token.start >= visibleRange.start && token.end <= visibleRange.end);
+        .filter(({ token }) => token.start >= visibleRange.start && token.start < visibleRange.end);
     }
 
     const WINDOW_SIZE = 400; // Reduced for peak performance during rapid typing
@@ -106,10 +107,15 @@ export function TypingLayer({ tokens, snapshot, visibleRange, className, faded =
   return (
     <div
       className={cn(
-        "whitespace-pre-wrap leading-[2.05] tracking-[0.01em] text-[var(--text)]",
+        "whitespace-pre-wrap tracking-[0.01em] text-[var(--text)]",
         className,
       )}
     >
+      {visibleRange && visibleTokens.length > 0 && tokens[visibleTokens[0].index].start > visibleRange.start && (
+        <span className="text-[var(--text-muted)] opacity-0">
+          {chapterText.substring(visibleRange.start, tokens[visibleTokens[0].index].start)}
+        </span>
+      )}
       {visibleTokens.map(({ token, index }) => (
         <Word
           key={token.id}

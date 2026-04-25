@@ -92,8 +92,6 @@ export function applyTheme(settings: AppSettings) {
   root.style.setProperty("--font-size-base", `${settings.baseFontSize}px`);
   root.style.setProperty("--line-height-base", settings.lineHeight.toString());
 
-  const typeFont = settings.typeFont === "fira-code" ? "Fira Code" : settings.typeFont === "geist-mono" ? "Geist Mono" : "JetBrains Mono";
-  const readFont = settings.readFont === "merriweather" ? "Merriweather" : settings.readFont === "literata" ? "Literata" : "Inter";
-  root.style.setProperty("--font-type", `${typeFont}, ui-monospace, monospace`);
-  root.style.setProperty("--font-read", `${readFont}, Georgia, serif`);
+  const appFont = settings.font === "fira-code" ? "Fira Code" : settings.font === "geist-mono" ? "Geist Mono" : "JetBrains Mono";
+  root.style.setProperty("--font-main", `${appFont}, ui-monospace, monospace`);
 }

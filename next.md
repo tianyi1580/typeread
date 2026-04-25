@@ -3,6 +3,8 @@ Resume from where you left off (including cursor position)
 2 page spread shouldn't be scrollable
 page turning
 numbers on the axis of the analytics graph
+remove all "read" fonts. only use fonts that are in the "type" category
+ignore quotations toggle
 interactive analytics graph
 can click on text to start typing from that word
 customizable colors for everything (color palette)

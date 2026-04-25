@@ -66,7 +66,8 @@ export function ReaderView({
   onSaveSession,
 }: ReaderViewProps) {
   const chapter = book.chapters[chapterIndex];
-  const tokens = useMemo(() => tokenizeText(chapter.text), [chapter]);
+  const normalizedText = useMemo(() => chapter.text.replace(/\r\n/g, "\n").replace(/\r/g, "\n"), [chapter.text]);
+  const tokens = useMemo(() => tokenizeText(normalizedText), [normalizedText]);
   const [snapshot, setSnapshot] = useState<TypingSnapshot>(() => createTypingSnapshot(tokens));
   const [events, setEvents] = useState<KeystrokeEvent[]>([]);
   const [metrics, setMetrics] = useState<LiveMetrics>(EMPTY_METRICS);
@@ -86,17 +87,55 @@ export function ReaderView({
   sessionStartRef.current = sessionStartAt;
   lastInputRef.current = lastInputAt;
 
-  const pageChars = typeof window !== "undefined" && window.innerWidth < 960 ? 1200 : 1700;
-  const pages = useMemo(() => paginateText(chapter.text, pageChars), [chapter.text, pageChars]);
-  const pageRanges = useMemo(() => {
-    let cursor = 0;
-    return pages.map((page) => {
-      const start = cursor;
-      const end = cursor + page.length;
-      cursor = end;
-      return { start, end };
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [availableHeight, setAvailableHeight] = useState(0);
+  const [availableWidth, setAvailableWidth] = useState(0);
+
+  useEffect(() => {
+    if (!containerRef.current) return;
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        // Measure the content rect of the main reader container
+        setAvailableHeight(entry.contentRect.height);
+        setAvailableWidth(entry.contentRect.width);
+      }
     });
-  }, [pages]);
+    observer.observe(containerRef.current);
+    return () => observer.disconnect();
+  }, []);
+
+  const { maxLines, lineHeightPx, charsPerLine } = useMemo(() => {
+    const fontSize = settings.baseFontSize;
+    const lineHeight = settings.lineHeight;
+    const lineHeightPx = Math.round(fontSize * lineHeight);
+    
+    // Vertical space calculation inside SpreadPage
+    // SpreadPage padding: 64px (py-8). Title: ~28px. Safe bottom margin: 28px.
+    const internalOverhead = 64 + 28 + 28;
+    const usableHeight = availableHeight - internalOverhead;
+    const maxLines = Math.max(5, Math.floor(usableHeight / lineHeightPx));
+    
+    // Horizontal space calculation
+    // Gap: 24px. SpreadPage padding: 48px.
+    const usableWidth = (availableWidth - 24) / 2 - 48;
+    
+    // Use 0.48 as average character width for modern proportional fonts.
+    // This is more conservative than 0.43 and helps prevent text cutoff by ensuring 
+    // the pagination logic breaks lines earlier than the browser might.
+    const charsPerLine = Math.floor(usableWidth / (fontSize * 0.48));
+    
+    return {
+      maxLines,
+      lineHeightPx,
+      charsPerLine
+    };
+  }, [settings.baseFontSize, settings.lineHeight, availableHeight, availableWidth]);
+
+  const pageRanges = useMemo(() => {
+    return paginateText(normalizedText, maxLines, charsPerLine, tokens);
+  }, [normalizedText, maxLines, charsPerLine, tokens]);
+
+  const pages = useMemo(() => pageRanges.map(range => normalizedText.substring(range.start, range.end)), [normalizedText, pageRanges]);
 
   const liveMetrics = useMemo(() => {
     const elapsedSeconds = sessionStartAt ? Math.max(1, Math.round((clock - sessionStartAt) / 1000)) : 0;
@@ -210,7 +249,10 @@ export function ReaderView({
       if (event.metaKey || event.ctrlKey || event.altKey) return;
 
       if (event.key === "ArrowRight") {
-        setPageIndex((current) => Math.min(Math.max(pages.length - 2, 0), current + 2));
+        setPageIndex((current) => {
+          const next = current + 2;
+          return next < pages.length ? next : current;
+        });
       } else if (event.key === "ArrowLeft") {
         setPageIndex((current) => Math.max(0, current - 2));
       }
@@ -236,9 +278,10 @@ export function ReaderView({
 
   useEffect(() => {
     const currentIndex = currentChapterIndex(snapshot, tokens);
-    const activePage = pageRanges.findIndex((range) => currentIndex >= range.start && currentIndex <= range.end);
+    const activePage = pageRanges.findIndex((range) => currentIndex >= range.start && currentIndex < range.end);
     if (activePage >= 0) {
-      setPageIndex(Math.max(0, activePage - (activePage % 2)));
+      // Ensure we always land on an even page index for 2-page spreads
+      setPageIndex(activePage - (activePage % 2));
     }
   }, [pageRanges, snapshot, tokens]);
 
@@ -274,7 +317,7 @@ export function ReaderView({
   }
 
   const headerVisible = clock - lastMouseAt < 1600;
-  const readerFontClass = interactionMode === "type" ? "font-[var(--font-type)]" : "font-[var(--font-read)]";
+  const readerFontClass = "font-[var(--font-main)]";
   const visibleLeft = pageRanges[pageIndex];
   const visibleRight = pageRanges[pageIndex + 1];
 
@@ -351,10 +394,13 @@ export function ReaderView({
         </button>
       </div>
 
-      <div className={cn(
-        "relative mx-auto px-4 md:px-6 transition-all duration-500",
-        readerMode === "spread" ? "max-w-[1600px] pt-20 pb-8 h-[calc(100vh-40px)]" : "max-w-[1360px] pt-24 pb-24"
-      )}>
+      <div
+        ref={containerRef}
+        className={cn(
+          "relative mx-auto px-4 md:px-6 transition-all duration-500",
+          readerMode === "spread" ? "max-w-[1600px] pt-20 pb-8 h-[calc(100vh-40px)]" : "max-w-[1360px] pt-24 pb-24",
+        )}
+      >
         {loadingBook && <p className="mb-4 text-sm text-[var(--text-muted)]">Loading book…</p>}
 
         {readerMode === "scroll" ? (
@@ -383,11 +429,12 @@ export function ReaderView({
           </div>
         ) : (
           <div className="grid h-full w-full gap-6 lg:grid-cols-2">
-            <SpreadPage title={`Page ${pageIndex + 1}`} style={settings}>
+            <SpreadPage title={`Page ${pageIndex + 1}`} style={settings} maxLines={maxLines} lineHeightPx={lineHeightPx}>
               {interactionMode === "type" ? (
                 <TypingLayer
                   tokens={tokens}
                   snapshot={snapshot}
+                  chapterText={normalizedText}
                   visibleRange={visibleLeft}
                   className="tracking-[0.01em]"
                   faded={false}
@@ -398,11 +445,12 @@ export function ReaderView({
               )}
             </SpreadPage>
 
-            <SpreadPage title={`Page ${pageIndex + 2}`} style={settings}>
+            <SpreadPage title={`Page ${pageIndex + 2}`} style={settings} maxLines={maxLines} lineHeightPx={lineHeightPx}>
               {interactionMode === "type" ? (
                 <TypingLayer
                   tokens={tokens}
                   snapshot={snapshot}
+                  chapterText={normalizedText}
                   visibleRange={visibleRight}
                   className="tracking-[0.01em]"
                   faded={false}
@@ -470,19 +518,31 @@ function ModePill({
 function SpreadPage({
   title,
   style,
+  maxLines,
+  lineHeightPx,
   children,
 }: {
   title: string;
   style: AppSettings;
+  maxLines: number;
+  lineHeightPx: number;
   children: ReactNode;
 }) {
   return (
     <div
       className="flex h-full flex-col overflow-hidden rounded-[34px] border border-[var(--border)] bg-[linear-gradient(180deg,rgba(255,255,255,0.12),transparent)] px-6 py-8 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]"
-      style={{ fontSize: `${style.baseFontSize}px`, lineHeight: style.lineHeight }}
+      style={{ fontSize: `${style.baseFontSize}px`, lineHeight: `${lineHeightPx}px` }}
     >
       <p className="mb-4 shrink-0 text-xs uppercase tracking-[0.24em] text-[var(--text-muted)]">{title}</p>
-      <div className="flex-1 overflow-hidden whitespace-pre-wrap">{children}</div>
+      <div 
+        className="overflow-hidden whitespace-pre-wrap"
+        style={{ 
+          height: `${maxLines * lineHeightPx}px`,
+        }}
+      >
+        {children}
+      </div>
+      <div className="flex-1" />
     </div>
   );
 }

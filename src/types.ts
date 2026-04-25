@@ -2,8 +2,7 @@ export type BookFormat = "epub" | "md" | "txt";
 export type ReaderMode = "scroll" | "spread";
 export type InteractionMode = "type" | "read";
 export type ThemeName = "catppuccin-macchiato" | "gruvbox-dark" | "sepia" | "solarized-light";
-export type TypeFont = "jetbrains-mono" | "fira-code" | "geist-mono";
-export type ReadFont = "inter" | "literata" | "merriweather";
+export type AppFont = "jetbrains-mono" | "fira-code" | "geist-mono";
 
 export interface BookRecord {
   id: number;
@@ -85,8 +84,7 @@ export interface AnalyticsSummary {
 
 export interface AppSettings {
   theme: ThemeName;
-  typeFont: TypeFont;
-  readFont: ReadFont;
+  font: AppFont;
   readerMode: ReaderMode;
   interactionMode: InteractionMode;
   baseFontSize: number;

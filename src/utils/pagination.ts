@@ -1,24 +1,103 @@
 import { clamp } from "../lib/utils";
+import type { TokenizedWord } from "../types";
 
-export function paginateText(text: string, charsPerPage: number) {
-  const safeCharsPerPage = clamp(charsPerPage, 900, 2600);
-  const paragraphs = text.split(/\n{2,}/).filter(Boolean);
-  const pages: string[] = [];
-  let current = "";
+export interface PageRange {
+  start: number;
+  end: number;
+}
 
-  for (const paragraph of paragraphs) {
-    const candidate = current ? `${current}\n\n${paragraph}` : paragraph;
-    if (candidate.length > safeCharsPerPage && current) {
-      pages.push(current);
-      current = paragraph;
-      continue;
+/**
+ * Splits text into pages based on the available vertical space (maxLines).
+ * It simulates word-wrapping to estimate how many lines each token will occupy.
+ * This ensures that Page 2 resumes exactly where Page 1's visible content ended.
+ */
+export function paginateText(
+  text: string, 
+  maxLines: number,
+  charsPerLine: number,
+  tokens: TokenizedWord[]
+): PageRange[] {
+  if (tokens.length === 0) {
+    return [{ start: 0, end: text.length }];
+  }
+
+  // Sanity check for inputs
+  // We use a slightly more conservative charsPerLine internally to account for 
+  // proportional font variance and potential browser wrapping differences.
+  const safeMaxLines = Math.max(2, maxLines);
+  const safeCharsPerLine = Math.max(10, charsPerLine);
+
+  const ranges: PageRange[] = [];
+  let currentTokenIndex = 0;
+  let cursor = 0;
+
+  while (currentTokenIndex < tokens.length) {
+    const rangeStart = cursor;
+    let linesUsed = 1; // Start with the first line
+    let currentLineChars = 0;
+    let bestBreakIndex = currentTokenIndex;
+
+    for (let i = currentTokenIndex; i < tokens.length; i++) {
+      const token = tokens[i];
+      const wordLength = token.word.length;
+      
+      // 1. Simulate word wrapping
+      // If adding this word exceeds the line width, it moves to a new line
+      if (currentLineChars + wordLength > safeCharsPerLine && currentLineChars > 0) {
+        linesUsed++;
+        currentLineChars = wordLength;
+      } else {
+        currentLineChars += wordLength;
+      }
+
+      // Handle words longer than a single line (rare but possible)
+      if (currentLineChars > safeCharsPerLine) {
+        const extraLines = Math.floor(currentLineChars / safeCharsPerLine);
+        linesUsed += extraLines;
+        currentLineChars = currentLineChars % safeCharsPerLine;
+      }
+
+      // 2. Check if we've exceeded the page capacity BEFORE adding the separator
+      // This is more conservative and prevents the last word of a page from being cut off
+      if (linesUsed > safeMaxLines) {
+        break;
+      }
+
+      // 3. Handle the separator (spaces or newlines)
+      if (token.separator.includes("\n")) {
+        const newlineCount = (token.separator.match(/\n/g) || []).length;
+        linesUsed += newlineCount;
+        currentLineChars = 0;
+      } else {
+        currentLineChars += token.separator.length;
+        if (currentLineChars > safeCharsPerLine) {
+          linesUsed++;
+          currentLineChars = currentLineChars % safeCharsPerLine;
+        }
+      }
+
+      // Check again after separator
+      if (linesUsed > safeMaxLines) {
+        // If the separator pushed us over, we still include this word but the next page 
+        // will start after this token.
+        bestBreakIndex = i;
+        break;
+      }
+      
+      bestBreakIndex = i;
     }
-    current = candidate;
+
+    const endToken = tokens[bestBreakIndex];
+    ranges.push({ start: rangeStart, end: endToken.end });
+    
+    cursor = endToken.end;
+    currentTokenIndex = bestBreakIndex + 1;
   }
 
-  if (current) {
-    pages.push(current);
+  // Ensure the last range covers any trailing content
+  if (ranges.length > 0 && ranges[ranges.length - 1].end < text.length) {
+    ranges[ranges.length - 1].end = text.length;
   }
 
-  return pages.length > 0 ? pages : [text];
+  return ranges;
 }

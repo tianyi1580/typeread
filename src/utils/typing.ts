@@ -20,11 +20,13 @@ export function normalizeForCompare(input: string, ignoreQuotationMarks = false)
 }
 
 export function tokenizeText(text: string): TokenizedWord[] {
+  // Normalize newlines and other whitespace to ensure consistent character indices
+  const normalizedText = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
   const tokens: TokenizedWord[] = [];
   const regex = /(\S+)(\s*)/g;
   let match: RegExpExecArray | null;
 
-  while ((match = regex.exec(text)) !== null) {
+  while ((match = regex.exec(normalizedText)) !== null) {
     const [full, word, separator] = match;
     tokens.push({
       id: `${tokens.length}-${match.index}`,
@@ -205,6 +207,10 @@ export function currentProgress(snapshot: TypingSnapshot, tokens: TokenizedWord[
 }
 
 export function currentChapterIndex(snapshot: TypingSnapshot, tokens: TokenizedWord[]) {
+  if (snapshot.currentWordIndex >= tokens.length) {
+    const lastToken = tokens[tokens.length - 1];
+    return lastToken ? lastToken.end : 0;
+  }
   const currentToken = tokens[snapshot.currentWordIndex];
   return currentToken?.start ?? 0;
 }

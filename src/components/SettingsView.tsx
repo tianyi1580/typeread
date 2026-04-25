@@ -3,7 +3,7 @@ import { Button } from "./ui/button";
 import { Card } from "./ui/card";
 import { themeMap } from "../theme";
 import { cn, clamp } from "../lib/utils";
-import type { AppSettings, ReadFont, ReaderMode, ThemeName, TypeFont } from "../types";
+import type { AppSettings, AppFont, ReaderMode, ThemeName } from "../types";
 
 type SettingsSection = "appearance" | "reading" | "storage";
 
@@ -95,26 +95,16 @@ export function SettingsView({
                 ))}
               </div>
 
-              <div className="grid gap-6 lg:grid-cols-2">
-                <SelectField<TypeFont>
-                  label="Typing Font"
-                  value={settings.typeFont}
+              <div className="grid gap-6">
+                <SelectField<AppFont>
+                  label="Application Font"
+                  value={settings.font}
                   options={[
                     { value: "jetbrains-mono", label: "JetBrains Mono" },
                     { value: "fira-code", label: "Fira Code" },
                     { value: "geist-mono", label: "Geist Mono" },
                   ]}
-                  onValueChange={(typeFont) => onChange({ ...settings, typeFont })}
-                />
-                <SelectField<ReadFont>
-                  label="Reading Font"
-                  value={settings.readFont}
-                  options={[
-                    { value: "inter", label: "Inter" },
-                    { value: "literata", label: "Literata" },
-                    { value: "merriweather", label: "Merriweather" },
-                  ]}
-                  onValueChange={(readFont) => onChange({ ...settings, readFont })}
+                  onValueChange={(font) => onChange({ ...settings, font })}
                 />
               </div>
 
