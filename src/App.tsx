@@ -414,7 +414,6 @@ export default function App() {
           {activeTab === "library" && (
             <LibraryView
               books={filteredBooks}
-              selectedBookId={selectedBookId}
               loadingBook={loadingBook}
               desktopReady={desktopReady}
               draggingFiles={draggingFiles}

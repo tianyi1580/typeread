@@ -8,7 +8,6 @@ import type { BookRecord, InteractionMode, ThemeName } from "../types";
 
 interface LibraryViewProps {
   books: BookRecord[];
-  selectedBookId: number | null;
   loadingBook: boolean;
   desktopReady: boolean;
   draggingFiles: boolean;
@@ -23,7 +22,6 @@ interface LibraryViewProps {
 
 export function LibraryView({
   books,
-  selectedBookId,
   loadingBook,
   desktopReady,
   draggingFiles,
@@ -98,7 +96,6 @@ export function LibraryView({
         ) : (
           <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
             {books.map((book) => {
-              const selected = selectedBookId === book.id;
               const progress = progressForBook(book);
               const assetUrl = api.assetUrl(book.coverPath);
 
@@ -107,10 +104,7 @@ export function LibraryView({
                   key={book.id}
                   type="button"
                   onClick={() => onOpenBook(book.id)}
-                  className={cn(
-                    "group relative overflow-hidden rounded-[30px] border border-[var(--border)] bg-[color-mix(in_srgb,var(--panel)_92%,transparent)] text-left shadow-panel transition duration-200 hover:-translate-y-1 hover:border-[var(--accent)]",
-                    selected && "border-[var(--accent)] shadow-[0_26px_80px_var(--shadow)]",
-                  )}
+                  className="group relative overflow-hidden rounded-[30px] border border-[var(--border)] bg-[color-mix(in_srgb,var(--panel)_92%,transparent)] text-left shadow-panel transition duration-200 hover:-translate-y-1 hover:border-[var(--accent)]"
                 >
                   <div className="relative h-[240px] overflow-hidden">
                     {assetUrl ? (
