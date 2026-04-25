@@ -112,11 +112,21 @@ export default function App() {
   const theme = settings ? themeMap[settings.theme] : themeMap["catppuccin-macchiato"];
   const filteredBooks = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
+    
+    // Filter out virtual books that might have been created for practice modes in older versions
+    const actualBooks = books.filter(
+      (book) =>
+        book.title.toLowerCase() !== "practice mode" &&
+        book.title.toLowerCase() !== "type test" &&
+        book.path !== "type-test" &&
+        book.path !== "practice"
+    );
+
     if (!query) {
-      return books;
+      return actualBooks;
     }
 
-    return books.filter((book) =>
+    return actualBooks.filter((book) =>
       [book.title, book.author ?? "", book.path, book.format].some((value) => value.toLowerCase().includes(query)),
     );
   }, [books, searchQuery]);
