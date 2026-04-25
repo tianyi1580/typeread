@@ -441,7 +441,7 @@ export default function App() {
 
           {activeTab === "achievements" && <AchievementsView earnedAwards={analytics?.achievements ?? []} />}
 
-          {(activeTab === "type-test" || activeTab === "versus") && settings && (
+          {activeTab === "type-test" && settings && (
             <PracticeView
               mode={activeTab}
               settings={settings}
@@ -550,7 +550,6 @@ function WindowShell({
     analytics: "Profile & Analytics",
     achievements: "Achievements",
     "type-test": "Type Test",
-    versus: "Versus Mode",
   };
 
   return (
@@ -602,7 +601,6 @@ function WindowShell({
                   <MenuButton onClick={() => onOpenTab("analytics")}>Profile & Analytics</MenuButton>
                   <MenuButton onClick={() => onOpenTab("achievements")}>Achievements</MenuButton>
                   <MenuButton onClick={() => onOpenTab("type-test")}>Type Test</MenuButton>
-                  <MenuButton onClick={() => onOpenTab("versus")}>Versus Mode</MenuButton>
                   <MenuButton onClick={onOpenSettings}>Settings</MenuButton>
                 </div>
               </>

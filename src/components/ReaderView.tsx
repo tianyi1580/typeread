@@ -104,11 +104,14 @@ export function ReaderView({
   const [clock, setClock] = useState(Date.now());
   const [pageIndex, setPageIndex] = useState(0);
   const [summary, setSummary] = useState<SessionSummaryResponse | null>(null);
+  const [botCursorIndex, setBotCursorIndex] = useState(0);
 
   const snapshotRef = useRef(snapshot);
   const eventsRef = useRef(events);
   const sessionStartRef = useRef<number | null>(sessionStartAt);
   const lastInputRef = useRef<number | null>(lastInputAt);
+  const botCursorRef = useRef(0);
+  const botPausedRef = useRef(false);
 
   snapshotRef.current = snapshot;
   eventsRef.current = events;
@@ -190,6 +193,8 @@ export function ReaderView({
     lastInputRef.current = null;
     setPageIndex(0);
     setSummary(null);
+    setBotCursorIndex(0);
+    botCursorRef.current = 0;
     transport.resetTransport();
   }, [resumeCursorIndex, tokens]);
 
@@ -213,7 +218,7 @@ export function ReaderView({
   }, []);
 
   useEffect(() => {
-    if (!sessionStartAt || !lastInputAt || interactionMode !== "type") {
+    if (!sessionStartAt || !lastInputAt || interactionMode === "read") {
       return;
     }
 
@@ -232,7 +237,46 @@ export function ReaderView({
   }, []);
 
   useEffect(() => {
-    if (interactionMode !== "type") {
+    if (interactionMode !== "versus" || !sessionStartAt) {
+      setBotCursorIndex(0);
+      botCursorRef.current = 0;
+      return;
+    }
+
+    let frame = 0;
+    let lastTick = performance.now();
+
+    const tick = (now: number) => {
+      const elapsedMs = now - lastTick;
+      lastTick = now;
+      const currentSnapshot = snapshotRef.current;
+      const userWordIndex = currentSnapshot.currentWordIndex;
+      const nextBotWordIndex = wordIndexFromTextIndex(tokens, botCursorRef.current);
+
+      if (!botPausedRef.current && nextBotWordIndex > userWordIndex + 30) {
+        botPausedRef.current = true;
+      } else if (botPausedRef.current && nextBotWordIndex <= userWordIndex + 10) {
+        botPausedRef.current = false;
+      }
+
+      if (!botPausedRef.current) {
+        const cps = settings.versusBotCpm / 60;
+        setBotCursorIndex((current) => {
+          const next = Math.min(Math.round(current + cps * (elapsedMs / 1000)), normalizedText.length);
+          botCursorRef.current = next;
+          return next;
+        });
+      }
+
+      frame = window.requestAnimationFrame(tick);
+    };
+
+    frame = window.requestAnimationFrame(tick);
+    return () => window.cancelAnimationFrame(frame);
+  }, [interactionMode, normalizedText.length, sessionStartAt, settings.versusBotCpm, tokens]);
+
+  useEffect(() => {
+    if (interactionMode === "read") {
       return;
     }
 
@@ -379,8 +423,10 @@ export function ReaderView({
 
     const saved = await transport.flushPending({
       bookId: book.id,
-      source: "book",
-      sourceLabel: `${book.title} · ${chapter.title}`,
+      source: interactionMode === "versus" ? "versus" : "book",
+      sourceLabel: interactionMode === "versus"
+        ? `Versus · ${book.title} · ${chapter.title}`
+        : `${book.title} · ${chapter.title}`,
       startTime: new Date(startAt).toISOString(),
       endTime: new Date(result.effectiveEndTimeMs).toISOString(),
       wordsTyped: result.wordsTyped,
@@ -397,7 +443,7 @@ export function ReaderView({
   }
 
   function handleWordSelect(wordIndex: number) {
-    if (interactionMode !== "type") {
+    if (interactionMode === "read") {
       onInteractionModeChange("type");
     }
 
@@ -461,10 +507,31 @@ export function ReaderView({
                 <ModePill active={interactionMode === "read"} onClick={() => onInteractionModeChange("read")}>
                   Read
                 </ModePill>
-                <ModePill active={interactionMode === "type"} onClick={() => onInteractionModeChange("type")}>
+                <ModePill active={interactionMode !== "read"} onClick={() => onInteractionModeChange("type")}>
                   Type
                 </ModePill>
               </div>
+
+              <button
+                type="button"
+                disabled={interactionMode === "read"}
+                onClick={() => {
+                  if (interactionMode === "versus") {
+                    onInteractionModeChange("type");
+                  } else {
+                    onInteractionModeChange("versus");
+                  }
+                }}
+                className={cn(
+                  "rounded-full border border-[var(--border)] px-4 py-2 text-sm font-medium transition duration-300",
+                  interactionMode === "versus"
+                    ? "bg-[var(--accent)] text-black border-[var(--accent)] shadow-[0_0_15px_var(--accent-soft)]"
+                    : "bg-[var(--panel-soft)] text-[var(--text)] hover:border-[var(--accent)]",
+                  interactionMode === "read" ? "opacity-30 cursor-not-allowed" : "cursor-pointer"
+                )}
+              >
+                Versus
+              </button>
               <button
                 type="button"
                 onClick={() => void flushSession(true, false)}
@@ -526,13 +593,6 @@ export function ReaderView({
                       </MenuButton>
                       <MenuButton
                         onClick={() => {
-                          onOpenTab("versus");
-                        }}
-                      >
-                        Versus Mode
-                      </MenuButton>
-                      <MenuButton
-                        onClick={() => {
                           onOpenSettings();
                         }}
                       >
@@ -585,6 +645,15 @@ export function ReaderView({
             readerMode === "spread" ? "max-w-[1600px] pb-6 pt-20" : "max-w-[1360px] pb-24 pt-24",
           )}
         >
+          {interactionMode === "versus" && (
+            <div className="absolute inset-x-6 top-16 h-8 md:inset-x-10">
+              <div className="absolute inset-x-0 top-1/2 h-px -translate-y-1/2 bg-white/10" />
+              <div
+                className="absolute top-1/2 h-2 w-2 -translate-y-1/2 rounded-full bg-[var(--accent)] shadow-[0_0_18px_var(--accent)] transition-all duration-100"
+                style={{ left: `calc(${(botCursorIndex / normalizedText.length) * 100}% - 4px)` }}
+              />
+            </div>
+          )}
           {loadingBook && <p className="mb-4 text-sm text-[var(--text-muted)]">Loading book…</p>}
 
           {readerMode === "scroll" ? (

@@ -1,8 +1,8 @@
 export type BookFormat = "epub" | "md" | "txt";
 export type ReaderMode = "scroll" | "spread";
-export type InteractionMode = "type" | "read";
+export type InteractionMode = "type" | "read" | "versus";
 export type SessionSource = "book" | "type-test" | "versus";
-export type ActiveTab = "library" | "reader" | "analytics" | "achievements" | "type-test" | "versus";
+export type ActiveTab = "library" | "reader" | "analytics" | "achievements" | "type-test";
 export type KeyboardLayoutId = "qwerty-us" | "colemak" | "dvorak" | "custom";
 export type ThemeName =
   | "catppuccin-macchiato"
