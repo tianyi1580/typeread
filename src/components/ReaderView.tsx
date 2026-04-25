@@ -415,6 +415,7 @@ export function ReaderView({
                 <TypingLayer
                   tokens={tokens}
                   snapshot={snapshot}
+                  chapterText={normalizedText}
                   className="tracking-[0.01em]"
                   compareOptions={{ ignoreQuotationMarks: settings.ignoreQuotationMarks }}
                 />
