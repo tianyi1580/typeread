@@ -440,12 +440,14 @@ export function finalizeMetrics(
       if (!firstAttempts.has(event.cursorIndex)) {
         firstAttempts.set(event.cursorIndex, !!event.isCorrect);
       }
+      if (event.isCorrect) {
+        correctChars += 1;
+      }
     }
     
     if (!event.skippedWord && event.typedChars !== undefined) {
       typedWords += 1;
       typedChars += event.typedChars;
-      correctChars += event.correctChars ?? 0;
       errors += event.errors ?? 0;
     }
   }
@@ -456,7 +458,8 @@ export function finalizeMetrics(
 
   const durationSeconds = Math.max(1, Math.round((effectiveEnd - startTime) / 1000));
   const minutes = durationSeconds / 60;
-  const wpm = minutes <= 0 ? 0 : correctChars / 5 / minutes;
+  const rawWpm = minutes <= 0 ? 0 : correctChars / 5 / minutes;
+  const wpm = Math.min(rawWpm, 350);
 
   return {
     wordsTyped: typedWords,

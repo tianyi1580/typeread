@@ -314,7 +314,12 @@ export function AnalyticsView({
               <tbody className="divide-y divide-[var(--border)]">
                 {analytics.sessionPoints.slice(0, 10).map((session) => (
                   <tr key={session.id} className="group transition-colors hover:bg-white/5">
-                    <td className="px-6 py-4 text-sm tabular-nums">{new Date(session.startTime).toLocaleDateString()}</td>
+                    <td className="px-6 py-4 text-sm tabular-nums">
+                      {(() => {
+                        const date = new Date(session.startTime);
+                        return isNaN(date.getTime()) ? "Invalid Date" : date.toLocaleDateString();
+                      })()}
+                    </td>
                     <td className="px-6 py-4 text-sm font-medium text-[var(--text-muted)] group-hover:text-[var(--text)]">{session.title}</td>
                     <td className="px-6 py-4 text-xs font-bold uppercase tracking-widest text-[var(--accent)] opacity-70">{session.source}</td>
                     <td className="px-6 py-4 text-sm font-semibold tabular-nums">{session.wpm.toFixed(1)}</td>

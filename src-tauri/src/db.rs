@@ -183,6 +183,7 @@ impl Database {
         .context("failed to initialize database schema")?;
 
         self.ensure_columns(&conn)?;
+        self.cleanup_corrupted_data(&conn)?;
 
         conn.execute(
             r#"
@@ -373,6 +374,27 @@ impl Database {
         ensure_column(conn, "profile_progress", "streak_days", "INTEGER NOT NULL DEFAULT 0")?;
         ensure_column(conn, "profile_progress", "last_active_day", "TEXT")?;
         ensure_column(conn, "profile_progress", "rested_words_available", "INTEGER NOT NULL DEFAULT 500")?;
+
+        Ok(())
+    }
+
+    fn cleanup_corrupted_data(&self, conn: &Connection) -> Result<()> {
+        // Fix for "shifted columns" bug where timestamps leaked into source/label columns
+        // and numbers leaked into start_time. We identify these by checking the length 
+        // of start_time (ISO strings are ~24 chars, corrupted ones are small integers).
+        let count: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM typing_sessions WHERE length(start_time) < 10",
+            [],
+            |r| r.get(0)
+        )?;
+
+        if count > 0 {
+            println!("Cleaning up {} corrupted typing sessions...", count);
+            conn.execute(
+                "DELETE FROM typing_sessions WHERE length(start_time) < 10",
+                []
+            )?;
+        }
 
         Ok(())
     }
@@ -811,7 +833,13 @@ impl Database {
                     WHEN typing_sessions.source = 'book' THEN COALESCE(books.title, typing_sessions.source_label)
                     ELSE typing_sessions.source_label
                 END AS title,
-                typing_sessions.source,
+                CASE
+                    WHEN typing_sessions.source = 'type-test' THEN 'Type Test'
+                    WHEN typing_sessions.source = 'versus' THEN 'Versus Mode'
+                    WHEN typing_sessions.source = 'book' THEN 'Reader'
+                    WHEN typing_sessions.source LIKE '202%' THEN 'Recovered'
+                    ELSE typing_sessions.source
+                END AS source,
                 typing_sessions.start_time,
                 typing_sessions.end_time,
                 CAST(typing_sessions.duration_seconds AS INTEGER),
