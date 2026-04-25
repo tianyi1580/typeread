@@ -1,8 +1,8 @@
 import { create } from "zustand";
-import type { AnalyticsSummary, AppSettings, BookRecord, InteractionMode, ParsedBook, ReaderMode } from "../types";
+import type { ActiveTab, AnalyticsSummary, AppSettings, BookRecord, InteractionMode, ParsedBook, ReaderMode } from "../types";
 
 interface AppState {
-  activeTab: "library" | "reader" | "analytics";
+  activeTab: ActiveTab;
   books: BookRecord[];
   currentBook: ParsedBook | null;
   selectedBookId: number | null;
@@ -34,6 +34,12 @@ export const defaultSettings: AppSettings = {
   enterToSkip: true,
   ignoredCharacters: `"\"", "'", "“", "”", "‘", "’"`,
   focusMode: true,
+  keyboardLayout: "qwerty-us",
+  customKeyboardLayout: "",
+  smoothCaret: false,
+  typeTestDuration: 60,
+  versusBotCpm: 300,
+  errorColor: "#ed8796",
 };
 
 export const useAppStore = create<AppState>((set) => ({

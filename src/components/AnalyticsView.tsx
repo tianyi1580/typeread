@@ -1,30 +1,53 @@
 import { useMemo, useState } from "react";
+import { resolveKeyboardLayout } from "../lib/keyboard-layouts";
 import { formatDuration } from "../lib/utils";
+import type { AnalyticsSummary, AppSettings, ConfusionPair, KeyboardLayoutDefinition, TransitionStat, WpmSample } from "../types";
 import { Card } from "./ui/card";
-import { cn } from "../lib/utils";
-import type { AnalyticsSummary, DailyMetric, SessionPoint } from "../types";
+import { InfoTooltip, InfoIcon } from "./ui/InfoTooltip";
 
-type MetricMode = "wpm" | "accuracy";
-type RangeMode = "30" | "90" | "365" | "all";
-type SortField = "date" | "title" | "duration" | "wpm";
+const SECTION_DESCRIPTIONS = {
+  profile: "Overview of your current rank, level, and XP progression. Reflects your overall journey and dedication.",
+  graph: "Visualizes your speed evolution over time. It uses a rolling average to smooth out session-to-session volatility, showing your true growth curve.",
+  quality: "Measures the 'health' of your typing session. High scores indicate consistent rhythm and focus, while Cadence CV measures variation in your stroke timing.",
+  heatmap: "Identifies which keys you tend to drift from. The lines show 'directional drift'—where your fingers are landing vs. where they should be.",
+  lifetime: "Aggregated statistics across all your typing history, including total volume, accuracy, and time spent practicing.",
+  transitions: "Granular breakdown of your fastest and slowest character pairings. The Drill List highlights combinations with high error rates that need focused practice.",
+  recent: "A chronological log of your latest typing sessions, showing immediate performance metrics and XP gains.",
+  vectors: "A graphical representation of your finger drift. The blue pulse is the target key; red dots show where your fingers actually landed.",
+  misses: "A ranked list of your most frequent character substitutions, helping you identify recurring physical errors.",
+  fastest: "Your top performing character transitions by speed, reflecting your most fluid muscle memory.",
+  slowest: "Transitions where your fingers hesitate the most, often indicating awkward reaches or unfamiliar patterns.",
+  drills: "Pairings with high error rates. These combinations would benefit the most from focused repetition.",
+};
 
-export function AnalyticsView({ analytics }: { analytics: AnalyticsSummary | null }) {
-  const [metricMode, setMetricMode] = useState<MetricMode>("wpm");
-  const [rangeMode, setRangeMode] = useState<RangeMode>("90");
-  const [sortField, setSortField] = useState<SortField>("date");
+const METRIC_DESCRIPTIONS: Record<string, string> = {
+  "Total XP": "Total experience points earned by completing typing sessions and challenges.",
+  "Streak": "Number of consecutive days you have logged a typing session.",
+  "Rested Buffer": "Bonus XP multiplier applied to your next words. This refreshes over time when you are not typing.",
+  "Sessions": "Total number of individual typing sessions completed.",
+  "Rhythm Score": "A measure of how consistent your inter-character timing is. High scores mean steady, predictable typing.",
+  "Focus Score": "Measures your ability to maintain speed without sudden pauses or corrections.",
+  "Cadence CV": "Coefficient of Variation for your typing rhythm. Lower values mean more stable and professional typing cadence.",
+  "Active Typing": "The actual time spent with fingers on keys, excluding pauses and navigation.",
+  "Average WPM": "Your mean Words Per Minute across all recorded sessions.",
+  "Average Accuracy": "Percentage of characters typed correctly on the first attempt across your lifetime.",
+  "Words Typed": "Total count of words processed by the typing engine.",
+  "Time Typed": "Cumulative time spent in active typing sessions.",
+};
 
-  const filteredHistory = useMemo(() => filterHistory(analytics?.history ?? [], rangeMode), [analytics?.history, rangeMode]);
-  const recentSessions = useMemo(() => {
-    const points = [...(analytics?.sessionPoints ?? [])];
-    points.sort((left, right) => new Date(right.startTime).getTime() - new Date(left.startTime).getTime());
-    return points.slice(0, 5);
-  }, [analytics?.sessionPoints]);
+export function AnalyticsView({
+  analytics,
+  settings,
+}: {
+  analytics: AnalyticsSummary | null;
+  settings: AppSettings | null;
+}) {
+  const [selectedKey, setSelectedKey] = useState<string | null>(null);
 
-  const sortedLedger = useMemo(() => {
-    const points = [...recentSessions];
-    points.sort((left, right) => compareSessions(left, right, sortField));
-    return points;
-  }, [recentSessions, sortField]);
+  const layout = useMemo(
+    () => (settings ? resolveKeyboardLayout(settings) : { id: "qwerty-us", name: "QWERTY (US)", rows: ["1234567890-=", "qwertyuiop[]\\", "asdfghjkl;'", "zxcvbnm,./"] }),
+    [settings],
+  );
 
   if (!analytics) {
     return (
@@ -34,105 +57,177 @@ export function AnalyticsView({ analytics }: { analytics: AnalyticsSummary | nul
     );
   }
 
+  const activeKey = selectedKey ?? analytics.aggregateConfusions[0]?.expected ?? null;
+  const selectedDrifts = activeKey
+    ? analytics.aggregateConfusions.filter((pair) => pair.expected === activeKey).sort((left, right) => right.count - left.count).slice(0, 8)
+    : [];
+
   return (
-    <div className="space-y-5">
-      <Card className="p-6">
-        <p className="text-xs uppercase tracking-[0.28em] text-[var(--text-muted)]">Profile & Analytics</p>
-        <div className="mt-6 grid gap-6 lg:grid-cols-5">
-          <HeroMetric label="All-Time Average WPM" value={analytics.averageWpm.toFixed(1)} />
-          <HeroMetric label="Global Accuracy" value={`${analytics.averageAccuracy.toFixed(1)}%`} />
-          <HeroMetric label="Total Hours Typed" value={(analytics.totalTimeSeconds / 3600).toFixed(1)} />
-          <HeroMetric label="Total Words Typed" value={analytics.totalWordsTyped.toLocaleString()} />
-          <HeroMetric label="Total Characters Typed" value={analytics.totalCharsTyped.toLocaleString()} />
+    <div className="space-y-6 pb-12">
+      {/* 1. Profile Section */}
+      <Card className="relative overflow-hidden border-none bg-gradient-to-br from-[rgba(138,173,244,0.15)] to-transparent p-8 shadow-2xl">
+        <div className="absolute -right-20 -top-20 h-64 w-64 rounded-full bg-[var(--accent)] opacity-5 blur-[100px]" />
+        
+        <div className="grid gap-8 lg:grid-cols-[minmax(0,1.2fr)_minmax(320px,0.8fr)]">
+          <div>
+            <div className="flex items-center gap-3">
+              <p className="text-xs uppercase tracking-[0.3em] text-[var(--text-muted)]">Profile</p>
+              <InfoTooltip content={SECTION_DESCRIPTIONS.profile} trigger="click">
+                <InfoIcon className="h-3.5 w-3.5" />
+              </InfoTooltip>
+            </div>
+            <h1 className="mt-4 text-5xl font-bold tracking-tight">
+              Level {analytics.profile.level} <span className="text-[var(--accent)]">·</span> {analytics.profile.title}
+            </h1>
+            <p className="mt-6 max-w-2xl text-base leading-relaxed text-[var(--text-muted)]">
+              Your typing journey is distilled into these metrics. Focus on reducing <span className="text-[var(--text)]">cadence drift</span> and smoothing out <span className="text-[var(--text)]">slow transitions</span> to reach the next tier.
+            </p>
+            <div className="mt-8">
+              <div className="flex items-center justify-between text-xs font-medium uppercase tracking-wider text-[var(--text-muted)]">
+                <span>Progress to Level {analytics.profile.level + 1}</span>
+                <span>{Math.round(analytics.profile.progressToNextLevel * 100)}%</span>
+              </div>
+              <div className="mt-3 h-4 overflow-hidden rounded-full bg-black/20 p-1">
+                <div
+                  className="h-full rounded-full bg-gradient-to-r from-[var(--accent)] to-[#b8d0ff] shadow-[0_0_15px_rgba(138,173,244,0.4)] transition-all duration-1000"
+                  style={{ width: `${analytics.profile.progressToNextLevel * 100}%` }}
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <HeroMetric label="Total XP" value={analytics.profile.totalXp.toLocaleString()} />
+            <HeroMetric label="Streak" value={`${analytics.profile.streakDays}d`} />
+            <HeroMetric label="Rested Buffer" value={`${analytics.profile.restedWordsAvailable.toLocaleString()} words`} />
+            <HeroMetric label="Sessions" value={analytics.sessions.toLocaleString()} />
+          </div>
         </div>
       </Card>
 
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,1.4fr)_minmax(320px,0.8fr)]">
-        <Card className="p-6">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-            <div>
-              <p className="text-xs uppercase tracking-[0.28em] text-[var(--text-muted)]">Trendline</p>
-              <h2 className="mt-3 text-2xl font-semibold">{metricMode === "wpm" ? "Speed over time" : "Accuracy over time"}</h2>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <SegmentedControl
-                value={metricMode}
-                options={[
-                  { value: "wpm", label: "WPM" },
-                  { value: "accuracy", label: "Accuracy" },
-                ]}
-                onChange={(value) => setMetricMode(value as MetricMode)}
-              />
-              <SegmentedControl
-                value={rangeMode}
-                options={[
-                  { value: "30", label: "30d" },
-                  { value: "90", label: "90d" },
-                  { value: "365", label: "365d" },
-                  { value: "all", label: "All" },
-                ]}
-                onChange={(value) => setRangeMode(value as RangeMode)}
-              />
-            </div>
+      {/* 2. Lifetime Totals (Moved & Horizontal) */}
+      <Card className="p-8">
+        <div className="flex items-center gap-3">
+          <p className="text-xs uppercase tracking-[0.3em] text-[var(--text-muted)]">Lifetime Totals</p>
+          <InfoTooltip content={SECTION_DESCRIPTIONS.lifetime} trigger="click">
+            <InfoIcon className="h-3.5 w-3.5" />
+          </InfoTooltip>
+        </div>
+        <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <HeroMetric label="Average WPM" value={analytics.averageWpm.toFixed(1)} />
+          <HeroMetric label="Average Accuracy" value={`${analytics.averageAccuracy.toFixed(1)}%`} />
+          <HeroMetric label="Words Typed" value={analytics.totalWordsTyped.toLocaleString()} />
+          <HeroMetric label="Time Typed" value={formatDuration(analytics.totalTimeSeconds)} />
+        </div>
+      </Card>
+
+      {/* 3. Hero Graph / Session Quality */}
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1.25fr)_minmax(320px,0.75fr)]">
+        <Card className="p-8">
+          <div className="flex items-center gap-3">
+            <p className="text-xs uppercase tracking-[0.3em] text-[var(--text-muted)]">Hero Graph</p>
+            <InfoTooltip content={SECTION_DESCRIPTIONS.graph} trigger="click">
+              <InfoIcon className="h-3.5 w-3.5" />
+            </InfoTooltip>
           </div>
-          <div className="mt-6">
-            <TrendChart history={filteredHistory} metricMode={metricMode} />
+          <h2 className="mt-3 text-3xl font-bold">Rolling WPM progression</h2>
+          <div className="mt-8">
+            <SessionGraph points={analytics.latestDeepAnalytics?.macroWpm ?? []} />
           </div>
         </Card>
 
-        <Card className="p-6">
-          <p className="text-xs uppercase tracking-[0.28em] text-[var(--text-muted)]">Accuracy vs Speed</p>
-          <h2 className="mt-3 text-2xl font-semibold">Where speed starts to tax precision</h2>
-          <div className="mt-6">
-            <ScatterChart points={analytics.sessionPoints} />
+        <Card className="p-8">
+          <div className="flex items-center gap-3">
+            <p className="text-xs uppercase tracking-[0.3em] text-[var(--text-muted)]">Session Quality</p>
+            <InfoTooltip content={SECTION_DESCRIPTIONS.quality} trigger="click">
+              <InfoIcon className="h-3.5 w-3.5" />
+            </InfoTooltip>
+          </div>
+          <div className="mt-8 grid gap-4">
+            <HeroMetric label="Rhythm Score" value={`${(analytics.latestDeepAnalytics?.rhythmScore ?? 0).toFixed(0)}%`} />
+            <HeroMetric label="Focus Score" value={`${(analytics.latestDeepAnalytics?.focusScore ?? 0).toFixed(0)}%`} />
+            <HeroMetric label="Cadence CV" value={(analytics.latestDeepAnalytics?.cadenceCv ?? 0).toFixed(2)} />
+            <HeroMetric
+              label="Active Typing"
+              value={formatDuration(analytics.latestDeepAnalytics?.activeTypingSeconds ?? 0)}
+            />
           </div>
         </Card>
       </div>
 
-      <Card className="p-6">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+      {/* 4. Keyboard Heatmap (Full Width) */}
+      <Card className="p-8">
+        <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
-            <p className="text-xs uppercase tracking-[0.28em] text-[var(--text-muted)]">Session Ledger</p>
-            <h2 className="mt-3 text-2xl font-semibold">Latest five sessions</h2>
+            <div className="flex items-center gap-3">
+              <p className="text-xs uppercase tracking-[0.3em] text-[var(--text-muted)]">Keyboard Heatmap</p>
+              <InfoTooltip content={SECTION_DESCRIPTIONS.heatmap} trigger="click">
+                <InfoIcon className="h-3.5 w-3.5" />
+              </InfoTooltip>
+            </div>
+            <h2 className="mt-3 text-3xl font-bold">Directional drift by key</h2>
           </div>
-          <SegmentedControl
-            value={sortField}
-            options={[
-              { value: "date", label: "Date" },
-              { value: "title", label: "Book" },
-              { value: "duration", label: "Duration" },
-              { value: "wpm", label: "WPM" },
-            ]}
-            onChange={(value) => setSortField(value as SortField)}
-          />
+          <div className="rounded-full border border-[var(--border)] bg-white/5 px-5 py-2 text-xs font-semibold tracking-wide text-[var(--text-muted)] backdrop-blur-md">
+            {layout.name}
+          </div>
         </div>
+        <div className="mt-10 grid gap-10 xl:grid-cols-[minmax(0,1fr)_340px]">
+          <div className="flex items-center justify-center rounded-[32px] border border-[var(--border)] bg-black/20 p-8 shadow-inner overflow-x-auto">
+            <KeyboardHeatmap
+              layout={layout}
+              confusions={analytics.aggregateConfusions}
+              selectedKey={activeKey}
+              onSelectKey={setSelectedKey}
+            />
+          </div>
+          <DirectionalPanel layout={layout} selectedKey={activeKey} drifts={selectedDrifts} />
+        </div>
+      </Card>
 
-        <div className="mt-6 overflow-hidden rounded-[24px] border border-[var(--border)]">
+      {/* 5. Transition Tables */}
+      <Card className="p-8">
+        <div className="flex items-center gap-3">
+          <p className="text-xs uppercase tracking-[0.3em] text-[var(--text-muted)]">Transition Tables</p>
+          <InfoTooltip content={SECTION_DESCRIPTIONS.transitions} trigger="click">
+            <InfoIcon className="h-3.5 w-3.5" />
+          </InfoTooltip>
+        </div>
+        <div className="mt-8 grid gap-6 lg:grid-cols-3">
+          <TransitionTable title="Fastest" rows={analytics.aggregateTransitions.fastest} description={SECTION_DESCRIPTIONS.fastest} />
+          <TransitionTable title="Slowest" rows={analytics.aggregateTransitions.slowest} description={SECTION_DESCRIPTIONS.slowest} />
+          <TransitionTable title="Drill List" rows={analytics.aggregateTransitions.errorProne} showErrorRate description={SECTION_DESCRIPTIONS.drills} />
+        </div>
+      </Card>
+
+      {/* 6. Recent Sessions */}
+      <Card className="p-8">
+        <div className="flex items-center gap-3">
+          <p className="text-xs uppercase tracking-[0.3em] text-[var(--text-muted)]">Recent Sessions</p>
+          <InfoTooltip content={SECTION_DESCRIPTIONS.recent} trigger="click">
+            <InfoIcon className="h-3.5 w-3.5" />
+          </InfoTooltip>
+        </div>
+        <div className="mt-8 overflow-hidden rounded-[24px] border border-[var(--border)] bg-black/10">
           <table className="w-full border-collapse text-left">
             <thead className="bg-[var(--panel-soft)] text-xs uppercase tracking-[0.22em] text-[var(--text-muted)]">
               <tr>
-                <th className="px-4 py-3 font-medium">Date</th>
-                <th className="px-4 py-3 font-medium">Book</th>
-                <th className="px-4 py-3 font-medium">Duration</th>
-                <th className="px-4 py-3 font-medium">Session WPM</th>
+                <th className="px-6 py-4 font-semibold">Date</th>
+                <th className="px-6 py-4 font-semibold">Title</th>
+                <th className="px-6 py-4 font-semibold">Mode</th>
+                <th className="px-6 py-4 font-semibold">WPM</th>
+                <th className="px-6 py-4 font-semibold">XP</th>
               </tr>
             </thead>
-            <tbody>
-              {sortedLedger.map((session) => (
-                <tr key={session.id} className="border-t border-[var(--border)]">
-                  <td className="px-4 py-3 text-sm">{formatDate(session.startTime)}</td>
-                  <td className="px-4 py-3 text-sm text-[var(--text-muted)]">{session.bookTitle}</td>
-                  <td className="px-4 py-3 text-sm text-[var(--text-muted)]">{formatDuration(session.durationSeconds)}</td>
-                  <td className="px-4 py-3 text-sm">{session.wpm.toFixed(1)}</td>
+            <tbody className="divide-y divide-[var(--border)]">
+              {analytics.sessionPoints.slice(0, 10).map((session) => (
+                <tr key={session.id} className="group transition-colors hover:bg-white/5">
+                  <td className="px-6 py-4 text-sm tabular-nums">{new Date(session.startTime).toLocaleDateString()}</td>
+                  <td className="px-6 py-4 text-sm font-medium text-[var(--text-muted)] group-hover:text-[var(--text)]">{session.title}</td>
+                  <td className="px-6 py-4 text-xs font-bold uppercase tracking-widest text-[var(--accent)] opacity-70">{session.source}</td>
+                  <td className="px-6 py-4 text-sm font-semibold tabular-nums">{session.wpm.toFixed(1)}</td>
+                  <td className="px-6 py-4 text-sm font-semibold tabular-nums text-[var(--success)]">+{session.xpGained.toLocaleString()}</td>
                 </tr>
               ))}
-              {sortedLedger.length === 0 && (
-                <tr>
-                  <td colSpan={4} className="px-4 py-8 text-center text-sm text-[var(--text-muted)]">
-                    No sessions yet.
-                  </td>
-                </tr>
-              )}
             </tbody>
           </table>
         </div>
@@ -142,376 +237,282 @@ export function AnalyticsView({ analytics }: { analytics: AnalyticsSummary | nul
 }
 
 function HeroMetric({ label, value }: { label: string; value: string }) {
+  const description = METRIC_DESCRIPTIONS[label] || "Description not available.";
+  
   return (
-    <div className="border-l border-[var(--border)] pl-4 first:border-l-0 first:pl-0">
-      <p className="text-[10px] uppercase tracking-[0.28em] text-[var(--text-muted)]">{label}</p>
-      <p className="mt-4 text-4xl font-semibold">{value}</p>
+    <InfoTooltip content={description} trigger="hover" maxWidth="280px" className="w-full">
+      <div className="group relative w-full cursor-help overflow-hidden rounded-[24px] border border-[var(--border)] bg-white/5 px-6 py-6 transition-all hover:border-[var(--accent)] hover:bg-white/10">
+        <div className="absolute -right-4 -top-4 h-12 w-12 rounded-full bg-[var(--accent)] opacity-0 blur-xl transition-opacity group-hover:opacity-20" />
+        <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-[var(--text-muted)] group-hover:text-[var(--accent)] transition-colors">
+          {label}
+        </p>
+        <p className="mt-4 text-3xl font-bold tracking-tight">{value}</p>
+      </div>
+    </InfoTooltip>
+  );
+}
+
+function SessionGraph({ points }: { points: WpmSample[] }) {
+  const width = 920;
+  const height = 320;
+  const padding = { top: 20, right: 20, bottom: 36, left: 52 };
+
+  if (points.length === 0) {
+    return <div className="flex h-[320px] items-center justify-center text-sm font-medium text-[var(--text-muted)]">No session curve yet.</div>;
+  }
+
+  const minAt = points[0]?.at ?? 0;
+  const maxAt = points[points.length - 1]?.at ?? minAt + 1;
+  const values = points.map((point) => point.value);
+  const minValue = Math.min(...values, 0);
+  const maxValue = Math.max(...values, 80);
+  const chartPoints = points.map((point) => ({
+    x: padding.left + ((point.at - minAt) / Math.max(maxAt - minAt, 1)) * (width - padding.left - padding.right),
+    y:
+      height -
+      padding.bottom -
+      ((point.value - minValue) / Math.max(maxValue - minValue, 1)) * (height - padding.top - padding.bottom),
+  }));
+
+  return (
+    <div className="relative">
+      <svg viewBox={`0 0 ${width} ${height}`} className="h-[320px] w-full">
+        <defs>
+          <linearGradient id="lineGradient" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%" stopColor="var(--accent)" />
+            <stop offset="100%" stopColor="#b8d0ff" />
+          </linearGradient>
+        </defs>
+        {[0, 0.25, 0.5, 0.75, 1].map((ratio) => {
+          const y = padding.top + ratio * (height - padding.top - padding.bottom);
+          return (
+            <line
+              key={ratio}
+              x1={padding.left}
+              x2={width - padding.right}
+              y1={y}
+              y2={y}
+              stroke="var(--border)"
+              strokeDasharray="5 8"
+              strokeWidth="1"
+            />
+          );
+        })}
+        <polyline
+          fill="none"
+          stroke="url(#lineGradient)"
+          strokeWidth="4"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          points={chartPoints.map((point) => `${point.x},${point.y}`).join(" ")}
+          className="drop-shadow-[0_0_8px_rgba(138,173,244,0.4)]"
+        />
+      </svg>
     </div>
   );
 }
 
-function SegmentedControl({
-  value,
-  options,
-  onChange,
+function KeyboardHeatmap({
+  layout,
+  confusions,
+  selectedKey,
+  onSelectKey,
 }: {
-  value: string;
-  options: Array<{ value: string; label: string }>;
-  onChange: (value: string) => void;
+  layout: KeyboardLayoutDefinition;
+  confusions: ConfusionPair[];
+  selectedKey: string | null;
+  onSelectKey: (key: string) => void;
 }) {
+  const counts = new Map<string, number>();
+  for (const pair of confusions) {
+    counts.set(pair.expected, (counts.get(pair.expected) ?? 0) + pair.count);
+  }
+  const peak = Math.max(...counts.values(), 1);
+  const offsets = [0, 25, 42, 60];
+
   return (
-    <div className="inline-flex rounded-full border border-[var(--border)] bg-[var(--panel-soft)] p-1">
-      {options.map((option) => (
-        <button
-          key={option.value}
-          type="button"
-          onClick={() => onChange(option.value)}
-          className={cn(
-            "rounded-full px-4 py-2 text-sm transition",
-            value === option.value ? "bg-[var(--accent)] text-black" : "text-[var(--text-muted)] hover:text-[var(--text)]",
-          )}
-        >
-          {option.label}
-        </button>
+    <div className="flex flex-col gap-4">
+      {layout.rows.map((row, rowIndex) => (
+        <div key={`${row}-${rowIndex}`} className="flex gap-3" style={{ paddingLeft: `${offsets[rowIndex] ?? 0}px` }}>
+          {[...row].map((key) => {
+            const count = counts.get(key) ?? 0;
+            const intensity = count / peak;
+            const isActive = selectedKey === key;
+            return (
+              <button
+                key={`${rowIndex}-${key}`}
+                type="button"
+                onClick={() => onSelectKey(key)}
+                className={`flex h-14 w-14 items-center justify-center rounded-[18px] border text-base font-bold transition-all duration-200 hover:scale-110 active:scale-95 ${
+                  isActive ? "z-10 border-[var(--accent)] text-[var(--text)] shadow-[0_0_20px_rgba(138,173,244,0.5)] scale-110" : "border-[var(--border)] text-[var(--text-muted)]"
+                }`}
+                style={{
+                  background: isActive 
+                    ? "var(--accent)" 
+                    : `color-mix(in srgb, var(--accent) ${Math.round(intensity * 70)}%, rgba(255,255,255,0.03))`,
+                  color: isActive ? "black" : undefined
+                }}
+              >
+                {key}
+              </button>
+            );
+          })}
+        </div>
       ))}
     </div>
   );
 }
 
-function TrendChart({ history, metricMode }: { history: DailyMetric[]; metricMode: MetricMode }) {
-  const [hoveredPoint, setHoveredPoint] = useState<{ x: number; y: number; label: string; value: string } | null>(null);
-  const width = 920;
-  const height = 320;
-  const padding = { top: 20, right: 20, bottom: 44, left: 56 };
-
-  if (history.length === 0) {
-    return <div className="flex h-[320px] items-center justify-center text-sm text-[var(--text-muted)]">No trend data yet.</div>;
-  }
-
-  const values = history.map((item) => (metricMode === "wpm" ? item.wpm : item.accuracy));
-  const max = Math.max(...values, metricMode === "wpm" ? 80 : 100);
-  const min = Math.min(...values, metricMode === "wpm" ? 0 : 85);
-  const ticks = buildTicks(min, max, 5, metricMode === "accuracy" ? 1 : 5);
-  const chartMin = ticks[0] ?? min;
-  const chartMax = ticks[ticks.length - 1] ?? max;
-  const range = Math.max(chartMax - chartMin, 1);
-
-  const chartPoints = history.map((item, index) => {
-    const value = metricMode === "wpm" ? item.wpm : item.accuracy;
-    const x =
-      padding.left +
-      (index / Math.max(history.length - 1, 1)) * (width - padding.left - padding.right);
-    const y =
-      height -
-      padding.bottom -
-      ((value - chartMin) / range) * (height - padding.top - padding.bottom);
-
-    return {
-      day: item.day,
-      value,
-      x,
-      y,
-    };
-  });
-
-  const points = chartPoints.map((point) => `${point.x},${point.y}`).join(" ");
-
-  return (
-    <div className="relative">
-      {hoveredPoint && <ChartTooltip point={hoveredPoint} width={width} height={height} />}
-      <svg viewBox={`0 0 ${width} ${height}`} className="h-[320px] w-full overflow-visible">
-        {ticks.map((tick) => {
-          const y =
-            height -
-            padding.bottom -
-            ((tick - chartMin) / range) * (height - padding.top - padding.bottom);
-          return (
-            <g key={tick}>
-              <line
-                x1={padding.left}
-                x2={width - padding.right}
-                y1={y}
-                y2={y}
-                stroke="var(--border)"
-                strokeDasharray="4 8"
-              />
-              <text x={padding.left - 10} y={y + 4} fill="var(--text-muted)" fontSize="12" textAnchor="end">
-                {formatAxisValue(tick, metricMode)}
-              </text>
-            </g>
-          );
-        })}
-        <line
-          x1={padding.left}
-          x2={padding.left}
-          y1={padding.top}
-          y2={height - padding.bottom}
-          stroke="var(--border)"
-        />
-        <line
-          x1={padding.left}
-          x2={width - padding.right}
-          y1={height - padding.bottom}
-          y2={height - padding.bottom}
-          stroke="var(--border)"
-        />
-
-        {points && (
-          <>
-            <defs>
-              <linearGradient id="trend-fill" x1="0" x2="0" y1="0" y2="1">
-                <stop offset="0%" stopColor="var(--accent)" stopOpacity="0.5" />
-                <stop offset="100%" stopColor="var(--accent)" stopOpacity="0" />
-              </linearGradient>
-            </defs>
-            <polyline fill="none" stroke="var(--accent)" strokeWidth="4" strokeLinejoin="round" strokeLinecap="round" points={points} />
-            <polygon
-              fill="url(#trend-fill)"
-              points={`${padding.left},${height - padding.bottom} ${points} ${width - padding.right},${height - padding.bottom}`}
-            />
-          </>
-        )}
-
-        {chartPoints.map((point) => (
-          <circle
-            key={point.day}
-            cx={point.x}
-            cy={point.y}
-            r="5"
-            fill="var(--panel)"
-            stroke="var(--accent)"
-            strokeWidth="2"
-            onMouseEnter={() =>
-              setHoveredPoint({
-                x: point.x,
-                y: point.y,
-                label: formatDate(`${point.day}T00:00:00Z`),
-                value: `${formatAxisValue(point.value, metricMode)} ${metricMode === "wpm" ? "WPM" : "% accuracy"}`,
-              })
-            }
-            onMouseLeave={() => setHoveredPoint(null)}
-          />
-        ))}
-
-        {pickXLabelIndexes(history.length).map((index) => {
-          const point = chartPoints[index];
-          if (!point) {
-            return null;
-          }
-
-          return (
-            <text
-              key={`${point.day}-label`}
-              x={point.x}
-              y={height - 14}
-              fill="var(--text-muted)"
-              fontSize="12"
-              textAnchor={index === 0 ? "start" : index === history.length - 1 ? "end" : "middle"}
-            >
-              {formatShortDay(point.day)}
-            </text>
-          );
-        })}
-      </svg>
-    </div>
-  );
-}
-
-function ScatterChart({ points }: { points: SessionPoint[] }) {
-  const [hoveredPoint, setHoveredPoint] = useState<{ x: number; y: number; label: string; value: string } | null>(null);
-  const width = 420;
-  const height = 320;
-  const padding = { top: 20, right: 20, bottom: 44, left: 52 };
-
-  if (points.length === 0) {
-    return <div className="flex h-[320px] items-center justify-center text-sm text-[var(--text-muted)]">No session points yet.</div>;
-  }
-
-  const maxWpm = Math.max(...points.map((point) => point.wpm), 80);
-  const minWpm = Math.min(...points.map((point) => point.wpm), 0);
-  const wpmTicks = buildTicks(minWpm, maxWpm, 5, 5);
-  const maxAccuracy = 100;
-  const minAccuracy = Math.max(Math.min(...points.map((point) => point.accuracy), 92), 80);
-  const accuracyTicks = buildTicks(minAccuracy, maxAccuracy, 5, 1);
-  const xMin = wpmTicks[0] ?? minWpm;
-  const xMax = wpmTicks[wpmTicks.length - 1] ?? maxWpm;
-  const yMin = accuracyTicks[0] ?? minAccuracy;
-  const yMax = accuracyTicks[accuracyTicks.length - 1] ?? maxAccuracy;
-
-  const chartPoints = points.map((point) => {
-    const x =
-      padding.left +
-      ((point.wpm - xMin) / Math.max(xMax - xMin, 1)) * (width - padding.left - padding.right);
-    const y =
-      height -
-      padding.bottom -
-      ((point.accuracy - yMin) / Math.max(yMax - yMin, 1)) * (height - padding.top - padding.bottom);
-    const radius = 4 + Math.min(point.durationSeconds / 900, 6);
-
-    return { point, x, y, radius };
-  });
-
-  return (
-    <div className="relative">
-      {hoveredPoint && <ChartTooltip point={hoveredPoint} width={width} height={height} />}
-      <svg viewBox={`0 0 ${width} ${height}`} className="h-[320px] w-full overflow-visible">
-        {accuracyTicks.map((tick) => {
-          const y =
-            height -
-            padding.bottom -
-            ((tick - yMin) / Math.max(yMax - yMin, 1)) * (height - padding.top - padding.bottom);
-          return (
-            <g key={`acc-${tick}`}>
-              <line x1={padding.left} x2={width - padding.right} y1={y} y2={y} stroke="var(--border)" strokeDasharray="4 8" />
-              <text x={padding.left - 10} y={y + 4} fill="var(--text-muted)" fontSize="12" textAnchor="end">
-                {tick.toFixed(0)}
-              </text>
-            </g>
-          );
-        })}
-
-        {wpmTicks.map((tick) => {
-          const x =
-            padding.left +
-            ((tick - xMin) / Math.max(xMax - xMin, 1)) * (width - padding.left - padding.right);
-          return (
-            <g key={`wpm-${tick}`}>
-              <line x1={x} x2={x} y1={padding.top} y2={height - padding.bottom} stroke="var(--border)" strokeDasharray="4 8" />
-              <text x={x} y={height - 14} fill="var(--text-muted)" fontSize="12" textAnchor="middle">
-                {tick.toFixed(0)}
-              </text>
-            </g>
-          );
-        })}
-
-        <line x1={padding.left} x2={padding.left} y1={padding.top} y2={height - padding.bottom} stroke="var(--border)" />
-        <line
-          x1={padding.left}
-          x2={width - padding.right}
-          y1={height - padding.bottom}
-          y2={height - padding.bottom}
-          stroke="var(--border)"
-        />
-
-        {chartPoints.map(({ point, x, y, radius }) => (
-          <circle
-            key={point.id}
-            cx={x}
-            cy={y}
-            r={radius}
-            fill="var(--success)"
-            fillOpacity="0.72"
-            onMouseEnter={() =>
-              setHoveredPoint({
-                x,
-                y,
-                label: `${point.bookTitle} • ${formatDate(point.startTime)}`,
-                value: `${point.wpm.toFixed(1)} WPM • ${point.accuracy.toFixed(1)}% accuracy`,
-              })
-            }
-            onMouseLeave={() => setHoveredPoint(null)}
-          />
-        ))}
-
-        <text x={padding.left} y={14} fill="var(--text-muted)" fontSize="12">
-          Accuracy (%)
-        </text>
-        <text x={width - padding.right} y={height - 14} fill="var(--text-muted)" fontSize="12" textAnchor="end">
-          WPM
-        </text>
-      </svg>
-    </div>
-  );
-}
-
-function filterHistory(history: DailyMetric[], rangeMode: RangeMode) {
-  if (rangeMode === "all") {
-    return history;
-  }
-
-  const days = Number(rangeMode);
-  const cutoff = new Date();
-  cutoff.setDate(cutoff.getDate() - days);
-  return history.filter((item) => new Date(`${item.day}T00:00:00`).getTime() >= cutoff.getTime());
-}
-
-function compareSessions(left: SessionPoint, right: SessionPoint, field: SortField) {
-  if (field === "date") {
-    return new Date(right.startTime).getTime() - new Date(left.startTime).getTime();
-  }
-  if (field === "title") {
-    return left.bookTitle.localeCompare(right.bookTitle);
-  }
-  if (field === "duration") {
-    return right.durationSeconds - left.durationSeconds;
-  }
-  return right.wpm - left.wpm;
-}
-
-function ChartTooltip({
-  point,
-  width,
-  height,
+function DirectionalPanel({
+  layout,
+  selectedKey,
+  drifts,
 }: {
-  point: { x: number; y: number; label: string; value: string };
-  width: number;
-  height: number;
+  layout: KeyboardLayoutDefinition;
+  selectedKey: string | null;
+  drifts: ConfusionPair[];
+}) {
+  const positions = useMemo(() => buildKeyPositions(layout), [layout]);
+  const selectedPosition = selectedKey ? positions.get(selectedKey) : null;
+
+  return (
+    <div className="space-y-5">
+      <div className="rounded-[32px] border border-[var(--border)] bg-white/5 p-6 backdrop-blur-sm">
+        <div className="flex items-center gap-2">
+          <p className="text-xs font-bold uppercase tracking-[0.24em] text-[var(--text-muted)]">Directional Vectors</p>
+          <InfoTooltip content={SECTION_DESCRIPTIONS.vectors} trigger="click">
+            <InfoIcon className="h-3 w-3" />
+          </InfoTooltip>
+        </div>
+        <div className="relative mt-6 flex h-[180px] items-center justify-center rounded-2xl bg-black/20 overflow-hidden">
+          <svg viewBox="0 0 220 160" className="h-full w-full">
+            {selectedPosition && (
+              <>
+                <circle cx={selectedPosition.x} cy={selectedPosition.y} r="10" fill="var(--accent)" className="animate-pulse" />
+                {drifts.map((drift) => {
+                  const target = positions.get(drift.typed);
+                  if (!target) return null;
+                  return (
+                    <g key={`${drift.expected}-${drift.typed}`}>
+                      <line
+                        x1={selectedPosition.x}
+                        y1={selectedPosition.y}
+                        x2={target.x}
+                        y2={target.y}
+                        stroke="var(--accent)"
+                        strokeWidth={Math.max(2, drift.count / 4)}
+                        opacity="0.6"
+                        strokeLinecap="round"
+                      />
+                      <circle cx={target.x} cy={target.y} r="5" fill="var(--danger)" />
+                    </g>
+                  );
+                })}
+              </>
+            )}
+          </svg>
+          {!selectedKey && (
+            <p className="absolute inset-0 flex items-center justify-center px-6 text-center text-xs font-medium leading-relaxed text-[var(--text-muted)] opacity-50">
+              Select a key from the heatmap to view drift vectors.
+            </p>
+          )}
+        </div>
+      </div>
+
+      <div className="rounded-[32px] border border-[var(--border)] bg-white/5 p-6 backdrop-blur-sm">
+        <div className="flex items-center gap-2">
+          <p className="text-xs font-bold uppercase tracking-[0.24em] text-[var(--text-muted)]">Top Misses</p>
+          <InfoTooltip content={SECTION_DESCRIPTIONS.misses} trigger="click">
+            <InfoIcon className="h-3 w-3" />
+          </InfoTooltip>
+        </div>
+        <div className="mt-6 space-y-3">
+          {Array.from({ length: 5 }).map((_, i) => {
+            const drift = selectedKey ? drifts[i] : null;
+            if (drift) {
+              return (
+                <div key={`${drift.expected}-${drift.typed}`} className="flex h-[48px] items-center justify-between rounded-[20px] border border-[var(--border)] bg-black/10 px-5 text-sm font-medium transition-all">
+                  <span className="flex items-center gap-2">
+                    <span className="text-[var(--text-muted)]">{drift.expected}</span>
+                    <span className="text-[var(--accent)]">→</span>
+                    <span>{drift.typed}</span>
+                  </span>
+                  <span className="rounded-full bg-[var(--danger)]/10 px-3 py-1 text-[10px] font-bold text-[var(--danger)] leading-none flex items-center h-6">
+                    {drift.count}
+                  </span>
+                </div>
+              );
+            }
+            return (
+              <div key={`empty-${i}`} className="flex h-[48px] items-center justify-between rounded-[20px] border border-[var(--border)] bg-black/5 px-5 text-sm font-medium opacity-30">
+                <span className="text-[var(--text-muted)] italic">
+                  {selectedKey ? "no drift recorded" : "select a key"}
+                </span>
+                <span className="text-[var(--text-muted)] opacity-50">—</span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function TransitionTable({
+  title,
+  rows,
+  showErrorRate = false,
+  description,
+}: {
+  title: string;
+  rows: TransitionStat[];
+  showErrorRate?: boolean;
+  description: string;
 }) {
   return (
-    <div
-      className="pointer-events-none absolute z-10 rounded-2xl border border-[var(--border)] bg-[color-mix(in_srgb,var(--panel)_92%,transparent)] px-3 py-2 text-xs shadow-panel backdrop-blur-xl"
-      style={{
-        left: `${(point.x / width) * 100}%`,
-        top: `${(point.y / height) * 100}%`,
-        transform: "translate(-50%, calc(-100% - 12px))",
-      }}
-    >
-      <div className="font-medium text-[var(--text)]">{point.value}</div>
-      <div className="mt-1 text-[var(--text-muted)]">{point.label}</div>
+    <div className="flex flex-col rounded-[32px] border border-[var(--border)] bg-white/5 p-6">
+      <div className="flex items-center gap-2">
+        <p className="text-sm font-bold uppercase tracking-widest text-[var(--text-muted)]">{title}</p>
+        <InfoTooltip content={description} trigger="click">
+          <InfoIcon className="h-3 w-3" />
+        </InfoTooltip>
+      </div>
+      <div className="mt-6 flex-1 space-y-3">
+        {rows.length > 0 ? (
+          rows.map((row) => (
+            <div key={row.combo} className="group flex items-center justify-between rounded-[20px] border border-[var(--border)] bg-black/10 px-5 py-4 transition-all hover:bg-white/5">
+              <div>
+                <span className="text-xl font-bold tracking-tighter text-[var(--text)]">{row.combo}</span>
+                <p className="mt-1 text-[10px] font-bold uppercase tracking-widest text-[var(--text-muted)]">{row.samples} samples</p>
+              </div>
+              <div className="text-right">
+                <span className={`text-sm font-bold tabular-nums ${showErrorRate ? (row.errorRate > 0.1 ? 'text-[var(--danger)]' : 'text-[var(--success)]') : 'text-[var(--accent)]'}`}>
+                  {showErrorRate ? `${Math.round(row.errorRate * 100)}%` : `${row.averageMs.toFixed(0)}ms`}
+                </span>
+                <p className="mt-1 text-[10px] font-bold uppercase tracking-widest text-[var(--text-muted)]">{showErrorRate ? 'Error Rate' : 'Average'}</p>
+              </div>
+            </div>
+          ))
+        ) : (
+          <div className="flex h-32 items-center justify-center text-xs font-medium text-[var(--text-muted)] opacity-50">
+            Awaiting more data...
+          </div>
+        )}
+      </div>
     </div>
   );
 }
 
-function buildTicks(min: number, max: number, count: number, stepFloor: number) {
-  const safeMin = Math.floor(Math.min(min, max));
-  const safeMax = Math.ceil(Math.max(min, max));
-  const range = Math.max(safeMax - safeMin, stepFloor);
-  const rawStep = Math.max(range / Math.max(count - 1, 1), stepFloor);
-  const step = Math.max(stepFloor, Math.ceil(rawStep / stepFloor) * stepFloor);
-  const start = Math.floor(safeMin / step) * step;
-  const end = Math.ceil(safeMax / step) * step;
-
-  const ticks: number[] = [];
-  for (let value = start; value <= end; value += step) {
-    ticks.push(value);
-  }
-
-  return ticks;
-}
-
-function formatAxisValue(value: number, metricMode: MetricMode) {
-  return metricMode === "wpm" ? value.toFixed(0) : value.toFixed(1);
-}
-
-function pickXLabelIndexes(length: number) {
-  if (length <= 1) {
-    return [0];
-  }
-  if (length === 2) {
-    return [0, 1];
-  }
-
-  return [0, Math.floor((length - 1) / 2), length - 1];
-}
-
-function formatShortDay(day: string) {
-  return new Date(`${day}T00:00:00Z`).toLocaleDateString(undefined, { month: "short", day: "numeric" });
-}
-
-function formatDate(value: string) {
-  return new Intl.DateTimeFormat(undefined, {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  }).format(new Date(value));
+function buildKeyPositions(layout: KeyboardLayoutDefinition) {
+  const positions = new Map<string, { x: number; y: number }>();
+  const offsets = [18, 36, 50, 64];
+  layout.rows.forEach((row, rowIndex) => {
+    [...row].forEach((key, keyIndex) => {
+      positions.set(key, {
+        x: 20 + (offsets[rowIndex] ?? 0) + keyIndex * 16,
+        y: 30 + rowIndex * 32,
+      });
+    });
+  });
+  return positions;
 }

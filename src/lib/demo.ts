@@ -1,4 +1,5 @@
 import type { AnalyticsSummary, AppSettings, ParsedBook } from "../types";
+import { buildProfileProgress } from "./progression";
 
 export const demoSettings: AppSettings = {
   theme: "sepia",
@@ -10,6 +11,12 @@ export const demoSettings: AppSettings = {
   enterToSkip: true,
   ignoredCharacters: `"\"", "'", "“", "”", "‘", "’"`,
   focusMode: true,
+  keyboardLayout: "qwerty-us",
+  customKeyboardLayout: "",
+  smoothCaret: false,
+  typeTestDuration: 60,
+  versusBotCpm: 300,
+  errorColor: "#aa3d2b",
 };
 
 const demoText = `Chapter One
@@ -78,7 +85,8 @@ export const demoAnalytics: AnalyticsSummary = {
     {
       id: 1,
       bookId: 1,
-      bookTitle: "TypeRead Spec Demo",
+      title: "TypeRead Spec Demo",
+      source: "book",
       startTime: "2026-04-24T13:15:00.000Z",
       endTime: "2026-04-24T13:42:00.000Z",
       durationSeconds: 1620,
@@ -86,11 +94,15 @@ export const demoAnalytics: AnalyticsSummary = {
       charsTyped: 9270,
       wpm: 68.1,
       accuracy: 97.4,
+      xpGained: 2878,
+      rhythmScore: 88,
+      focusScore: 92,
     },
     {
       id: 2,
       bookId: 1,
-      bookTitle: "TypeRead Spec Demo",
+      title: "TypeRead Spec Demo",
+      source: "book",
       startTime: "2026-04-23T20:04:00.000Z",
       endTime: "2026-04-23T20:26:00.000Z",
       durationSeconds: 1320,
@@ -98,11 +110,15 @@ export const demoAnalytics: AnalyticsSummary = {
       charsTyped: 6815,
       wpm: 60.1,
       accuracy: 95.9,
+      xpGained: 1904,
+      rhythmScore: 81,
+      focusScore: 89,
     },
     {
       id: 3,
       bookId: 1,
-      bookTitle: "TypeRead Spec Demo",
+      title: "TypeRead Spec Demo",
+      source: "book",
       startTime: "2026-04-22T17:20:00.000Z",
       endTime: "2026-04-22T17:40:00.000Z",
       durationSeconds: 1200,
@@ -110,11 +126,15 @@ export const demoAnalytics: AnalyticsSummary = {
       charsTyped: 6120,
       wpm: 58.4,
       accuracy: 95.1,
+      xpGained: 1692,
+      rhythmScore: 78,
+      focusScore: 86,
     },
     {
       id: 4,
       bookId: 1,
-      bookTitle: "TypeRead Spec Demo",
+      title: "TypeRead Spec Demo",
+      source: "book",
       startTime: "2026-04-21T11:00:00.000Z",
       endTime: "2026-04-21T11:23:00.000Z",
       durationSeconds: 1380,
@@ -122,11 +142,15 @@ export const demoAnalytics: AnalyticsSummary = {
       charsTyped: 6450,
       wpm: 59.7,
       accuracy: 96.1,
+      xpGained: 1824,
+      rhythmScore: 82,
+      focusScore: 90,
     },
     {
       id: 5,
       bookId: 1,
-      bookTitle: "TypeRead Spec Demo",
+      title: "TypeRead Spec Demo",
+      source: "book",
       startTime: "2026-04-20T09:28:00.000Z",
       endTime: "2026-04-20T09:47:00.000Z",
       durationSeconds: 1140,
@@ -134,6 +158,71 @@ export const demoAnalytics: AnalyticsSummary = {
       charsTyped: 5180,
       wpm: 55.3,
       accuracy: 94.8,
+      xpGained: 980,
+      rhythmScore: 73,
+      focusScore: 84,
     },
   ],
+  profile: buildProfileProgress(42750, 6, 1200),
+  achievements: [
+    { key: "speed-30", earnedAt: "2026-04-18T10:00:00.000Z" },
+    { key: "speed-50", earnedAt: "2026-04-19T10:00:00.000Z" },
+    { key: "duration-5", earnedAt: "2026-04-20T10:00:00.000Z" },
+    { key: "words-1000", earnedAt: "2026-04-23T10:00:00.000Z" },
+    { key: "accuracy-100", earnedAt: "2026-04-24T10:00:00.000Z" },
+  ],
+  latestDeepAnalytics: {
+    macroWpm: Array.from({ length: 24 }, (_, index) => ({
+      at: 1713964500000 + index * 4000,
+      value: 44 + Math.sin(index / 3) * 7 + index,
+    })),
+    recentWpm: Array.from({ length: 12 }, (_, index) => ({
+      at: 1713964530000 + index * 2500,
+      value: 60 + Math.cos(index / 2) * 5,
+    })),
+    confusionPairs: [
+      { expected: "a", typed: "s", count: 18 },
+      { expected: "o", typed: "i", count: 11 },
+      { expected: "n", typed: "m", count: 9 },
+      { expected: "e", typed: "r", count: 7 },
+    ],
+    transitions: {
+      fastest: [
+        { combo: "th", samples: 22, averageMs: 118, deviationMs: 18, errorRate: 0.02 },
+        { combo: "st", samples: 18, averageMs: 124, deviationMs: 19, errorRate: 0.03 },
+      ],
+      slowest: [
+        { combo: "io", samples: 11, averageMs: 246, deviationMs: 34, errorRate: 0.09 },
+        { combo: "gn", samples: 9, averageMs: 238, deviationMs: 41, errorRate: 0.11 },
+      ],
+      errorProne: [
+        { combo: "ou", samples: 8, averageMs: 210, deviationMs: 36, errorRate: 0.18 },
+        { combo: "ea", samples: 12, averageMs: 202, deviationMs: 28, errorRate: 0.14 },
+      ],
+    },
+    rhythmScore: 88,
+    cadenceCv: 0.14,
+    focusScore: 92,
+    activeTypingSeconds: 1490,
+  },
+  aggregateConfusions: [
+    { expected: "a", typed: "s", count: 64 },
+    { expected: "o", typed: "i", count: 47 },
+    { expected: "e", typed: "r", count: 34 },
+    { expected: "n", typed: "m", count: 29 },
+  ],
+  aggregateTransitions: {
+    fastest: [
+      { combo: "th", samples: 122, averageMs: 116, deviationMs: 17, errorRate: 0.02 },
+      { combo: "st", samples: 98, averageMs: 124, deviationMs: 21, errorRate: 0.03 },
+    ],
+    slowest: [
+      { combo: "io", samples: 54, averageMs: 242, deviationMs: 35, errorRate: 0.08 },
+      { combo: "gn", samples: 41, averageMs: 238, deviationMs: 38, errorRate: 0.1 },
+    ],
+    errorProne: [
+      { combo: "ou", samples: 48, averageMs: 208, deviationMs: 29, errorRate: 0.17 },
+      { combo: "ea", samples: 53, averageMs: 198, deviationMs: 24, errorRate: 0.13 },
+    ],
+  },
 };

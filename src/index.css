@@ -70,3 +70,39 @@ textarea {
 .font-\[var\(--font-main\)\] {
   font-family: var(--font-main);
 }
+
+@keyframes animate-in {
+  from { opacity: 0; transform: translateY(10px) scale(0.95); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes zoom-in {
+  from { transform: scale(0.95); }
+  to { transform: scale(1); }
+}
+
+.animate-in {
+  animation: animate-in 0.2s ease-out forwards;
+}
+
+.fade-in {
+  animation: fade-in 0.2s ease-out forwards;
+}
+
+.zoom-in {
+  animation: zoom-in 0.2s ease-out forwards;
+}
+
+@keyframes tooltip-in {
+  from { opacity: 0; transform: translate(-50%, -95%) scale(0.95); }
+  to { opacity: 1; transform: translate(-50%, -100%) scale(1); }
+}
+
+.animate-tooltip-in {
+  animation: tooltip-in 0.15s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}

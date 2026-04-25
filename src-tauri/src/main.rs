@@ -1,13 +1,21 @@
+mod analytics;
 mod db;
 mod models;
 mod parser;
 
 use std::fs;
 use std::path::PathBuf;
+use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
 
 use anyhow::{Context, Result};
+use analytics::{FinalizedAnalytics, LiveSessionAnalytics};
 use db::Database;
-use models::{AnalyticsSummary, AppSettings, ParsedBook, TypingSessionInput};
+use models::{
+    AnalyticsSummary, AppSettings, DeepAnalytics, KeyboardLayoutDefinition, ParsedBook,
+    ProcessKeystrokeBatchInput, ProcessKeystrokeBatchResult, SessionContext, TransitionGroups,
+    TypingSessionInput,
+};
 use parser::parse_file;
 use tauri::Manager;
 
@@ -15,6 +23,7 @@ use tauri::Manager;
 struct AppState {
     db: Database,
     covers_dir: std::path::PathBuf,
+    live_sessions: Arc<Mutex<HashMap<String, LiveSessionAnalytics>>>,
 }
 
 #[tauri::command]
@@ -80,12 +89,81 @@ fn delete_book(book_id: i64, state: tauri::State<'_, AppState>) -> Result<(), St
 
 #[tauri::command]
 fn save_session(session: TypingSessionInput, state: tauri::State<'_, AppState>) -> Result<(), String> {
-    state.db.save_session(&session).map_err(to_message)
+    let fallback_context = SessionContext {
+        book_id: session.book_id,
+        source: session.source.clone(),
+        source_label: session.source_label.clone(),
+        keyboard_layout: KeyboardLayoutDefinition {
+            id: "qwerty-us".to_string(),
+            name: "QWERTY (US)".to_string(),
+            rows: vec![
+                "1234567890-=".to_string(),
+                "qwertyuiop[]\\".to_string(),
+                "asdfghjkl;'".to_string(),
+                "zxcvbnm,./".to_string(),
+            ],
+        },
+    };
+    let fallback_finalized = FinalizedAnalytics {
+        deep_analytics: DeepAnalytics {
+            macro_wpm: Vec::new(),
+            recent_wpm: Vec::new(),
+            confusion_pairs: Vec::new(),
+            transitions: TransitionGroups::default(),
+            rhythm_score: 0.0,
+            cadence_cv: 0.0,
+            focus_score: 100.0,
+            active_typing_seconds: session.duration_seconds,
+        },
+        transition_stats: Vec::new(),
+        endurance_segments: 0,
+    };
+    state
+        .db
+        .finalize_session(&session, &fallback_context, &fallback_finalized)
+        .map(|_| ())
+        .map_err(to_message)
 }
 
 #[tauri::command]
 fn get_analytics(state: tauri::State<'_, AppState>) -> Result<AnalyticsSummary, String> {
     state.db.analytics().map_err(to_message)
+}
+
+#[tauri::command]
+fn process_keystroke_batch(
+    payload: ProcessKeystrokeBatchInput,
+    state: tauri::State<'_, AppState>,
+) -> Result<ProcessKeystrokeBatchResult, String> {
+    let mut sessions = state
+        .live_sessions
+        .lock()
+        .map_err(|_| "failed to lock live analytics sessions".to_string())?;
+
+    let mut live = sessions
+        .remove(&payload.session_key)
+        .unwrap_or_else(|| LiveSessionAnalytics::new(payload.context.clone()));
+
+    let buffered_events = live.push_events(&payload.events);
+
+    if let Some(finalize_session) = payload.finalize_session {
+        drop(sessions);
+        let finalized = live.finalize(&finalize_session);
+        let saved = state
+            .db
+            .finalize_session(&finalize_session, &payload.context, &finalized)
+            .map_err(to_message)?;
+        return Ok(ProcessKeystrokeBatchResult {
+            buffered_events,
+            saved_session: Some(saved),
+        });
+    }
+
+    sessions.insert(payload.session_key, live);
+    Ok(ProcessKeystrokeBatchResult {
+        buffered_events,
+        saved_session: None,
+    })
 }
 
 #[tauri::command]
@@ -142,7 +220,11 @@ fn prepare_state(app: &tauri::AppHandle) -> Result<AppState> {
     fs::create_dir_all(&covers_dir).context("failed to create covers directory")?;
     let database_path = app_data_dir.join("typeread.sqlite");
     let db = Database::new(database_path)?;
-    Ok(AppState { db, covers_dir })
+    Ok(AppState {
+        db,
+        covers_dir,
+        live_sessions: Arc::new(Mutex::new(HashMap::new())),
+    })
 }
 
 fn to_message(error: anyhow::Error) -> String {
@@ -191,6 +273,7 @@ fn main() {
             set_book_pinned,
             delete_book,
             save_session,
+            process_keystroke_batch,
             get_analytics,
             get_settings,
             save_settings,

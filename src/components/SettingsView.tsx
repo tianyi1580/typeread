@@ -1,15 +1,17 @@
 import { type ReactNode, useMemo, useState } from "react";
+import { keyboardLayoutPresets } from "../lib/keyboard-layouts";
 import { Button } from "./ui/button";
 import { Card } from "./ui/card";
 import { themeMap } from "../theme";
 import { cn, clamp } from "../lib/utils";
-import type { AppSettings, AppFont, ReaderMode, ThemeName } from "../types";
+import type { AppSettings, AppFont, KeyboardLayoutId, ProfileProgress, ThemeName } from "../types";
 
 type SettingsSection = "appearance" | "reading" | "storage";
 
 interface SettingsViewProps {
   isOpen: boolean;
   settings: AppSettings;
+  profile: ProfileProgress | null;
   desktopReady: boolean;
   onClose: () => void;
   onChange: (settings: AppSettings) => void;
@@ -22,6 +24,7 @@ interface SettingsViewProps {
 export function SettingsView({
   isOpen,
   settings,
+  profile,
   desktopReady,
   onClose,
   onChange,
@@ -32,6 +35,14 @@ export function SettingsView({
 }: SettingsViewProps) {
   const [section, setSection] = useState<SettingsSection>("appearance");
   const themeEntries = useMemo(() => Object.entries(themeMap) as Array<[ThemeName, (typeof themeMap)[ThemeName]]>, []);
+  const unlocks = profile?.unlocks ?? {
+    draculaTheme: false,
+    nordTheme: false,
+    smoothCaret: false,
+    premiumTypography: false,
+    ghostPacer: false,
+    customErrorColors: false,
+  };
 
   if (!isOpen) {
     return null;
@@ -74,25 +85,32 @@ export function SettingsView({
               />
 
               <div className="grid gap-4 md:grid-cols-2">
-                {themeEntries.map(([key, theme]) => (
-                  <button
-                    key={key}
-                    type="button"
-                    onClick={() => onChange({ ...settings, theme: key })}
-                    className={cn(
-                      "rounded-[28px] border p-5 text-left transition hover:border-[var(--accent)]",
-                      settings.theme === key ? "border-[var(--accent)] bg-[var(--accent-soft)]" : "border-[var(--border)] bg-[var(--panel-soft)]",
-                    )}
-                  >
-                    <div className="grid grid-cols-4 gap-2">
-                      <span className="h-12 rounded-2xl" style={{ background: theme.background }} />
-                      <span className="h-12 rounded-2xl" style={{ background: theme.panel }} />
-                      <span className="h-12 rounded-2xl" style={{ background: theme.accent }} />
-                      <span className="h-12 rounded-2xl" style={{ background: theme.text }} />
-                    </div>
-                    <p className="mt-4 text-lg font-semibold">{theme.name}</p>
-                  </button>
-                ))}
+                {themeEntries.map(([key, theme]) => {
+                  const locked = (key === "dracula" && !unlocks.draculaTheme) || (key === "nord" && !unlocks.nordTheme);
+                  return (
+                    <button
+                      key={key}
+                      type="button"
+                      disabled={locked}
+                      onClick={() => onChange({ ...settings, theme: key })}
+                      className={cn(
+                        "rounded-[28px] border p-5 text-left transition hover:border-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-55",
+                        settings.theme === key ? "border-[var(--accent)] bg-[var(--accent-soft)]" : "border-[var(--border)] bg-[var(--panel-soft)]",
+                      )}
+                    >
+                      <div className="grid grid-cols-4 gap-2">
+                        <span className="h-12 rounded-2xl" style={{ background: theme.background }} />
+                        <span className="h-12 rounded-2xl" style={{ background: theme.panel }} />
+                        <span className="h-12 rounded-2xl" style={{ background: theme.accent }} />
+                        <span className="h-12 rounded-2xl" style={{ background: theme.text }} />
+                      </div>
+                      <div className="mt-4 flex items-center justify-between gap-3">
+                        <p className="text-lg font-semibold">{theme.name}</p>
+                        {locked && <span className="text-xs uppercase tracking-[0.18em] text-[var(--text-muted)]">Lvl 5</span>}
+                      </div>
+                    </button>
+                  );
+                })}
               </div>
 
               <div className="grid gap-6">
@@ -111,6 +129,8 @@ export function SettingsView({
                       value="fira-code"
                       active={settings.font === "fira-code"}
                       sample="Pack my box with five dozen liquor jugs."
+                      locked={!unlocks.premiumTypography}
+                      lockLabel="Lvl 15"
                       onClick={(font) => onChange({ ...settings, font })}
                     />
                     <FontPreviewCard
@@ -143,6 +163,28 @@ export function SettingsView({
                 format={(value) => value.toFixed(2)}
                 onChange={(value) => onChange({ ...settings, lineHeight: clamp(Number(value.toFixed(2)), 1.2, 2) })}
               />
+
+              <ToggleRow
+                label="Smooth Caret"
+                description="Unlocked at level 10. Keeps the caret motion less harsh during dense typing runs."
+                checked={settings.smoothCaret}
+                disabled={!unlocks.smoothCaret}
+                onChange={(checked) => onChange({ ...settings, smoothCaret: checked })}
+              />
+
+              <label className="space-y-3">
+                <span className="text-xs uppercase tracking-[0.28em] text-[var(--text-muted)]">Error Highlight Color</span>
+                <input
+                  type="text"
+                  value={settings.errorColor}
+                  disabled={!unlocks.customErrorColors}
+                  onChange={(event) => onChange({ ...settings, errorColor: event.target.value })}
+                  className="w-full rounded-[22px] border border-[var(--border)] bg-[var(--panel-soft)] px-4 py-3 outline-none transition focus:border-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-55"
+                />
+                {!unlocks.customErrorColors && (
+                  <p className="text-sm text-[var(--text-muted)]">Unlocks at level 50.</p>
+                )}
+              </label>
             </div>
           )}
 
@@ -172,6 +214,34 @@ export function SettingsView({
                 onChange={(checked) => onChange({ ...settings, enterToSkip: checked })}
               />
 
+              <SelectField
+                label="Keyboard Layout"
+                value={settings.keyboardLayout}
+                options={[
+                  { value: "qwerty-us", label: keyboardLayoutPresets["qwerty-us"].name },
+                  { value: "colemak", label: keyboardLayoutPresets.colemak.name },
+                  { value: "dvorak", label: keyboardLayoutPresets.dvorak.name },
+                  { value: "custom", label: "Custom" },
+                ]}
+                onValueChange={(value) => onChange({ ...settings, keyboardLayout: value })}
+              />
+
+              {settings.keyboardLayout === "custom" && (
+                <label className="space-y-3">
+                  <span className="text-xs uppercase tracking-[0.28em] text-[var(--text-muted)]">Custom Keyboard Layout</span>
+                  <p className="text-sm leading-7 text-[var(--text-muted)]">
+                    Enter one row per line. The analytics view uses this to compute directional drift arrows.
+                  </p>
+                  <textarea
+                    value={settings.customKeyboardLayout}
+                    onChange={(event) => onChange({ ...settings, customKeyboardLayout: event.target.value })}
+                    rows={4}
+                    placeholder={"1234567890-=\nqwertyuiop[]\\\nasdfghjkl;'\nzxcvbnm,./"}
+                    className="w-full rounded-[22px] border border-[var(--border)] bg-[var(--panel-soft)] px-4 py-3 outline-none transition focus:border-[var(--accent)]"
+                  />
+                </label>
+              )}
+
               <label className="space-y-3">
                 <span className="text-xs uppercase tracking-[0.28em] text-[var(--text-muted)]">Ignored Characters</span>
                 <p className="text-sm leading-7 text-[var(--text-muted)]">
@@ -185,6 +255,31 @@ export function SettingsView({
                   className="w-full rounded-[22px] border border-[var(--border)] bg-[var(--panel-soft)] px-4 py-3 outline-none transition focus:border-[var(--accent)]"
                 />
               </label>
+
+              <div className="grid gap-6 md:grid-cols-2">
+                <SelectField
+                  label="Default Type Test"
+                  value={String(settings.typeTestDuration)}
+                  options={[
+                    { value: "15", label: "15 seconds" },
+                    { value: "30", label: "30 seconds" },
+                    { value: "60", label: "60 seconds" },
+                    { value: "120", label: "120 seconds" },
+                  ]}
+                  onValueChange={(value) =>
+                    onChange({ ...settings, typeTestDuration: Number(value) as 15 | 30 | 60 | 120 })
+                  }
+                />
+                <SliderField
+                  label="Versus Bot CPM"
+                  value={settings.versusBotCpm}
+                  min={120}
+                  max={480}
+                  step={10}
+                  format={(value) => `${Math.round(value)} CPM`}
+                  onChange={(value) => onChange({ ...settings, versusBotCpm: Math.round(value) })}
+                />
+              </div>
             </div>
           )}
 
@@ -304,12 +399,16 @@ function FontPreviewCard({
   value,
   active,
   sample,
+  locked = false,
+  lockLabel,
   onClick,
 }: {
   label: string;
   value: AppFont;
   active: boolean;
   sample: string;
+  locked?: boolean;
+  lockLabel?: string;
   onClick: (font: AppFont) => void;
 }) {
   const previewFont =
@@ -322,13 +421,17 @@ function FontPreviewCard({
   return (
     <button
       type="button"
+      disabled={locked}
       onClick={() => onClick(value)}
       className={cn(
-        "rounded-[24px] border p-4 text-left transition",
+        "rounded-[24px] border p-4 text-left transition disabled:cursor-not-allowed disabled:opacity-55",
         active ? "border-[var(--accent)] bg-[var(--accent-soft)]" : "border-[var(--border)] bg-[var(--panel-soft)] hover:border-[var(--accent)]",
       )}
     >
-      <p className="text-sm font-semibold">{label}</p>
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-sm font-semibold">{label}</p>
+        {locked && lockLabel && <span className="text-xs uppercase tracking-[0.18em] text-[var(--text-muted)]">{lockLabel}</span>}
+      </div>
       <p className="mt-3 text-sm leading-7 text-[var(--text-muted)]" style={{ fontFamily: previewFont }}>
         {sample}
       </p>
@@ -396,25 +499,33 @@ function ToggleRow({
   label,
   description,
   checked,
+  disabled = false,
   onChange,
 }: {
   label: string;
   description: string;
   checked: boolean;
+  disabled?: boolean;
   onChange: (checked: boolean) => void;
 }) {
   return (
-    <div className="flex items-center justify-between gap-6 rounded-[26px] border border-[var(--border)] bg-[var(--panel-soft)] px-5 py-4">
+    <div
+      className={cn(
+        "flex items-center justify-between gap-6 rounded-[26px] border border-[var(--border)] bg-[var(--panel-soft)] px-5 py-4",
+        disabled && "opacity-55",
+      )}
+    >
       <div>
         <p className="text-base font-medium">{label}</p>
         <p className="mt-2 text-sm text-[var(--text-muted)]">{description}</p>
       </div>
       <button
         type="button"
+        disabled={disabled}
         aria-pressed={checked}
         onClick={() => onChange(!checked)}
         className={cn(
-          "relative h-8 w-14 rounded-full transition",
+          "relative h-8 w-14 rounded-full transition disabled:cursor-not-allowed",
           checked ? "bg-[var(--accent)]" : "bg-[color-mix(in_srgb,var(--text-muted)_40%,transparent)]",
         )}
       >

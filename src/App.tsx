@@ -1,45 +1,46 @@
 import { startTransition, type ReactNode, useEffect, useMemo, useState } from "react";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
+import { AchievementsView } from "./components/AchievementsView";
 import { AnalyticsView } from "./components/AnalyticsView";
 import { LibraryView } from "./components/LibraryView";
+import { PracticeView } from "./components/PracticeView";
 import { ReaderView } from "./components/ReaderView";
 import { SettingsView } from "./components/SettingsView";
 import { Button } from "./components/ui/button";
 import { Card } from "./components/ui/card";
 import { demoAnalytics, demoBook, demoSettings } from "./lib/demo";
 import { api } from "./lib/tauri";
+import { cn } from "./lib/utils";
 import { applyTheme, themeMap } from "./theme";
 import { useAppStore } from "./store/app-store";
-import { cn } from "./lib/utils";
-import type { AppSettings, InteractionMode, ParsedBook, TypingSessionInput } from "./types";
+import type { ActiveTab, AppSettings, ParsedBook, ProcessKeystrokeBatchInput, ProcessKeystrokeBatchResult } from "./types";
 
 export default function App() {
-  const activeTab = useAppStore((s) => s.activeTab);
-  const books = useAppStore((s) => s.books);
-  const currentBook = useAppStore((s) => s.currentBook);
-  const selectedBookId = useAppStore((s) => s.selectedBookId);
-  const selectedChapterIndex = useAppStore((s) => s.selectedChapterIndex);
-  const readerMode = useAppStore((s) => s.readerMode);
-  const interactionMode = useAppStore((s) => s.interactionMode);
-  const settings = useAppStore((s) => s.settings);
-  const analytics = useAppStore((s) => s.analytics);
-  const desktopReady = useAppStore((s) => s.desktopReady);
+  const activeTab = useAppStore((state) => state.activeTab);
+  const books = useAppStore((state) => state.books);
+  const currentBook = useAppStore((state) => state.currentBook);
+  const selectedBookId = useAppStore((state) => state.selectedBookId);
+  const selectedChapterIndex = useAppStore((state) => state.selectedChapterIndex);
+  const readerMode = useAppStore((state) => state.readerMode);
+  const interactionMode = useAppStore((state) => state.interactionMode);
+  const settings = useAppStore((state) => state.settings);
+  const analytics = useAppStore((state) => state.analytics);
+  const desktopReady = useAppStore((state) => state.desktopReady);
 
-  const setDesktopReady = useAppStore((s) => s.setDesktopReady);
-  const setActiveTab = useAppStore((s) => s.setActiveTab);
-  const setBooks = useAppStore((s) => s.setBooks);
-  const setCurrentBook = useAppStore((s) => s.setCurrentBook);
-  const setSelectedBookId = useAppStore((s) => s.setSelectedBookId);
-  const setSelectedChapterIndex = useAppStore((s) => s.setSelectedChapterIndex);
-  const setReaderMode = useAppStore((s) => s.setReaderMode);
-  const setInteractionMode = useAppStore((s) => s.setInteractionMode);
-  const setSettings = useAppStore((s) => s.setSettings);
-  const setAnalytics = useAppStore((s) => s.setAnalytics);
+  const setDesktopReady = useAppStore((state) => state.setDesktopReady);
+  const setActiveTab = useAppStore((state) => state.setActiveTab);
+  const setBooks = useAppStore((state) => state.setBooks);
+  const setCurrentBook = useAppStore((state) => state.setCurrentBook);
+  const setSelectedBookId = useAppStore((state) => state.setSelectedBookId);
+  const setSelectedChapterIndex = useAppStore((state) => state.setSelectedChapterIndex);
+  const setInteractionMode = useAppStore((state) => state.setInteractionMode);
+  const setSettings = useAppStore((state) => state.setSettings);
+  const setAnalytics = useAppStore((state) => state.setAnalytics);
 
   const [loadingBook, setLoadingBook] = useState(false);
   const [busyAction, setBusyAction] = useState<string | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [libraryMenuOpen, setLibraryMenuOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [draggingFiles, setDraggingFiles] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -236,15 +237,27 @@ export default function App() {
     }
   }
 
-  async function handleSaveSession(session: TypingSessionInput) {
+  async function handleProcessBatch(payload: ProcessKeystrokeBatchInput): Promise<ProcessKeystrokeBatchResult> {
     if (!desktopReady) {
-      return;
+      return {
+        bufferedEvents: payload.events.length,
+      };
     }
+
     try {
-      await api.saveSession(session);
-      await refreshAll(session.bookId);
+      const result = await api.processKeystrokeBatch(payload);
+      if (result.savedSession) {
+        const [bookList, nextAnalytics] = await Promise.all([api.listBooks(), api.getAnalytics()]);
+        startTransition(() => {
+          setBooks(bookList);
+          setAnalytics(nextAnalytics);
+        });
+      }
+      return result;
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Failed to save typing session.");
+      const message = caught instanceof Error ? caught.message : "Failed to process typing analytics.";
+      setError(message);
+      throw caught;
     }
   }
 
@@ -352,7 +365,7 @@ export default function App() {
     }
   }
 
-  function handleStartMode(mode: InteractionMode) {
+  function handleStartMode(mode: "read" | "type") {
     setInteractionMode(mode);
     if (selectedBookId) {
       void loadBook(selectedBookId, true);
@@ -365,13 +378,19 @@ export default function App() {
     <div
       className={cn(
         "bg-[var(--bg)] text-[var(--text)] transition-colors duration-500",
-        activeTab === "reader" && readerMode === "spread" ? "flex flex-col h-screen overflow-hidden" : "min-h-screen"
+        activeTab === "reader" && readerMode === "spread" ? "flex h-screen flex-col overflow-hidden" : "min-h-screen",
       )}
       style={{
         backgroundImage: `radial-gradient(circle at top left, ${theme.accentSoft}, transparent 26%), radial-gradient(circle at bottom right, ${theme.panelSoft}, transparent 22%)`,
       }}
     >
-      <div className={cn(activeTab === "reader" && readerMode === "spread" ? "flex flex-col h-full overflow-hidden" : "min-h-screen px-4 py-4 md:px-6 md:py-6")}>
+      <div
+        className={cn(
+          activeTab === "reader" && readerMode === "spread"
+            ? "flex h-full flex-col overflow-hidden"
+            : "min-h-screen px-4 py-4 md:px-6 md:py-6",
+        )}
+      >
         {showWindowShell && (
           <WindowShell
             activeTab={activeTab}
@@ -379,16 +398,16 @@ export default function App() {
             error={error}
             searchQuery={searchQuery}
             setSearchQuery={setSearchQuery}
-            libraryMenuOpen={libraryMenuOpen}
-            onToggleLibraryMenu={() => setLibraryMenuOpen((current) => !current)}
-            onCloseLibraryMenu={() => setLibraryMenuOpen(false)}
-            onOpenAnalytics={() => {
-              setActiveTab("analytics");
-              setLibraryMenuOpen(false);
+            menuOpen={menuOpen}
+            onToggleMenu={() => setMenuOpen((current) => !current)}
+            onCloseMenu={() => setMenuOpen(false)}
+            onOpenTab={(tab) => {
+              setActiveTab(tab);
+              setMenuOpen(false);
             }}
             onOpenSettings={() => {
               setSettingsOpen(true);
-              setLibraryMenuOpen(false);
+              setMenuOpen(false);
             }}
             onBackToLibrary={() => {
               setActiveTab("library");
@@ -397,7 +416,7 @@ export default function App() {
           />
         )}
 
-        <main className={cn("relative", (showWindowShell || readerMode === "scroll") ? "mx-auto mt-5 max-w-[1480px]" : "flex flex-col h-full overflow-hidden")}>
+        <main className={cn("relative", showWindowShell || readerMode === "scroll" ? "mx-auto mt-5 max-w-[1480px]" : "flex h-full flex-col overflow-hidden")}>
           {activeTab === "library" && (
             <LibraryView
               books={filteredBooks}
@@ -416,7 +435,23 @@ export default function App() {
             />
           )}
 
-          {activeTab === "analytics" && <AnalyticsView analytics={analytics} />}
+          {activeTab === "analytics" && <AnalyticsView analytics={analytics} settings={settings} />}
+
+          {activeTab === "achievements" && <AchievementsView earnedAwards={analytics?.achievements ?? []} />}
+
+          {(activeTab === "type-test" || activeTab === "versus") && settings && (
+            <PracticeView
+              mode={activeTab}
+              settings={settings}
+              analytics={analytics}
+              desktopReady={desktopReady}
+              processBatch={handleProcessBatch}
+              onSettingsChange={handleSettingsChange}
+              onOpenSettings={() => setSettingsOpen(true)}
+              onBackToLibrary={() => setActiveTab("library")}
+              onError={(message) => setError(message)}
+            />
+          )}
 
           {activeTab === "reader" && currentBook && settings && (
             <ReaderView
@@ -425,6 +460,7 @@ export default function App() {
               readerMode={readerMode}
               interactionMode={interactionMode}
               settings={settings}
+              analytics={analytics}
               desktopReady={desktopReady}
               loadingBook={loadingBook}
               onBackToLibrary={() => setActiveTab("library")}
@@ -432,7 +468,8 @@ export default function App() {
               onInteractionModeChange={setInteractionMode}
               onOpenSettings={() => setSettingsOpen(true)}
               onProgress={handleProgress}
-              onSaveSession={handleSaveSession}
+              onProcessBatch={handleProcessBatch}
+              onError={(message) => setError(message)}
             />
           )}
 
@@ -441,7 +478,7 @@ export default function App() {
               <p className="text-sm uppercase tracking-[0.24em] text-[var(--text-muted)]">Reader</p>
               <h2 className="mt-4 text-3xl font-semibold">Pick a book from the library first.</h2>
               <p className="mt-3 text-sm text-[var(--text-muted)]">
-                The old tab shell is gone. The library is the entry point now, which is how it should have worked from the start.
+                The reader no longer pretends it can exist without actual content. Start in the library, then open a book.
               </p>
               <Button className="mt-6" onClick={() => setActiveTab("library")}>
                 Back to Library
@@ -455,6 +492,7 @@ export default function App() {
         <SettingsView
           isOpen={settingsOpen}
           settings={settings}
+          profile={analytics?.profile ?? null}
           desktopReady={desktopReady}
           onClose={() => setSettingsOpen(false)}
           onChange={handleSettingsChange}
@@ -469,15 +507,15 @@ export default function App() {
 }
 
 interface WindowShellProps {
-  activeTab: "library" | "reader" | "analytics";
+  activeTab: ActiveTab;
   busyAction: string | null;
   error: string | null;
   searchQuery: string;
   setSearchQuery: (query: string) => void;
-  libraryMenuOpen: boolean;
-  onToggleLibraryMenu: () => void;
-  onCloseLibraryMenu: () => void;
-  onOpenAnalytics: () => void;
+  menuOpen: boolean;
+  onToggleMenu: () => void;
+  onCloseMenu: () => void;
+  onOpenTab: (tab: ActiveTab) => void;
   onOpenSettings: () => void;
   onBackToLibrary: () => void;
 }
@@ -488,20 +526,28 @@ function WindowShell({
   error,
   searchQuery,
   setSearchQuery,
-  libraryMenuOpen,
-  onToggleLibraryMenu,
-  onCloseLibraryMenu,
-  onOpenAnalytics,
+  menuOpen,
+  onToggleMenu,
+  onCloseMenu,
+  onOpenTab,
   onOpenSettings,
   onBackToLibrary,
 }: WindowShellProps) {
+  const labelMap: Record<Exclude<ActiveTab, "library">, string> = {
+    reader: "Reader",
+    analytics: "Profile & Analytics",
+    achievements: "Achievements",
+    "type-test": "Type Test",
+    versus: "Versus Mode",
+  };
+
   return (
     <div className="mx-auto max-w-[1480px] space-y-4">
       <div className="relative z-20 rounded-[30px] border border-[var(--border)] bg-[color-mix(in_srgb,var(--panel)_86%,transparent)] px-4 py-3 shadow-panel backdrop-blur-2xl">
         <div data-tauri-drag-region className="absolute inset-0" />
-        <div className="relative z-10 grid gap-3 md:grid-cols-[180px_minmax(0,1fr)_180px] md:items-center">
+        <div className="relative z-10 grid gap-3 md:grid-cols-[180px_minmax(0,1fr)_220px] md:items-center">
           <div className="flex items-center gap-3">
-            {activeTab === "analytics" ? (
+            {activeTab !== "library" ? (
               <Button variant="ghost" className="rounded-full px-3 py-2" onClick={onBackToLibrary}>
                 Back to Library
               </Button>
@@ -522,7 +568,7 @@ function WindowShell({
             </label>
           ) : (
             <div className="flex items-center justify-center">
-              <p className="text-sm font-medium text-[var(--text-muted)] capitalize">{activeTab} View</p>
+              <p className="text-sm font-medium text-[var(--text-muted)]">{labelMap[activeTab]}</p>
             </div>
           )}
 
@@ -530,25 +576,21 @@ function WindowShell({
             {busyAction && <span className="text-xs uppercase tracking-[0.2em] text-[var(--text-muted)]">{busyAction}</span>}
             <button
               type="button"
-              onClick={onToggleLibraryMenu}
+              onClick={onToggleMenu}
               className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[var(--border)] bg-[color-mix(in_srgb,var(--panel-soft)_80%,transparent)] text-lg text-[var(--text)] transition hover:border-[var(--accent)]"
             >
               ≡
             </button>
 
-            {libraryMenuOpen && (
+            {menuOpen && (
               <>
-                <button type="button" aria-label="Close menu" className="fixed inset-0" onClick={onCloseLibraryMenu} />
-                <div className="absolute right-0 top-12 z-30 min-w-[220px] rounded-[24px] border border-[var(--border)] bg-[var(--panel)] p-2 shadow-panel backdrop-blur-xl">
-                  <MenuButton
-                    onClick={() => {
-                      onBackToLibrary();
-                      onCloseLibraryMenu();
-                    }}
-                  >
-                    Library
-                  </MenuButton>
-                  <MenuButton onClick={onOpenAnalytics}>Profile & Analytics</MenuButton>
+                <button type="button" aria-label="Close menu" className="fixed inset-0" onClick={onCloseMenu} />
+                <div className="absolute right-0 top-12 z-30 min-w-[240px] rounded-[24px] border border-[var(--border)] bg-[var(--panel)] p-2 shadow-panel backdrop-blur-xl">
+                  <MenuButton onClick={() => onOpenTab("library")}>Library</MenuButton>
+                  <MenuButton onClick={() => onOpenTab("analytics")}>Profile & Analytics</MenuButton>
+                  <MenuButton onClick={() => onOpenTab("achievements")}>Achievements</MenuButton>
+                  <MenuButton onClick={() => onOpenTab("type-test")}>Type Test</MenuButton>
+                  <MenuButton onClick={() => onOpenTab("versus")}>Versus Mode</MenuButton>
                   <MenuButton onClick={onOpenSettings}>Settings</MenuButton>
                 </div>
               </>

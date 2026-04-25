@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef } from "react";
 import { cn } from "../lib/utils";
-import type { TokenizedWord, TypingSnapshot } from "../types";
+import type { InteractionMode, TokenizedWord, TypingSnapshot } from "../types";
 import { normalizeForCompare } from "../utils/typing";
 
 interface TypingLayerProps {
@@ -16,6 +16,7 @@ interface TypingLayerProps {
   };
   onWordClick?: (wordIndex: number) => void;
   interactionMode?: InteractionMode;
+  smoothCaret?: boolean;
 }
 
 export function TypingLayer({
@@ -29,6 +30,7 @@ export function TypingLayer({
   compareOptions,
   onWordClick,
   interactionMode = "type",
+  smoothCaret = false,
 }: TypingLayerProps) {
   const currentWordRef = useRef<HTMLSpanElement | null>(null);
   const visibleTokens = useMemo(() => {
@@ -152,6 +154,7 @@ export function TypingLayer({
           compareOptions={compareOptions}
           onClick={onWordClick}
           interactionMode={interactionMode}
+          smoothCaret={smoothCaret}
         />
       ))}
     </div>
@@ -173,8 +176,9 @@ const Word = React.memo(
       compareOptions?: { ignoredCharacters?: ReadonlySet<string> };
       onClick?: (index: number) => void;
       interactionMode?: InteractionMode;
+      smoothCaret?: boolean;
     }
-  >(({ index, token, state, isCurrent, isCompleted, isUpcoming, distance, faded, compareOptions, onClick, interactionMode }, ref) => {
+  >(({ index, token, state, isCurrent, isCompleted, isUpcoming, distance, faded, compareOptions, onClick, interactionMode, smoothCaret }, ref) => {
     // Calculate opacity inline to avoid hook overhead in the large word list
     let opacity = 1;
     if (faded) {
@@ -239,6 +243,7 @@ const Word = React.memo(
           isCompleted,
           state?.skipped ?? false,
           compareOptions?.ignoredCharacters,
+          smoothCaret ?? false,
         )}
       </span>
     );
@@ -251,6 +256,7 @@ function renderWordParts(
   completed: boolean,
   skipped: boolean,
   ignoredCharacters?: ReadonlySet<string>,
+  smoothCaret = false,
 ) {
   const expectedChars = [...expected];
   const typedChars = [...typed];
@@ -276,7 +282,12 @@ function renderWordParts(
     output.push(
       <span key={index} className={cn("relative", charClass)}>
         {index === cursorIndex && (
-          <span className="absolute -left-[0.5px] top-[10%] h-[80%] w-[2px] animate-pulse bg-[var(--accent)]" />
+          <span
+            className={cn(
+              "absolute -left-[0.5px] top-[10%] h-[80%] w-[2px] bg-[var(--accent)]",
+              smoothCaret ? "transition-all duration-150 ease-out" : "animate-pulse",
+            )}
+          />
         )}
         {expectedChar}
       </span>
@@ -286,7 +297,12 @@ function renderWordParts(
   if (cursorIndex === expectedChars.length) {
     output.push(
       <span key="cursor-end" className="relative">
-        <span className="absolute -left-[0.5px] top-[10%] h-[80%] w-[2px] animate-pulse bg-[var(--accent)]" />
+        <span
+          className={cn(
+            "absolute -left-[0.5px] top-[10%] h-[80%] w-[2px] bg-[var(--accent)]",
+            smoothCaret ? "transition-all duration-150 ease-out" : "animate-pulse",
+          )}
+        />
       </span>
     );
   }

@@ -72,6 +72,34 @@ export const themeMap: Record<ThemeName, ThemeDefinition> = {
     danger: "#dc322f",
     shadow: "rgba(88, 110, 117, 0.16)",
   },
+  dracula: {
+    name: "Dracula",
+    background: "#17181f",
+    panel: "rgba(34, 36, 48, 0.9)",
+    panelSoft: "rgba(52, 55, 71, 0.76)",
+    border: "rgba(189, 147, 249, 0.18)",
+    text: "#f8f8f2",
+    textMuted: "#b9b6d3",
+    accent: "#ffb86c",
+    accentSoft: "rgba(255, 184, 108, 0.15)",
+    success: "#50fa7b",
+    danger: "#ff5555",
+    shadow: "rgba(10, 10, 18, 0.4)",
+  },
+  nord: {
+    name: "Nord",
+    background: "#111922",
+    panel: "rgba(34, 44, 56, 0.9)",
+    panelSoft: "rgba(59, 74, 93, 0.72)",
+    border: "rgba(136, 192, 208, 0.16)",
+    text: "#e5eef6",
+    textMuted: "#aab9cb",
+    accent: "#88c0d0",
+    accentSoft: "rgba(136, 192, 208, 0.14)",
+    success: "#a3be8c",
+    danger: "#bf616a",
+    shadow: "rgba(6, 10, 16, 0.42)",
+  },
 };
 
 export function applyTheme(settings: AppSettings) {
@@ -87,7 +115,7 @@ export function applyTheme(settings: AppSettings) {
   root.style.setProperty("--accent", theme.accent);
   root.style.setProperty("--accent-soft", theme.accentSoft);
   root.style.setProperty("--success", theme.success);
-  root.style.setProperty("--danger", theme.danger);
+  root.style.setProperty("--danger", settings.errorColor || theme.danger);
   root.style.setProperty("--shadow", theme.shadow);
   root.style.setProperty("--font-size-base", `${settings.baseFontSize}px`);
   root.style.setProperty("--line-height-base", settings.lineHeight.toString());

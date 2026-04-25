@@ -1,4 +1,7 @@
 import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import { useBufferedKeystrokeTransport } from "../hooks/useBufferedKeystrokeTransport";
+import { resolveKeyboardLayout } from "../lib/keyboard-layouts";
+import { cn, formatPercent } from "../lib/utils";
 import { paginateText } from "../utils/pagination";
 import {
   applyTypingInput,
@@ -11,19 +14,21 @@ import {
   tokenizeText,
 } from "../utils/typing";
 import type {
+  AnalyticsSummary,
   AppSettings,
   InteractionMode,
   KeystrokeEvent,
   LiveMetrics,
   ParsedBook,
+  ProcessKeystrokeBatchInput,
+  ProcessKeystrokeBatchResult,
   ReaderMode,
-  TokenizedWord,
+  SessionSummaryResponse,
   TypingSnapshot,
-  TypingSessionInput,
 } from "../types";
+import { SessionSummaryModal } from "./SessionSummaryModal";
 import { TypingLayer } from "./TypingLayer";
 import { Button } from "./ui/button";
-import { cn, formatPercent } from "../lib/utils";
 
 interface ReaderViewProps {
   book: ParsedBook;
@@ -31,6 +36,7 @@ interface ReaderViewProps {
   readerMode: ReaderMode;
   interactionMode: InteractionMode;
   settings: AppSettings;
+  analytics: AnalyticsSummary | null;
   desktopReady: boolean;
   loadingBook: boolean;
   onBackToLibrary: () => void;
@@ -38,7 +44,8 @@ interface ReaderViewProps {
   onInteractionModeChange: (mode: InteractionMode) => void;
   onOpenSettings: () => void;
   onProgress: (bookId: number, currentIndex: number, currentChapter: number) => Promise<void>;
-  onSaveSession: (session: TypingSessionInput) => Promise<void>;
+  onProcessBatch: (payload: ProcessKeystrokeBatchInput) => Promise<ProcessKeystrokeBatchResult>;
+  onError: (message: string) => void;
 }
 
 const EMPTY_METRICS: LiveMetrics = {
@@ -58,6 +65,7 @@ export function ReaderView({
   readerMode,
   interactionMode,
   settings,
+  analytics,
   desktopReady,
   loadingBook,
   onBackToLibrary,
@@ -65,16 +73,19 @@ export function ReaderView({
   onInteractionModeChange,
   onOpenSettings,
   onProgress,
-  onSaveSession,
+  onProcessBatch,
+  onError,
 }: ReaderViewProps) {
   const chapter = book.chapters[chapterIndex];
   const normalizedText = useMemo(() => chapter.text.replace(/\r\n/g, "\n").replace(/\r/g, "\n"), [chapter.text]);
   const tokens = useMemo(() => tokenizeText(normalizedText), [normalizedText]);
   const ignoredCharacterSet = useMemo(() => parseIgnoredCharacterSet(settings.ignoredCharacters), [settings.ignoredCharacters]);
+  const keyboardLayout = useMemo(() => resolveKeyboardLayout(settings), [settings]);
   const resumeCursorIndex = useMemo(
     () => (chapterIndex === book.currentChapter ? book.currentIndex : 0),
     [book.currentChapter, book.currentIndex, chapterIndex],
   );
+
   const [snapshot, setSnapshot] = useState<TypingSnapshot>(() => createTypingSnapshot(tokens, resumeCursorIndex));
   const [events, setEvents] = useState<KeystrokeEvent[]>([]);
   const [metrics, setMetrics] = useState<LiveMetrics>(EMPTY_METRICS);
@@ -83,6 +94,7 @@ export function ReaderView({
   const [lastMouseAt, setLastMouseAt] = useState<number>(Date.now());
   const [clock, setClock] = useState(Date.now());
   const [pageIndex, setPageIndex] = useState(0);
+  const [summary, setSummary] = useState<SessionSummaryResponse | null>(null);
 
   const snapshotRef = useRef(snapshot);
   const eventsRef = useRef(events);
@@ -94,15 +106,28 @@ export function ReaderView({
   sessionStartRef.current = sessionStartAt;
   lastInputRef.current = lastInputAt;
 
+  const transport = useBufferedKeystrokeTransport({
+    desktopReady,
+    context: {
+      bookId: book.id,
+      source: "book",
+      sourceLabel: `${book.title} · ${chapter.title}`,
+      keyboardLayout,
+    },
+    processBatch: onProcessBatch,
+    onError,
+  });
+
   const containerRef = useRef<HTMLDivElement>(null);
   const [availableHeight, setAvailableHeight] = useState(0);
   const [availableWidth, setAvailableWidth] = useState(0);
 
   useEffect(() => {
-    if (!containerRef.current) return;
+    if (!containerRef.current) {
+      return;
+    }
     const observer = new ResizeObserver((entries) => {
       for (const entry of entries) {
-        // Measure the content rect of the main reader container
         setAvailableHeight(entry.contentRect.height);
         setAvailableWidth(entry.contentRect.width);
       }
@@ -115,35 +140,22 @@ export function ReaderView({
     const fontSize = settings.baseFontSize;
     const lineHeight = settings.lineHeight;
     const lineHeightPx = Math.round(fontSize * lineHeight);
-    
-    // Vertical space calculation inside SpreadPage
-    // SpreadPage padding: 52px (pt-8 pb-5). Title: ~32px. Safe bottom margin buffer: 16px.
     const internalOverhead = 52 + 32 + 16;
-    // Fallback to window height if availableHeight is not yet measured (0)
     const measuredHeight = availableHeight || (typeof window !== "undefined" ? window.innerHeight - 40 : 800);
     const usableHeight = measuredHeight - internalOverhead;
     const maxLines = Math.max(5, Math.floor(usableHeight / lineHeightPx));
-    
-    // Horizontal space calculation
-    // Gap: 24px. SpreadPage padding: 48px. Border: 2px.
     const usableWidth = (availableWidth - 24) / 2 - 48 - 2;
-    
-    // Use 0.6 as average character width for monospace fonts (JetBrains Mono, Fira Code, etc.).
-    // We remove tracking-[0.01em] from the UI to ensure the simulation matches the browser exactly.
     const charsPerLine = Math.max(20, Math.floor(usableWidth / (fontSize * 0.6)));
-    
+
     return {
-      maxLines: Math.max(5, maxLines),
+      maxLines,
       lineHeightPx,
-      charsPerLine
+      charsPerLine,
     };
   }, [settings.baseFontSize, settings.lineHeight, availableHeight, availableWidth]);
 
-  const pageRanges = useMemo(() => {
-    return paginateText(normalizedText, maxLines, charsPerLine, tokens);
-  }, [normalizedText, maxLines, charsPerLine, tokens]);
-
-  const pages = useMemo(() => pageRanges.map(range => normalizedText.substring(range.start, range.end)), [normalizedText, pageRanges]);
+  const pageRanges = useMemo(() => paginateText(normalizedText, maxLines, charsPerLine, tokens), [normalizedText, maxLines, charsPerLine, tokens]);
+  const pages = useMemo(() => pageRanges.map((range) => normalizedText.substring(range.start, range.end)), [normalizedText, pageRanges]);
 
   const liveMetrics = useMemo(() => {
     const elapsedSeconds = sessionStartAt ? Math.max(1, Math.round((clock - sessionStartAt) / 1000)) : 0;
@@ -166,6 +178,8 @@ export function ReaderView({
     setLastInputAt(null);
     lastInputRef.current = null;
     setPageIndex(0);
+    setSummary(null);
+    transport.resetTransport();
   }, [resumeCursorIndex, tokens]);
 
   useEffect(() => {
@@ -192,10 +206,19 @@ export function ReaderView({
       return;
     }
 
-    if (Date.now() - lastInputAt >= 30000) {
-      void flushSession(true);
+    if (Date.now() - lastInputAt >= 30_000) {
+      void flushSession(false, true);
     }
   }, [clock, interactionMode, lastInputAt, sessionStartAt]);
+
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      void flushSession(false, false);
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, []);
 
   useEffect(() => {
     if (interactionMode !== "type") {
@@ -205,6 +228,12 @@ export function ReaderView({
     const handleKeyDown = (event: KeyboardEvent) => {
       const isMac = navigator.userAgent.toLowerCase().includes("mac");
       const isWordDeletion = event.key === "Backspace" && (isMac ? event.metaKey : event.ctrlKey);
+
+      if (event.key === "Escape") {
+        event.preventDefault();
+        void flushSession(true, false);
+        return;
+      }
 
       if (
         event.altKey ||
@@ -233,12 +262,11 @@ export function ReaderView({
         sessionStartRef.current = now;
       }
 
-      const prevSnapshot = snapshotRef.current;
+      const previousSnapshot = snapshotRef.current;
       const nextSnapshot: TypingSnapshot = {
-        ...prevSnapshot,
-        words: [...prevSnapshot.words],
+        ...previousSnapshot,
+        words: [...previousSnapshot.words],
       };
-
       nextSnapshot.words[nextSnapshot.currentWordIndex] = {
         ...nextSnapshot.words[nextSnapshot.currentWordIndex],
       };
@@ -246,16 +274,19 @@ export function ReaderView({
       const result = applyTypingInput(nextSnapshot, tokens, { key: event.key, ctrlKey: isWordDeletion }, now, {
         enterToSkip: settings.enterToSkip,
         ignoredCharacterSet,
+        layoutId: keyboardLayout.id,
       });
 
       setSnapshot(result.snapshot);
       snapshotRef.current = result.snapshot;
-      if (result.event) {
+      const nextEvent = result.event;
+      if (nextEvent) {
         setEvents((current) => {
-          const next = [...current, result.event as KeystrokeEvent];
+          const next = [...current, nextEvent];
           eventsRef.current = next;
           return next;
         });
+        transport.pushEvent(nextEvent);
       }
       setLastInputAt(now);
       lastInputRef.current = now;
@@ -263,12 +294,16 @@ export function ReaderView({
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [ignoredCharacterSet, interactionMode, settings.enterToSkip, tokens]);
+  }, [ignoredCharacterSet, interactionMode, keyboardLayout.id, settings.enterToSkip, tokens, transport]);
 
   useEffect(() => {
     const handleNav = (event: KeyboardEvent) => {
-      if (readerMode !== "spread") return;
-      if (event.metaKey || event.ctrlKey || event.altKey) return;
+      if (readerMode !== "spread") {
+        return;
+      }
+      if (event.metaKey || event.ctrlKey || event.altKey) {
+        return;
+      }
 
       if (event.key === "ArrowRight") {
         setPageIndex((current) => {
@@ -282,7 +317,7 @@ export function ReaderView({
 
     window.addEventListener("keydown", handleNav);
     return () => window.removeEventListener("keydown", handleNav);
-  }, [readerMode, pages.length]);
+  }, [pages.length, readerMode]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -294,7 +329,7 @@ export function ReaderView({
 
   useEffect(() => {
     return () => {
-      void flushSession(false);
+      void flushSession(false, false);
     };
   }, [book.id, chapter.id, interactionMode]);
 
@@ -308,18 +343,17 @@ export function ReaderView({
     const currentIndex = currentCursorIndex(snapshot, tokens);
     const activePage = pageRanges.findIndex((range) => currentIndex >= range.start && currentIndex < range.end);
     if (activePage >= 0) {
-      // Ensure we always land on an even page index for 2-page spreads
       setPageIndex(activePage - (activePage % 2));
     }
   }, [pageRanges, snapshot, tokens]);
 
-  async function flushSession(inactive: boolean) {
+  async function flushSession(revealSummary: boolean, inactive: boolean) {
     const startAt = sessionStartRef.current;
     if (!startAt) {
       return;
     }
 
-    const result = finalizeMetrics(eventsRef.current, startAt, Date.now(), inactive ? 30000 : 0);
+    const result = finalizeMetrics(eventsRef.current, startAt, Date.now(), inactive ? 30_000 : 0);
     setSessionStartAt(null);
     sessionStartRef.current = null;
     setLastInputAt(null);
@@ -327,12 +361,15 @@ export function ReaderView({
     setEvents([]);
     eventsRef.current = [];
 
-    if (result.wordsTyped === 0 || !desktopReady) {
+    if (result.wordsTyped === 0) {
+      transport.resetTransport();
       return;
     }
 
-    await onSaveSession({
+    const saved = await transport.flushPending({
       bookId: book.id,
+      source: "book",
+      sourceLabel: `${book.title} · ${chapter.title}`,
       startTime: new Date(startAt).toISOString(),
       endTime: new Date(result.effectiveEndTimeMs).toISOString(),
       wordsTyped: result.wordsTyped,
@@ -342,6 +379,10 @@ export function ReaderView({
       accuracy: result.accuracy,
       durationSeconds: result.durationSeconds,
     });
+
+    if (revealSummary && saved) {
+      setSummary(saved);
+    }
   }
 
   function handleWordSelect(wordIndex: number) {
@@ -349,187 +390,226 @@ export function ReaderView({
       onInteractionModeChange("type");
     }
 
-    void flushSession(false);
+    void flushSession(false, false);
     const nextSnapshot = createSnapshotFromWordStart(tokens, wordIndex);
     setSnapshot(nextSnapshot);
     snapshotRef.current = nextSnapshot;
     setMetrics(EMPTY_METRICS);
   }
 
+  function handleChapterJump(nextIndex: number) {
+    void flushSession(false, false);
+    onChapterChange(nextIndex);
+  }
+
   const headerVisible = clock - lastMouseAt < 1600;
   const readerFontClass = "font-[var(--font-main)]";
   const visibleLeft = pageRanges[pageIndex];
   const visibleRight = pageRanges[pageIndex + 1];
+  const xpProgress =
+    analytics && analytics.profile.nextLevelXp > analytics.profile.currentLevelXp
+      ? Math.min(
+          1,
+          analytics.profile.progressToNextLevel +
+            metrics.typedWords / Math.max(1, analytics.profile.nextLevelXp - analytics.profile.currentLevelXp),
+        )
+      : 0;
 
   return (
-    <div className={cn("relative flex flex-col rounded-[34px] border border-[var(--border)] bg-[color-mix(in_srgb,var(--panel)_82%,transparent)] shadow-panel", readerMode === "spread" ? "h-full overflow-hidden" : "min-h-screen mb-12", readerFontClass)}>
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.08),transparent_36%)]" />
-
+    <>
       <div
         className={cn(
-          "fixed inset-x-0 top-0 z-40 px-4 pt-4 transition duration-300 md:px-6",
-          headerVisible ? "translate-y-0 opacity-100" : "-translate-y-20 opacity-0",
+          "relative flex flex-col rounded-[34px] border border-[var(--border)] bg-[color-mix(in_srgb,var(--panel)_82%,transparent)] shadow-panel",
+          readerMode === "spread" ? "h-full overflow-hidden" : "mb-12 min-h-screen",
+          readerFontClass,
         )}
       >
-        <div className="mx-auto flex max-w-[1360px] items-center justify-between gap-4 rounded-full border border-[var(--border)] bg-[color-mix(in_srgb,var(--panel)_76%,transparent)] px-4 py-3 shadow-panel backdrop-blur-2xl">
-          <Button variant="ghost" className="rounded-full px-3 py-2" onClick={onBackToLibrary}>
-            &lt; Back to Library
-          </Button>
-
-          <div className="min-w-0 text-center">
-            <p className="truncate text-sm font-medium">{book.title}</p>
-            <p className="truncate text-xs uppercase tracking-[0.24em] text-[var(--text-muted)]">{chapter.title}</p>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <div className="inline-flex rounded-full border border-[var(--border)] bg-[var(--panel-soft)] p-1">
-              <ModePill active={interactionMode === "read"} onClick={() => onInteractionModeChange("read")}>
-                Read
-              </ModePill>
-              <ModePill active={interactionMode === "type"} onClick={() => onInteractionModeChange("type")}>
-                Type
-              </ModePill>
-            </div>
-            <button
-              type="button"
-              aria-label="Open settings"
-              onClick={onOpenSettings}
-              className="rounded-full border border-[var(--border)] bg-[var(--panel-soft)] px-3 py-2 text-sm text-[var(--text)] transition hover:border-[var(--accent)]"
-            >
-              Settings
-            </button>
-          </div>
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.08),transparent_36%)]" />
+        <div className="absolute inset-x-0 top-0 z-10 h-px bg-white/10">
+          <div className="h-full bg-[var(--accent)] transition-[width] duration-300" style={{ width: `${xpProgress * 100}%` }} />
         </div>
-      </div>
 
-      <div
-        className={cn(
-          "fixed left-4 top-1/2 z-50 -translate-y-1/2 transition duration-500 md:left-8",
-          headerVisible && readerMode === "spread" ? "translate-x-0 opacity-100" : "-translate-x-8 opacity-0 pointer-events-none",
-        )}
-      >
-        <button
-          type="button"
-          onClick={() => setPageIndex((current) => Math.max(0, current - 2))}
-          disabled={pageIndex === 0}
-          className="group flex h-14 w-14 items-center justify-center rounded-full border border-[var(--border)] bg-[color-mix(in_srgb,var(--panel)_76%,transparent)] text-[var(--text)] shadow-panel backdrop-blur-2xl transition hover:border-[var(--accent)] hover:text-[var(--accent)] disabled:opacity-30"
+        <div
+          className={cn(
+            "fixed inset-x-0 top-0 z-40 px-4 pt-4 transition duration-300 md:px-6",
+            headerVisible ? "translate-y-0 opacity-100" : "-translate-y-20 opacity-0",
+          )}
         >
-          <span className="text-2xl transition group-hover:-translate-x-0.5">‹</span>
-        </button>
-      </div>
+          <div className="mx-auto flex max-w-[1360px] items-center justify-between gap-4 rounded-full border border-[var(--border)] bg-[color-mix(in_srgb,var(--panel)_76%,transparent)] px-4 py-3 shadow-panel backdrop-blur-2xl">
+            <Button variant="ghost" className="rounded-full px-3 py-2" onClick={onBackToLibrary}>
+              &lt; Back to Library
+            </Button>
 
-      <div
-        className={cn(
-          "fixed right-4 top-1/2 z-50 -translate-y-1/2 transition duration-500 md:right-8",
-          headerVisible && readerMode === "spread" ? "translate-x-0 opacity-100" : "translate-x-8 opacity-0 pointer-events-none",
-        )}
-      >
-        <button
-          type="button"
-          onClick={() => setPageIndex((current) => Math.min(Math.max(pages.length - 2, 0), current + 2))}
-          disabled={pageIndex >= pages.length - 2}
-          className="group flex h-14 w-14 items-center justify-center rounded-full border border-[var(--border)] bg-[color-mix(in_srgb,var(--panel)_76%,transparent)] text-[var(--text)] shadow-panel backdrop-blur-2xl transition hover:border-[var(--accent)] hover:text-[var(--accent)] disabled:opacity-30"
-        >
-          <span className="text-2xl transition group-hover:translate-x-0.5">›</span>
-        </button>
-      </div>
+            <div className="min-w-0 text-center">
+              <p className="truncate text-sm font-medium">{book.title}</p>
+              <p className="truncate text-xs uppercase tracking-[0.24em] text-[var(--text-muted)]">{chapter.title}</p>
+            </div>
 
-      <div
-        ref={containerRef}
-        className={cn(
-          "relative mx-auto flex-1 px-4 md:px-6 w-full",
-          readerMode === "spread" ? "max-w-[1600px] pt-20 pb-6" : "max-w-[1360px] pt-24 pb-24",
-        )}
-      >
-        {loadingBook && <p className="mb-4 text-sm text-[var(--text-muted)]">Loading book…</p>}
-
-        {readerMode === "scroll" ? (
-          <div className={cn("mx-auto max-w-5xl", readerFontClass)}>
-            <div
-              className="rounded-[36px] border border-[var(--border)] bg-[color-mix(in_srgb,var(--panel-soft)_68%,transparent)] px-6 py-8 md:px-10 md:py-12"
-              style={{ fontSize: `${settings.baseFontSize}px`, lineHeight: settings.lineHeight }}
-            >
-              <TypingLayer
-                key="scroll-layer"
-                tokens={tokens}
-                snapshot={snapshot}
-                chapterText={normalizedText}
-                className=""
-                interactionMode={interactionMode}
-                compareOptions={{ ignoredCharacters: ignoredCharacterSet }}
-                onWordClick={handleWordSelect}
-              />
+            <div className="flex items-center gap-2">
+              <div className="inline-flex rounded-full border border-[var(--border)] bg-[var(--panel-soft)] p-1">
+                <ModePill active={interactionMode === "read"} onClick={() => onInteractionModeChange("read")}>
+                  Read
+                </ModePill>
+                <ModePill active={interactionMode === "type"} onClick={() => onInteractionModeChange("type")}>
+                  Type
+                </ModePill>
+              </div>
+              <button
+                type="button"
+                onClick={() => void flushSession(true, false)}
+                disabled={!sessionStartAt}
+                className="rounded-full border border-[var(--border)] bg-[var(--panel-soft)] px-3 py-2 text-sm text-[var(--text)] transition hover:border-[var(--accent)] disabled:opacity-40"
+              >
+                End Session
+              </button>
+              <button
+                type="button"
+                aria-label="Open settings"
+                onClick={onOpenSettings}
+                className="rounded-full border border-[var(--border)] bg-[var(--panel-soft)] px-3 py-2 text-sm text-[var(--text)] transition hover:border-[var(--accent)]"
+              >
+                Settings
+              </button>
             </div>
           </div>
-        ) : (
-          <div className="grid h-full w-full gap-6 lg:grid-cols-2">
-            <SpreadPage title={`Page ${pageIndex + 1}`} style={settings} maxLines={maxLines} lineHeightPx={lineHeightPx}>
-              {visibleLeft && (
-                <TypingLayer
-                  key={`spread-left-${pageIndex}`}
-                  tokens={tokens}
-                  snapshot={snapshot}
-                  chapterText={normalizedText}
-                  visibleRange={visibleLeft}
-                  noScroll={true}
-                  className=""
-                  faded={false}
-                  interactionMode={interactionMode}
-                  compareOptions={{ ignoredCharacters: ignoredCharacterSet }}
-                  onWordClick={handleWordSelect}
-                />
-              )}
-            </SpreadPage>
-
-            <SpreadPage title={`Page ${pageIndex + 2}`} style={settings} maxLines={maxLines} lineHeightPx={lineHeightPx}>
-              {visibleRight && (
-                <TypingLayer
-                  key={`spread-right-${pageIndex}`}
-                  tokens={tokens}
-                  snapshot={snapshot}
-                  chapterText={normalizedText}
-                  visibleRange={visibleRight}
-                  noScroll={true}
-                  className=""
-                  faded={false}
-                  interactionMode={interactionMode}
-                  compareOptions={{ ignoredCharacters: ignoredCharacterSet }}
-                  onWordClick={handleWordSelect}
-                />
-              )}
-            </SpreadPage>
-          </div>
-        )}
-      </div>
-
-      <div
-        className={cn(
-          "pointer-events-none fixed inset-x-0 bottom-6 z-40 flex items-end justify-between px-4 md:px-10 transition-opacity duration-300",
-          headerVisible ? "opacity-100" : "opacity-40",
-        )}
-      >
-        <div className="pointer-events-auto">
-          <Button variant="ghost" className="bg-[var(--panel)]/50 backdrop-blur-lg" onClick={() => onChapterChange(Math.max(chapterIndex - 1, 0))} disabled={chapterIndex === 0}>
-            Previous Chapter
-          </Button>
         </div>
 
-        <div className="pointer-events-auto rounded-full border border-[var(--border)] bg-[color-mix(in_srgb,var(--panel)_65%,transparent)] px-6 py-2.5 text-sm font-medium text-[var(--text)] shadow-panel backdrop-blur-xl">
-          {Math.round(metrics.wpm)} WPM • {formatPercent(metrics.accuracy)} Acc
-        </div>
-
-        <div className="pointer-events-auto">
-          <Button
-            variant="ghost"
-            className="bg-[var(--panel)]/50 backdrop-blur-lg"
-            onClick={() => onChapterChange(Math.min(chapterIndex + 1, book.chapters.length - 1))}
-            disabled={chapterIndex >= book.chapters.length - 1}
+        <div
+          className={cn(
+            "fixed left-4 top-1/2 z-50 -translate-y-1/2 transition duration-500 md:left-8",
+            headerVisible && readerMode === "spread" ? "translate-x-0 opacity-100" : "-translate-x-8 pointer-events-none opacity-0",
+          )}
+        >
+          <button
+            type="button"
+            onClick={() => setPageIndex((current) => Math.max(0, current - 2))}
+            disabled={pageIndex === 0}
+            className="group flex h-14 w-14 items-center justify-center rounded-full border border-[var(--border)] bg-[color-mix(in_srgb,var(--panel)_76%,transparent)] text-[var(--text)] shadow-panel backdrop-blur-2xl transition hover:border-[var(--accent)] hover:text-[var(--accent)] disabled:opacity-30"
           >
-            Next Chapter
-          </Button>
+            <span className="text-2xl transition group-hover:-translate-x-0.5">‹</span>
+          </button>
+        </div>
+
+        <div
+          className={cn(
+            "fixed right-4 top-1/2 z-50 -translate-y-1/2 transition duration-500 md:right-8",
+            headerVisible && readerMode === "spread" ? "translate-x-0 opacity-100" : "pointer-events-none translate-x-8 opacity-0",
+          )}
+        >
+          <button
+            type="button"
+            onClick={() => setPageIndex((current) => Math.min(Math.max(pages.length - 2, 0), current + 2))}
+            disabled={pageIndex >= pages.length - 2}
+            className="group flex h-14 w-14 items-center justify-center rounded-full border border-[var(--border)] bg-[color-mix(in_srgb,var(--panel)_76%,transparent)] text-[var(--text)] shadow-panel backdrop-blur-2xl transition hover:border-[var(--accent)] hover:text-[var(--accent)] disabled:opacity-30"
+          >
+            <span className="text-2xl transition group-hover:translate-x-0.5">›</span>
+          </button>
+        </div>
+
+        <div
+          ref={containerRef}
+          className={cn(
+            "relative mx-auto flex-1 w-full px-4 md:px-6",
+            readerMode === "spread" ? "max-w-[1600px] pb-6 pt-20" : "max-w-[1360px] pb-24 pt-24",
+          )}
+        >
+          {loadingBook && <p className="mb-4 text-sm text-[var(--text-muted)]">Loading book…</p>}
+
+          {readerMode === "scroll" ? (
+            <div className={cn("mx-auto max-w-5xl", readerFontClass)}>
+              <div
+                className="rounded-[36px] border border-[var(--border)] bg-[color-mix(in_srgb,var(--panel-soft)_68%,transparent)] px-6 py-8 md:px-10 md:py-12"
+                style={{ fontSize: `${settings.baseFontSize}px`, lineHeight: settings.lineHeight }}
+              >
+                <TypingLayer
+                  key="scroll-layer"
+                  tokens={tokens}
+                  snapshot={snapshot}
+                  chapterText={normalizedText}
+                  interactionMode={interactionMode}
+                  smoothCaret={settings.smoothCaret && analytics?.profile.unlocks.smoothCaret}
+                  compareOptions={{ ignoredCharacters: ignoredCharacterSet }}
+                  onWordClick={handleWordSelect}
+                />
+              </div>
+            </div>
+          ) : (
+            <div className="grid h-full w-full gap-6 lg:grid-cols-2">
+              <SpreadPage title={`Page ${pageIndex + 1}`} style={settings} maxLines={maxLines} lineHeightPx={lineHeightPx}>
+                {visibleLeft && (
+                  <TypingLayer
+                    key={`spread-left-${pageIndex}`}
+                    tokens={tokens}
+                    snapshot={snapshot}
+                    chapterText={normalizedText}
+                    visibleRange={visibleLeft}
+                    noScroll={true}
+                    faded={false}
+                    interactionMode={interactionMode}
+                    smoothCaret={settings.smoothCaret && analytics?.profile.unlocks.smoothCaret}
+                    compareOptions={{ ignoredCharacters: ignoredCharacterSet }}
+                    onWordClick={handleWordSelect}
+                  />
+                )}
+              </SpreadPage>
+
+              <SpreadPage title={`Page ${pageIndex + 2}`} style={settings} maxLines={maxLines} lineHeightPx={lineHeightPx}>
+                {visibleRight && (
+                  <TypingLayer
+                    key={`spread-right-${pageIndex}`}
+                    tokens={tokens}
+                    snapshot={snapshot}
+                    chapterText={normalizedText}
+                    visibleRange={visibleRight}
+                    noScroll={true}
+                    faded={false}
+                    interactionMode={interactionMode}
+                    smoothCaret={settings.smoothCaret && analytics?.profile.unlocks.smoothCaret}
+                    compareOptions={{ ignoredCharacters: ignoredCharacterSet }}
+                    onWordClick={handleWordSelect}
+                  />
+                )}
+              </SpreadPage>
+            </div>
+          )}
+        </div>
+
+        <div
+          className={cn(
+            "pointer-events-none fixed inset-x-0 bottom-6 z-40 flex items-end justify-between px-4 transition-opacity duration-300 md:px-10",
+            headerVisible ? "opacity-100" : "opacity-40",
+          )}
+        >
+          <div className="pointer-events-auto">
+            <Button
+              variant="ghost"
+              className="bg-[var(--panel)]/50 backdrop-blur-lg"
+              onClick={() => handleChapterJump(Math.max(chapterIndex - 1, 0))}
+              disabled={chapterIndex === 0}
+            >
+              Previous Chapter
+            </Button>
+          </div>
+
+          <div className="pointer-events-auto rounded-full border border-[var(--border)] bg-[color-mix(in_srgb,var(--panel)_65%,transparent)] px-6 py-2.5 text-sm font-medium text-[var(--text)] shadow-panel backdrop-blur-xl">
+            {Math.round(metrics.wpm)} WPM • {formatPercent(metrics.accuracy)} Acc
+          </div>
+
+          <div className="pointer-events-auto">
+            <Button
+              variant="ghost"
+              className="bg-[var(--panel)]/50 backdrop-blur-lg"
+              onClick={() => handleChapterJump(Math.min(chapterIndex + 1, book.chapters.length - 1))}
+              disabled={chapterIndex >= book.chapters.length - 1}
+            >
+              Next Chapter
+            </Button>
+          </div>
         </div>
       </div>
-    </div>
+
+      <SessionSummaryModal summary={summary} onClose={() => setSummary(null)} />
+    </>
   );
 }
 
@@ -568,13 +648,16 @@ function SpreadPage({
 }) {
   return (
     <div
-      className={cn("flex h-full flex-col overflow-hidden rounded-[34px] border border-[var(--border)] bg-[linear-gradient(180deg,rgba(255,255,255,0.12),transparent)] px-6 pt-8 pb-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]", "font-[var(--font-main)]")}
+      className={cn(
+        "flex h-full flex-col overflow-hidden rounded-[34px] border border-[var(--border)] bg-[linear-gradient(180deg,rgba(255,255,255,0.12),transparent)] px-6 pb-5 pt-8 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]",
+        "font-[var(--font-main)]",
+      )}
       style={{ fontSize: `${style.baseFontSize}px`, lineHeight: `${lineHeightPx}px` }}
     >
       <p className="mb-4 shrink-0 text-xs uppercase tracking-[0.24em] text-[var(--text-muted)]">{title}</p>
-      <div 
+      <div
         className="overflow-hidden whitespace-pre-wrap"
-        style={{ 
+        style={{
           height: `${maxLines * lineHeightPx}px`,
         }}
       >

@@ -1,5 +1,13 @@
 import { convertFileSrc, invoke } from "@tauri-apps/api/core";
-import type { AnalyticsSummary, AppSettings, ParsedBook, BookRecord, TypingSessionInput } from "../types";
+import type {
+  AnalyticsSummary,
+  AppSettings,
+  BookRecord,
+  ParsedBook,
+  ProcessKeystrokeBatchInput,
+  ProcessKeystrokeBatchResult,
+  TypingSessionInput,
+} from "../types";
 
 declare global {
   interface Window {
@@ -31,6 +39,8 @@ export const api = {
   setBookPinned: (bookId: number, pinned: boolean) => call<void>("set_book_pinned", { bookId, pinned }),
   deleteBook: (bookId: number) => call<void>("delete_book", { bookId }),
   saveSession: (session: TypingSessionInput) => call<void>("save_session", { session }),
+  processKeystrokeBatch: (payload: ProcessKeystrokeBatchInput) =>
+    call<ProcessKeystrokeBatchResult>("process_keystroke_batch", { payload }),
   getAnalytics: () => call<AnalyticsSummary>("get_analytics"),
   getSettings: () => call<AppSettings>("get_settings"),
   saveSettings: (settings: AppSettings) => call<AppSettings>("save_settings", { settings }),

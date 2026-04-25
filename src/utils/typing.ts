@@ -4,6 +4,7 @@ import { clamp } from "../lib/utils";
 interface TypingBehavior {
   enterToSkip?: boolean;
   ignoredCharacterSet?: ReadonlySet<string>;
+  layoutId?: string;
 }
 
 interface TypingInput {
@@ -222,14 +223,23 @@ export function applyTypingInput(
   }
 
   if (input.ctrlKey && input.key === "Backspace") {
+    const expected = currentExpectedCharacter(current, token);
     deleteCurrentWord(snapshot);
     return {
       snapshot,
-      event: { at: timestamp, type: "meta" },
+      event: {
+        at: timestamp,
+        type: "meta",
+        expected,
+        layout: options.layoutId,
+        cursorIndex: token.start + current.typed.length,
+      },
     };
   }
 
   if (input.key === "Backspace") {
+    const expected = currentExpectedCharacter(current, token);
+    const cursorIndex = token.start + Math.max(current.typed.length - 1, 0);
     if (current.typed.length > 0) {
       current.typed = current.typed.slice(0, -1);
       current.completed = false;
@@ -239,7 +249,13 @@ export function applyTypingInput(
     }
     return {
       snapshot,
-      event: { at: timestamp, type: "backspace" },
+      event: {
+        at: timestamp,
+        type: "backspace",
+        expected,
+        layout: options.layoutId,
+        cursorIndex,
+      },
     };
   }
 
@@ -259,6 +275,9 @@ export function applyTypingInput(
       event: {
         at: timestamp,
         type: "enter",
+        expected: currentExpectedCharacter(current, token),
+        layout: options.layoutId,
+        cursorIndex: token.start + current.typed.length,
         skippedWord: true,
       },
     };
@@ -267,15 +286,20 @@ export function applyTypingInput(
   if (input.key.length === 1) {
     autoConsumeIgnoredCharacters(current, token, options.ignoredCharacterSet);
 
+    const expected = currentExpectedCharacter(current, token);
+    const cursorIndex = token.start + current.typed.length;
     const inputChar = normalizeTypingChar(input.key);
+    const isCorrect =
+      normalizeForCompare(inputChar, options.ignoredCharacterSet) ===
+      normalizeForCompare(expected ?? "", options.ignoredCharacterSet);
     current.typed += inputChar;
 
     autoConsumeIgnoredCharacters(current, token, options.ignoredCharacterSet);
 
-    const expected = expectedText(token);
-    if (current.typed.length >= expected.length) {
+    const expectedValue = expectedText(token);
+    if (current.typed.length >= expectedValue.length) {
       current.completed = true;
-      const score = computeWordScore(expected, current.typed, options);
+      const score = computeWordScore(expectedValue, current.typed, options);
       if (snapshot.currentWordIndex < snapshot.words.length - 1) {
         snapshot.currentWordIndex += 1;
       }
@@ -285,6 +309,11 @@ export function applyTypingInput(
         event: {
           at: timestamp,
           type: inputChar === " " ? "space" : "char",
+          char: inputChar,
+          expected,
+          isCorrect,
+          layout: options.layoutId,
+          cursorIndex,
           correctChars: score.correctChars,
           typedChars: score.typedChars,
           errors: score.errors,
@@ -297,6 +326,11 @@ export function applyTypingInput(
       event: {
         at: timestamp,
         type: inputChar === " " ? "space" : "char",
+        char: inputChar,
+        expected,
+        isCorrect,
+        layout: options.layoutId,
+        cursorIndex,
       },
     };
   }
@@ -311,7 +345,12 @@ export function currentCursorIndex(snapshot: TypingSnapshot, tokens: TokenizedWo
     return lastToken?.end ?? 0;
   }
 
-  return Math.min(currentToken.start + snapshot.words[snapshot.currentWordIndex].typed.length, currentToken.end);
+  const wordState = snapshot.words[snapshot.currentWordIndex];
+  if (!wordState) {
+    return currentToken.start;
+  }
+
+  return Math.min(currentToken.start + wordState.typed.length, currentToken.end);
 }
 
 export function currentProgress(snapshot: TypingSnapshot, tokens: TokenizedWord[]) {
@@ -448,6 +487,10 @@ function autoConsumeIgnoredCharacters(
 
 function expectedText(token: TokenizedWord) {
   return token.word + token.separator;
+}
+
+function currentExpectedCharacter(state: WordTypingState, token: TokenizedWord) {
+  return expectedText(token)[state.typed.length];
 }
 
 function unescapeSettingToken(value: string) {
