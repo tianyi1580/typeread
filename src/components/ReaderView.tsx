@@ -492,9 +492,7 @@ export function ReaderView({
         )}
       >
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.08),transparent_36%)]" />
-        <div className="absolute inset-x-0 top-0 z-10 h-px bg-white/10">
-          <div className="h-full bg-[var(--accent)] transition-[width] duration-300" style={{ width: `${xpProgress * 100}%` }} />
-        </div>
+
 
         <div
           className={cn(
