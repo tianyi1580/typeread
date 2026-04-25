@@ -90,7 +90,7 @@ export function TypingLayer({
         const delta = newTop - preShiftRelativeTop.current;
         if (Math.abs(delta) > 0.5) {
           const isWindowScroll = container === document.body;
-          const nextScroll = (isWindowScroll ? window.scrollY : container.scrollTop) + delta;
+          const nextScroll = Math.max(0, (isWindowScroll ? window.scrollY : container.scrollTop) + delta);
           
           if (isWindowScroll) window.scrollTo(0, nextScroll);
           else container.scrollTop = nextScroll;
@@ -146,7 +146,7 @@ export function TypingLayer({
       
       const currentRelativeCenter = (elRect.top + elRect.height / 2) - (containerRect.top + containerRect.height / 2);
       const currentScroll = isWindowScroll ? window.scrollY : container.scrollTop;
-      const target = currentScroll + currentRelativeCenter;
+      const target = Math.max(0, currentScroll + currentRelativeCenter);
 
       if (isWindowScroll) window.scrollTo(0, target);
       else container.scrollTop = target;
@@ -198,7 +198,7 @@ export function TypingLayer({
     const currentScroll = isWindowScroll ? window.scrollY : container.scrollTop;
 
     if (isLineChanged) {
-      springRef.current.target = currentScroll + currentRelativeCenter;
+      springRef.current.target = Math.max(0, currentScroll + currentRelativeCenter);
       
       if (!springRef.current.isActive) {
         springRef.current.isActive = true;
@@ -276,7 +276,7 @@ export function TypingLayer({
   return (
     <div
       style={{
-        paddingTop: noScroll ? undefined : "50vh",
+        paddingTop: noScroll ? undefined : "0",
         paddingBottom: noScroll ? undefined : "50vh",
       }}
       className={cn(
