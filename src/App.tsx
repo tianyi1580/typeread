@@ -365,13 +365,13 @@ export default function App() {
     <div
       className={cn(
         "bg-[var(--bg)] text-[var(--text)] transition-colors duration-500",
-        activeTab === "reader" ? "flex flex-col h-screen overflow-hidden" : "min-h-screen"
+        activeTab === "reader" && readerMode === "spread" ? "flex flex-col h-screen overflow-hidden" : "min-h-screen"
       )}
       style={{
         backgroundImage: `radial-gradient(circle at top left, ${theme.accentSoft}, transparent 26%), radial-gradient(circle at bottom right, ${theme.panelSoft}, transparent 22%)`,
       }}
     >
-      <div className={cn(activeTab === "reader" ? "flex flex-col h-full overflow-hidden" : "min-h-screen px-4 py-4 md:px-6 md:py-6")}>
+      <div className={cn(activeTab === "reader" && readerMode === "spread" ? "flex flex-col h-full overflow-hidden" : "min-h-screen px-4 py-4 md:px-6 md:py-6")}>
         {showWindowShell && (
           <WindowShell
             activeTab={activeTab}
@@ -397,7 +397,7 @@ export default function App() {
           />
         )}
 
-        <main className={cn("relative", showWindowShell ? "mx-auto mt-5 max-w-[1480px]" : "flex flex-col h-full overflow-hidden")}>
+        <main className={cn("relative", (showWindowShell || readerMode === "scroll") ? "mx-auto mt-5 max-w-[1480px]" : "flex flex-col h-full overflow-hidden")}>
           {activeTab === "library" && (
             <LibraryView
               books={filteredBooks}

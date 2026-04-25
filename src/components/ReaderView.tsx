@@ -324,7 +324,7 @@ export function ReaderView({
   const visibleRight = pageRanges[pageIndex + 1];
 
   return (
-    <div className="relative flex h-full flex-col overflow-hidden rounded-[34px] border border-[var(--border)] bg-[color-mix(in_srgb,var(--panel)_82%,transparent)] shadow-panel">
+    <div className={cn("relative flex flex-col rounded-[34px] border border-[var(--border)] bg-[color-mix(in_srgb,var(--panel)_82%,transparent)] shadow-panel", readerMode === "spread" ? "h-full overflow-hidden" : "min-h-screen mb-12")}>
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.08),transparent_36%)]" />
 
       <div
