@@ -365,12 +365,6 @@ export default function App() {
     }
   }
 
-  function handleStartMode(mode: "read" | "type") {
-    setInteractionMode(mode);
-    if (selectedBookId) {
-      void loadBook(selectedBookId, true);
-    }
-  }
 
   const showWindowShell = activeTab !== "reader";
 
@@ -428,7 +422,6 @@ export default function App() {
               themeName={settings?.theme ?? "catppuccin-macchiato"}
               onImportBooks={handleImportBooks}
               onOpenBook={(bookId) => void loadBook(bookId, true)}
-              onStartMode={handleStartMode}
               onRenameBook={handleRenameBook}
               onTogglePinned={handleTogglePinned}
               onDeleteBook={handleDeleteBook}

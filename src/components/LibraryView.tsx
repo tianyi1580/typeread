@@ -1,4 +1,4 @@
-import { type MouseEvent, type ReactNode, useMemo, useState } from "react";
+import { type MouseEvent, type ReactNode, useState } from "react";
 import { Button } from "./ui/button";
 import { Card } from "./ui/card";
 import { api } from "../lib/tauri";
@@ -16,7 +16,6 @@ interface LibraryViewProps {
   themeName: ThemeName;
   onImportBooks: () => void;
   onOpenBook: (bookId: number) => void;
-  onStartMode: (mode: InteractionMode) => void;
   onRenameBook: (bookId: number, title: string) => Promise<void>;
   onTogglePinned: (bookId: number, pinned: boolean) => Promise<void>;
   onDeleteBook: (bookId: number) => Promise<void>;
@@ -32,7 +31,6 @@ export function LibraryView({
   themeName,
   onImportBooks,
   onOpenBook,
-  onStartMode,
   onRenameBook,
   onTogglePinned,
   onDeleteBook,
@@ -42,18 +40,6 @@ export function LibraryView({
   const [editingBook, setEditingBook] = useState<BookRecord | null>(null);
   const [draftTitle, setDraftTitle] = useState("");
 
-  const heroStats = useMemo(() => {
-    const totalChars = books.reduce((sum, book) => sum + book.totalChars, 0);
-    const averageProgress =
-      books.length === 0
-        ? 0
-        : books.reduce((sum, book) => sum + progressForBook(book), 0) / books.length;
-
-    return {
-      totalChars,
-      averageProgress,
-    };
-  }, [books]);
 
   const emptyState = books.length === 0 && !searchQuery;
 
@@ -74,7 +60,7 @@ export function LibraryView({
 
   return (
     <>
-      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
+      <div>
         <Card className="overflow-hidden p-5">
           <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
             <div>
@@ -88,24 +74,11 @@ export function LibraryView({
             </div>
 
             <div className="flex flex-wrap gap-3">
-              <Button variant="secondary" onClick={() => onStartMode("read")} disabled={!selectedBookId}>
-                Read
-              </Button>
-              <Button variant="secondary" onClick={() => onStartMode("type")} disabled={!selectedBookId}>
-                Type
-              </Button>
               <Button onClick={onImportBooks} disabled={!desktopReady}>
                 Import Books
               </Button>
             </div>
           </div>
-        </Card>
-
-        <Card className="grid gap-4 p-5">
-          <Metric label="Books" value={books.length.toString()} />
-          <Metric label="Pinned" value={books.filter((book) => book.pinned).length.toString()} />
-          <Metric label="Average Progress" value={`${Math.round(heroStats.averageProgress * 100)}%`} />
-          <Metric label="Tracked Characters" value={heroStats.totalChars.toLocaleString()} />
         </Card>
       </div>
 
@@ -322,14 +295,6 @@ function EmptySearchState({ query }: { query: string }) {
   );
 }
 
-function Metric({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-[22px] border border-[var(--border)] bg-[var(--panel-soft)] px-4 py-4">
-      <p className="text-[10px] uppercase tracking-[0.28em] text-[var(--text-muted)]">{label}</p>
-      <p className="mt-2 text-2xl font-semibold">{value}</p>
-    </div>
-  );
-}
 
 function BookActionButton({
   children,
