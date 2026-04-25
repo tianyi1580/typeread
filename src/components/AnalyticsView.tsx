@@ -68,8 +68,12 @@ export function AnalyticsView({
 
   // Prepare graph points based on active toggles
   const sessionPoints = useMemo(() => {
-    return analytics.latestDeepAnalytics?.macroWpm ?? [];
-  }, [analytics]);
+    if (sessionMetric === "wpm") {
+      return analytics.latestDeepAnalytics?.macroWpm ?? [];
+    } else {
+      return analytics.latestDeepAnalytics?.macroAccuracy ?? [];
+    }
+  }, [analytics, sessionMetric]);
 
   const lifetimePoints = useMemo(() => {
     const now = new Date();

@@ -458,7 +458,7 @@ export function PracticeView({
         )}
       </div>
 
-      <SessionSummaryModal summary={showSummary ? summary : null} onClose={() => setShowSummary(false)} onRestart={restart} />
+      <SessionSummaryModal summary={showSummary ? summary : null} onClose={() => setShowSummary(false)} />
     </>
   );
 }
