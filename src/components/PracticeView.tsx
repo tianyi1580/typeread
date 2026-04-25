@@ -426,7 +426,7 @@ export function PracticeView({
                   )}
                   
                   <div className="mt-10 flex flex-col gap-3">
-                    <Button size="lg" className="w-full" onClick={() => setShowSummary(true)} disabled={!summary}>See Results</Button>
+                    <Button className="w-full" onClick={() => setShowSummary(true)} disabled={!summary}>See Results</Button>
                     <Button variant="ghost" className="w-full" onClick={restart}>Start New Test</Button>
                   </div>
                 </div>

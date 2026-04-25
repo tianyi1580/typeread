@@ -9,6 +9,7 @@ export const demoSettings: AppSettings = {
   baseFontSize: 19,
   lineHeight: 1.75,
   enterToSkip: true,
+  ignoreQuotationMarks: false,
   ignoredCharacters: `"\"", "'", "“", "”", "‘", "’"`,
   focusMode: true,
   keyboardLayout: "qwerty-us",
@@ -175,6 +176,10 @@ export const demoAnalytics: AnalyticsSummary = {
     macroWpm: Array.from({ length: 24 }, (_, index) => ({
       at: 1713964500000 + index * 4000,
       value: 44 + Math.sin(index / 3) * 7 + index,
+    })),
+    macroAccuracy: Array.from({ length: 24 }, (_, index) => ({
+      at: 1713964500000 + index * 4000,
+      value: 94 + Math.cos(index / 5) * 4,
     })),
     recentWpm: Array.from({ length: 12 }, (_, index) => ({
       at: 1713964530000 + index * 2500,

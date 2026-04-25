@@ -110,8 +110,8 @@ export function TypingLayer({
           };
           scrollAnimationRef.current = requestAnimationFrame(animate);
         } else {
-          const targetY = el.offsetTop - container.offsetHeight / 2 + el.offsetHeight / 2;
-          const startY = container.scrollTop;
+          const targetY = el.offsetTop - container!.offsetHeight / 2 + el.offsetHeight / 2;
+          const startY = container!.scrollTop;
           const distance = targetY - startY;
           const duration = 400;
           let startTime: number | null = null;
