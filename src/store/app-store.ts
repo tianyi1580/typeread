@@ -32,7 +32,7 @@ export const defaultSettings: AppSettings = {
   baseFontSize: 18,
   lineHeight: 1.7,
   enterToSkip: true,
-  ignoreQuotationMarks: false,
+  ignoredCharacters: `"\"", "'", "“", "”", "‘", "’"`,
   focusMode: true,
 };
 

@@ -3,9 +3,11 @@ import { paginateText } from "../utils/pagination";
 import {
   applyTypingInput,
   computeMetrics,
+  createSnapshotFromWordStart,
   createTypingSnapshot,
-  currentChapterIndex,
+  currentCursorIndex,
   finalizeMetrics,
+  parseIgnoredCharacterSet,
   tokenizeText,
 } from "../utils/typing";
 import type {
@@ -68,7 +70,12 @@ export function ReaderView({
   const chapter = book.chapters[chapterIndex];
   const normalizedText = useMemo(() => chapter.text.replace(/\r\n/g, "\n").replace(/\r/g, "\n"), [chapter.text]);
   const tokens = useMemo(() => tokenizeText(normalizedText), [normalizedText]);
-  const [snapshot, setSnapshot] = useState<TypingSnapshot>(() => createTypingSnapshot(tokens));
+  const ignoredCharacterSet = useMemo(() => parseIgnoredCharacterSet(settings.ignoredCharacters), [settings.ignoredCharacters]);
+  const resumeCursorIndex = useMemo(
+    () => (chapterIndex === book.currentChapter ? book.currentIndex : 0),
+    [book.currentChapter, book.currentIndex, chapterIndex],
+  );
+  const [snapshot, setSnapshot] = useState<TypingSnapshot>(() => createTypingSnapshot(tokens, resumeCursorIndex));
   const [events, setEvents] = useState<KeystrokeEvent[]>([]);
   const [metrics, setMetrics] = useState<LiveMetrics>(EMPTY_METRICS);
   const [sessionStartAt, setSessionStartAt] = useState<number | null>(null);
@@ -149,13 +156,18 @@ export function ReaderView({
   }, [liveMetrics]);
 
   useEffect(() => {
-    setSnapshot(createTypingSnapshot(tokens));
+    const nextSnapshot = createTypingSnapshot(tokens, resumeCursorIndex);
+    setSnapshot(nextSnapshot);
+    snapshotRef.current = nextSnapshot;
     setEvents([]);
+    eventsRef.current = [];
     setMetrics(EMPTY_METRICS);
     setSessionStartAt(null);
+    sessionStartRef.current = null;
     setLastInputAt(null);
+    lastInputRef.current = null;
     setPageIndex(0);
-  }, [tokens]);
+  }, [resumeCursorIndex, tokens]);
 
   useEffect(() => {
     const interval = window.setInterval(() => setClock(Date.now()), 1000);
@@ -192,11 +204,20 @@ export function ReaderView({
     }
 
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.metaKey || event.ctrlKey || event.altKey) {
+      const isMac = navigator.userAgent.toLowerCase().includes("mac");
+      const isWordDeletion = event.key === "Backspace" && (isMac ? event.metaKey : event.ctrlKey);
+
+      if (
+        event.altKey ||
+        (isMac && event.metaKey && !isWordDeletion) ||
+        (!isMac && event.ctrlKey && !isWordDeletion) ||
+        (!isMac && event.metaKey)
+      ) {
         return;
       }
 
       const relevant =
+        isWordDeletion ||
         event.key === "Backspace" ||
         (settings.enterToSkip && event.key === "Enter") ||
         event.key === " " ||
@@ -223,9 +244,9 @@ export function ReaderView({
         ...nextSnapshot.words[nextSnapshot.currentWordIndex],
       };
 
-      const result = applyTypingInput(nextSnapshot, tokens, event.key, now, {
+      const result = applyTypingInput(nextSnapshot, tokens, { key: event.key, ctrlKey: isWordDeletion }, now, {
         enterToSkip: settings.enterToSkip,
-        ignoreQuotationMarks: settings.ignoreQuotationMarks,
+        ignoredCharacterSet,
       });
 
       setSnapshot(result.snapshot);
@@ -243,7 +264,7 @@ export function ReaderView({
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [interactionMode, settings.enterToSkip, settings.ignoreQuotationMarks, tokens]);
+  }, [ignoredCharacterSet, interactionMode, settings.enterToSkip, tokens]);
 
   useEffect(() => {
     const handleNav = (event: KeyboardEvent) => {
@@ -266,7 +287,7 @@ export function ReaderView({
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
-      void onProgress(book.id, currentChapterIndex(snapshot, tokens), chapterIndex);
+      void onProgress(book.id, currentCursorIndex(snapshot, tokens), chapterIndex);
     }, 500);
 
     return () => window.clearTimeout(timer);
@@ -285,7 +306,7 @@ export function ReaderView({
   }, [readerMode]);
 
   useEffect(() => {
-    const currentIndex = currentChapterIndex(snapshot, tokens);
+    const currentIndex = currentCursorIndex(snapshot, tokens);
     const activePage = pageRanges.findIndex((range) => currentIndex >= range.start && currentIndex < range.end);
     if (activePage >= 0) {
       // Ensure we always land on an even page index for 2-page spreads
@@ -324,13 +345,25 @@ export function ReaderView({
     });
   }
 
+  function handleWordSelect(wordIndex: number) {
+    if (interactionMode !== "type") {
+      onInteractionModeChange("type");
+    }
+
+    void flushSession(false);
+    const nextSnapshot = createSnapshotFromWordStart(tokens, wordIndex);
+    setSnapshot(nextSnapshot);
+    snapshotRef.current = nextSnapshot;
+    setMetrics(EMPTY_METRICS);
+  }
+
   const headerVisible = clock - lastMouseAt < 1600;
   const readerFontClass = "font-[var(--font-main)]";
   const visibleLeft = pageRanges[pageIndex];
   const visibleRight = pageRanges[pageIndex + 1];
 
   return (
-    <div className={cn("relative flex flex-col rounded-[34px] border border-[var(--border)] bg-[color-mix(in_srgb,var(--panel)_82%,transparent)] shadow-panel", readerMode === "spread" ? "h-full overflow-hidden" : "min-h-screen mb-12")}>
+    <div className={cn("relative flex flex-col rounded-[34px] border border-[var(--border)] bg-[color-mix(in_srgb,var(--panel)_82%,transparent)] shadow-panel", readerMode === "spread" ? "h-full overflow-hidden" : "min-h-screen mb-12", readerFontClass)}>
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.08),transparent_36%)]" />
 
       <div
@@ -417,30 +450,22 @@ export function ReaderView({
               className="rounded-[36px] border border-[var(--border)] bg-[color-mix(in_srgb,var(--panel-soft)_68%,transparent)] px-6 py-8 md:px-10 md:py-12"
               style={{ fontSize: `${settings.baseFontSize}px`, lineHeight: settings.lineHeight }}
             >
-              {interactionMode === "type" ? (
-                <TypingLayer
-                  key="scroll-layer"
-                  tokens={tokens}
-                  snapshot={snapshot}
-                  chapterText={normalizedText}
-                  className="tracking-[0.01em]"
-                  compareOptions={{ ignoreQuotationMarks: settings.ignoreQuotationMarks }}
-                />
-              ) : (
-                <div className="space-y-8 text-[var(--text)]">
-                  {chapter.chunks.map((chunk) => (
-                    <p key={chunk.id} className="whitespace-pre-wrap">
-                      {chunk.text}
-                    </p>
-                  ))}
-                </div>
-              )}
+              <TypingLayer
+                key="scroll-layer"
+                tokens={tokens}
+                snapshot={snapshot}
+                chapterText={normalizedText}
+                className="tracking-[0.01em]"
+                interactionMode={interactionMode}
+                compareOptions={{ ignoredCharacters: ignoredCharacterSet }}
+                onWordClick={handleWordSelect}
+              />
             </div>
           </div>
         ) : (
           <div className="grid h-full w-full gap-6 lg:grid-cols-2">
             <SpreadPage title={`Page ${pageIndex + 1}`} style={settings} maxLines={maxLines} lineHeightPx={lineHeightPx}>
-              {interactionMode === "type" && visibleLeft ? (
+              {visibleLeft && (
                 <TypingLayer
                   key={`spread-left-${pageIndex}`}
                   tokens={tokens}
@@ -450,15 +475,15 @@ export function ReaderView({
                   noScroll={true}
                   className="tracking-[0.01em]"
                   faded={false}
-                  compareOptions={{ ignoreQuotationMarks: settings.ignoreQuotationMarks }}
+                  interactionMode={interactionMode}
+                  compareOptions={{ ignoredCharacters: ignoredCharacterSet }}
+                  onWordClick={handleWordSelect}
                 />
-              ) : (
-                visibleLeft && <p className="whitespace-pre-wrap">{pages[pageIndex]}</p>
               )}
             </SpreadPage>
 
             <SpreadPage title={`Page ${pageIndex + 2}`} style={settings} maxLines={maxLines} lineHeightPx={lineHeightPx}>
-              {interactionMode === "type" && visibleRight ? (
+              {visibleRight && (
                 <TypingLayer
                   key={`spread-right-${pageIndex}`}
                   tokens={tokens}
@@ -468,10 +493,10 @@ export function ReaderView({
                   noScroll={true}
                   className="tracking-[0.01em]"
                   faded={false}
-                  compareOptions={{ ignoreQuotationMarks: settings.ignoreQuotationMarks }}
+                  interactionMode={interactionMode}
+                  compareOptions={{ ignoredCharacters: ignoredCharacterSet }}
+                  onWordClick={handleWordSelect}
                 />
-              ) : (
-                visibleRight && <p className="whitespace-pre-wrap">{pages[pageIndex + 1]}</p>
               )}
             </SpreadPage>
           </div>
@@ -544,7 +569,7 @@ function SpreadPage({
 }) {
   return (
     <div
-      className="flex h-full flex-col overflow-hidden rounded-[34px] border border-[var(--border)] bg-[linear-gradient(180deg,rgba(255,255,255,0.12),transparent)] px-6 pt-8 pb-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]"
+      className={cn("flex h-full flex-col overflow-hidden rounded-[34px] border border-[var(--border)] bg-[linear-gradient(180deg,rgba(255,255,255,0.12),transparent)] px-6 pt-8 pb-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]", "font-[var(--font-main)]")}
       style={{ fontSize: `${style.baseFontSize}px`, lineHeight: `${lineHeightPx}px` }}
     >
       <p className="mb-4 shrink-0 text-xs uppercase tracking-[0.24em] text-[var(--text-muted)]">{title}</p>

@@ -100,14 +100,13 @@ pub struct AnalyticsSummary {
 #[serde(rename_all = "camelCase")]
 pub struct AppSettings {
     pub theme: String,
-    pub type_font: String,
-    pub read_font: String,
+    pub font: String,
     pub reader_mode: String,
     pub interaction_mode: String,
     pub base_font_size: i64,
     pub line_height: f64,
     pub enter_to_skip: bool,
-    pub ignore_quotation_marks: bool,
+    pub ignored_characters: String,
     pub focus_mode: bool,
 }
 

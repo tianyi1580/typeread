@@ -72,6 +72,7 @@ impl Database {
                 line_height REAL NOT NULL DEFAULT 1.7,
                 enter_to_skip INTEGER NOT NULL DEFAULT 1,
                 ignore_quotation_marks INTEGER NOT NULL DEFAULT 0,
+                ignored_characters TEXT NOT NULL DEFAULT '',
                 focus_mode INTEGER NOT NULL DEFAULT 1
             );
             "#,
@@ -93,9 +94,10 @@ impl Database {
                 line_height,
                 enter_to_skip,
                 ignore_quotation_marks,
+                ignored_characters,
                 focus_mode
             )
-            VALUES (1, 'catppuccin-macchiato', 'jetbrains-mono', 'inter', 'scroll', 'type', 18, 1.7, 1, 0, 1)
+            VALUES (1, 'catppuccin-macchiato', 'jetbrains-mono', 'inter', 'scroll', 'type', 18, 1.7, 1, 0, '', 1)
             ON CONFLICT(id) DO NOTHING;
             "#,
             [],
@@ -112,6 +114,7 @@ impl Database {
         ensure_column(conn, "settings", "line_height", "REAL NOT NULL DEFAULT 1.7")?;
         ensure_column(conn, "settings", "enter_to_skip", "INTEGER NOT NULL DEFAULT 1")?;
         ensure_column(conn, "settings", "ignore_quotation_marks", "INTEGER NOT NULL DEFAULT 0")?;
+        ensure_column(conn, "settings", "ignored_characters", "TEXT NOT NULL DEFAULT ''")?;
         ensure_column(conn, "settings", "focus_mode", "INTEGER NOT NULL DEFAULT 1")?;
         Ok(())
     }
@@ -412,29 +415,34 @@ impl Database {
             SELECT
                 theme,
                 type_font,
-                read_font,
                 reader_mode,
                 interaction_mode,
                 base_font_size,
                 line_height,
                 enter_to_skip,
                 ignore_quotation_marks,
+                ignored_characters,
                 focus_mode
             FROM settings
             WHERE id = 1
             "#,
             [],
             |row| {
+                let ignored_characters: String = row.get(8)?;
+                let ignore_quotation_marks = row.get::<_, i64>(7)? == 1;
                 Ok(AppSettings {
                     theme: row.get(0)?,
-                    type_font: row.get(1)?,
-                    read_font: row.get(2)?,
-                    reader_mode: row.get(3)?,
-                    interaction_mode: row.get(4)?,
-                    base_font_size: row.get(5)?,
-                    line_height: row.get(6)?,
-                    enter_to_skip: row.get::<_, i64>(7)? == 1,
-                    ignore_quotation_marks: row.get::<_, i64>(8)? == 1,
+                    font: row.get(1)?,
+                    reader_mode: row.get(2)?,
+                    interaction_mode: row.get(3)?,
+                    base_font_size: row.get(4)?,
+                    line_height: row.get(5)?,
+                    enter_to_skip: row.get::<_, i64>(6)? == 1,
+                    ignored_characters: if ignored_characters.trim().is_empty() && ignore_quotation_marks {
+                        r#""\"", "'", "“", "”", "‘", "’""#.to_string()
+                    } else {
+                        ignored_characters
+                    },
                     focus_mode: row.get::<_, i64>(9)? == 1,
                 })
             },
@@ -449,26 +457,26 @@ impl Database {
             UPDATE settings
             SET theme = ?1,
                 type_font = ?2,
-                read_font = ?3,
-                reader_mode = ?4,
-                interaction_mode = ?5,
-                base_font_size = ?6,
-                line_height = ?7,
-                enter_to_skip = ?8,
-                ignore_quotation_marks = ?9,
+                reader_mode = ?3,
+                interaction_mode = ?4,
+                base_font_size = ?5,
+                line_height = ?6,
+                enter_to_skip = ?7,
+                ignore_quotation_marks = ?8,
+                ignored_characters = ?9,
                 focus_mode = ?10
             WHERE id = 1
             "#,
             params![
                 settings.theme,
-                settings.type_font,
-                settings.read_font,
+                settings.font,
                 settings.reader_mode,
                 settings.interaction_mode,
                 settings.base_font_size,
                 settings.line_height,
                 if settings.enter_to_skip { 1 } else { 0 },
-                if settings.ignore_quotation_marks { 1 } else { 0 },
+                if settings.ignored_characters.trim().is_empty() { 0 } else { 1 },
+                settings.ignored_characters,
                 if settings.focus_mode { 1 } else { 0 }
             ],
         )

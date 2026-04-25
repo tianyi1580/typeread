@@ -12,11 +12,24 @@ interface TypingLayerProps {
   className?: string;
   faded?: boolean;
   compareOptions?: {
-    ignoreQuotationMarks?: boolean;
+    ignoredCharacters?: ReadonlySet<string>;
   };
+  onWordClick?: (wordIndex: number) => void;
+  interactionMode?: InteractionMode;
 }
 
-export function TypingLayer({ tokens, snapshot, chapterText, visibleRange, noScroll, className, faded = true, compareOptions }: TypingLayerProps) {
+export function TypingLayer({
+  tokens,
+  snapshot,
+  chapterText,
+  visibleRange,
+  noScroll,
+  className,
+  faded = true,
+  compareOptions,
+  onWordClick,
+  interactionMode = "type",
+}: TypingLayerProps) {
   const currentWordRef = useRef<HTMLSpanElement | null>(null);
   const visibleTokens = useMemo(() => {
     if (visibleRange) {
@@ -128,6 +141,7 @@ export function TypingLayer({ tokens, snapshot, chapterText, visibleRange, noScr
         <Word
           key={token.id}
           ref={index === snapshot.currentWordIndex ? currentWordRef : null}
+          index={index}
           token={token}
           state={snapshot.words[index]}
           isCurrent={index === snapshot.currentWordIndex}
@@ -136,6 +150,8 @@ export function TypingLayer({ tokens, snapshot, chapterText, visibleRange, noScr
           distance={Math.abs(index - snapshot.currentWordIndex)}
           faded={faded && !visibleRange}
           compareOptions={compareOptions}
+          onClick={onWordClick}
+          interactionMode={interactionMode}
         />
       ))}
     </div>
@@ -146,6 +162,7 @@ const Word = React.memo(
   React.forwardRef<
     HTMLSpanElement,
     {
+      index: number;
       token: TokenizedWord;
       state: any;
       isCurrent: boolean;
@@ -153,9 +170,11 @@ const Word = React.memo(
       isUpcoming: boolean;
       distance: number;
       faded: boolean;
-      compareOptions?: { ignoreQuotationMarks?: boolean };
+      compareOptions?: { ignoredCharacters?: ReadonlySet<string> };
+      onClick?: (index: number) => void;
+      interactionMode?: InteractionMode;
     }
-  >(({ token, state, isCurrent, isCompleted, isUpcoming, distance, faded, compareOptions }, ref) => {
+  >(({ index, token, state, isCurrent, isCompleted, isUpcoming, distance, faded, compareOptions, onClick, interactionMode }, ref) => {
     // Calculate opacity inline to avoid hook overhead in the large word list
     let opacity = 1;
     if (faded) {
@@ -164,9 +183,24 @@ const Word = React.memo(
       else if (distance > 12) opacity = 0.62;
     }
 
+    if (interactionMode === "read") {
+      return (
+        <span
+          className={cn("text-[var(--text)] transition hover:text-[var(--accent)]", onClick && "cursor-pointer")}
+          onClick={onClick ? () => onClick(index) : undefined}
+        >
+          {token.word + token.separator}
+        </span>
+      );
+    }
+
     if (isUpcoming) {
       return (
-        <span className="text-[var(--text-muted)]" style={{ opacity }}>
+        <span
+          className={cn("text-[var(--text-muted)] transition hover:text-[var(--text)]", onClick && "cursor-text")}
+          style={{ opacity }}
+          onClick={onClick ? () => onClick(index) : undefined}
+        >
           {token.word + token.separator}
         </span>
       );
@@ -174,13 +208,17 @@ const Word = React.memo(
 
     if (isCompleted) {
       const isPerfect = state
-        ? normalizeForCompare(state.typed, compareOptions?.ignoreQuotationMarks) ===
-        normalizeForCompare(token.word + token.separator, compareOptions?.ignoreQuotationMarks)
+        ? normalizeForCompare(state.typed, compareOptions?.ignoredCharacters) ===
+        normalizeForCompare(token.word + token.separator, compareOptions?.ignoredCharacters)
         : true;
 
       if (isPerfect) {
         return (
-          <span className="text-[var(--success)]" style={{ opacity }}>
+          <span
+            className={cn("text-[var(--success)] transition hover:opacity-70", onClick && "cursor-text")}
+            style={{ opacity }}
+            onClick={onClick ? () => onClick(index) : undefined}
+          >
             {token.word + token.separator}
           </span>
         );
@@ -188,13 +226,32 @@ const Word = React.memo(
     }
 
     return (
-      <span ref={ref} className="transition-opacity duration-300" style={{ opacity }}>
-        {renderWordParts(token.word + token.separator, state?.typed ?? "", isCurrent, isCompleted, state?.skipped ?? false)}
+      <span
+        ref={ref}
+        className={cn("transition duration-300", onClick && "cursor-text")}
+        style={{ opacity }}
+        onClick={onClick ? () => onClick(index) : undefined}
+      >
+        {renderWordParts(
+          token.word + token.separator,
+          state?.typed ?? "",
+          isCurrent,
+          isCompleted,
+          state?.skipped ?? false,
+          compareOptions?.ignoredCharacters,
+        )}
       </span>
     );
   }));
 
-function renderWordParts(expected: string, typed: string, current: boolean, completed: boolean, skipped: boolean) {
+function renderWordParts(
+  expected: string,
+  typed: string,
+  current: boolean,
+  completed: boolean,
+  skipped: boolean,
+  ignoredCharacters?: ReadonlySet<string>,
+) {
   const expectedChars = [...expected];
   const typedChars = [...typed];
   const output: JSX.Element[] = [];
@@ -206,7 +263,7 @@ function renderWordParts(expected: string, typed: string, current: boolean, comp
 
     let charClass = "text-[var(--text-muted)]";
     if (typedChar !== undefined) {
-      const correct = normalizeForCompare(typedChar) === normalizeForCompare(expectedChar);
+      const correct = normalizeForCompare(typedChar, ignoredCharacters) === normalizeForCompare(expectedChar, ignoredCharacters);
       charClass = correct ? "text-[var(--success)]" : "text-[var(--danger)] underline decoration-[var(--danger)]/60";
     } else if (skipped) {
       charClass = "text-[var(--text-muted)]/60 line-through";

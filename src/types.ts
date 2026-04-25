@@ -90,7 +90,7 @@ export interface AppSettings {
   baseFontSize: number;
   lineHeight: number;
   enterToSkip: boolean;
-  ignoreQuotationMarks: boolean;
+  ignoredCharacters: string;
   focusMode: boolean;
 }
 
@@ -115,7 +115,7 @@ export interface TypingSnapshot {
 
 export interface KeystrokeEvent {
   at: number;
-  type: "char" | "space" | "enter" | "backspace";
+  type: "char" | "space" | "enter" | "backspace" | "meta";
   skippedWord?: boolean;
   correctChars?: number;
   typedChars?: number;

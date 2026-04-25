@@ -8,7 +8,7 @@ export const demoSettings: AppSettings = {
   baseFontSize: 19,
   lineHeight: 1.75,
   enterToSkip: true,
-  ignoreQuotationMarks: false,
+  ignoredCharacters: `"\"", "'", "“", "”", "‘", "’"`,
   focusMode: true,
 };
 

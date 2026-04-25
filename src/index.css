@@ -1,3 +1,4 @@
+@import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@300..700&family=Geist+Mono:wght@100..900&family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&display=swap');
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -14,8 +15,7 @@
   --success: #a6da95;
   --danger: #ed8796;
   --shadow: rgba(0, 0, 0, 0.38);
-  --font-type: "JetBrains Mono", ui-monospace, monospace;
-  --font-read: "Inter", Georgia, serif;
+  --font-main: "JetBrains Mono", ui-monospace, monospace;
   --font-size-base: 18px;
   --line-height-base: 1.7;
 }
@@ -33,7 +33,7 @@ body,
 body {
   margin: 0;
   color: var(--text);
-  font-family: var(--font-read);
+  font-family: var(--font-main);
   background: var(--bg);
   font-size: var(--font-size-base);
   line-height: var(--line-height-base);
@@ -67,10 +67,6 @@ textarea {
   background: transparent;
 }
 
-.font-\[var\(--font-type\)\] {
-  font-family: var(--font-type);
-}
-
-.font-\[var\(--font-read\)\] {
-  font-family: var(--font-read);
+.font-\[var\(--font-main\)\] {
+  font-family: var(--font-main);
 }

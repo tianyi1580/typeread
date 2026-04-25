@@ -1,21 +1,3 @@
-Core logistics:
-
-Chapter separation: When parsing the input files, the chapter serparation / chunking is not working properly. For example, with sky raiders book 1 (1).epub, there are about 35 chapters, but the app thinks there are only 4 chapters. Each chapter in it is denoted by "Chapter X" in the text of the book. This should be used as ground trutch when there are no explicit chapter markers in the file structure. If there are actually no chapters, split the file into chunks of ~ 2000 each. The splits should be at sentence endings to avoid cutting off words/ sentences.
-
-Resuming: When resuming the book, the app should start from where the user left off, including cursor position. This means if I left off in the middle of a word, the app should still start from that word, with the cursor at the correct position. If I left off at the end of a word, the app should start from the next word, with the cursor at the beginning of that word. Currently, there is no resume feature, so the app always starts from the beginning of the book.
-
-Analytics: The graphs don't have numbers on the axes making it hard to tell what the exact wpm and accuracy is at any point. Implement proper axes with numbers. I also want the graphs to be interactive. When the user hovers over a point in the graph, it should show the exact data at that point. 
-
-Font Settings: Remove "read" fonts entirely. Only use fonts in the "type" category. The fonts in font settings should show a preview of what the font looks like when typing. 
-
-Ignore quotation marks toggle: Replace this toggle with a text box that allows the user to input any characters they want to ignore when typing in the format "character1", "character2", "character3", etc. The cursor will simply skip over the inputted characters when typing, not count them as correct or incorrect using the same logic as the current ignore quotation marks toggle. 
-
-Start from anywhere: Currently, the user can only start typing from the beginning of the book. I want to be able to click anywhere in the book and start typing from that word.
-
-Word deletion: Implement word deletion when hitting ctrl + backspace. 
-
-Keyboard layout: Implement a keyboard layout selection system where the user can select or customize their keyboard layout, and the app will use that layout to compute deep analytics eg. directional drift.
-
 Deep analytics:
 
 ### 1. The Architecture: Buffered Event Syncing
@@ -50,6 +32,7 @@ Measures typing rhythm. A metronomic typist scores high; an erratic typist score
 #### C. Diagnostic Confusion Matrix (Directional Drift)
 * **The Logic:** Rust maintains a `HashMap<(expected_char, typed_char), count>`.
 * **Layout Awareness:** By knowing the layout (e.g., QWERTY), Rust detects "Directional Drift." If a user consistently hits 'S' for 'A', the analytics diagnose a mechanical left-hand shift, not just a "mistake."
+* Implement a keyboard layout selection system where the user can select or customize their keyboard layout, and the app will use that layout to compute deep analytics eg. directional drift.
 
 #### D. Transition Heatmaps (Muscle Memory)
 Tracks travel time between specific key pairs.

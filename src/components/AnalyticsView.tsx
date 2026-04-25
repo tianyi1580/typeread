@@ -179,80 +179,248 @@ function SegmentedControl({
 }
 
 function TrendChart({ history, metricMode }: { history: DailyMetric[]; metricMode: MetricMode }) {
+  const [hoveredPoint, setHoveredPoint] = useState<{ x: number; y: number; label: string; value: string } | null>(null);
   const width = 920;
   const height = 320;
-  const padding = 32;
+  const padding = { top: 20, right: 20, bottom: 44, left: 56 };
+
+  if (history.length === 0) {
+    return <div className="flex h-[320px] items-center justify-center text-sm text-[var(--text-muted)]">No trend data yet.</div>;
+  }
+
   const values = history.map((item) => (metricMode === "wpm" ? item.wpm : item.accuracy));
   const max = Math.max(...values, metricMode === "wpm" ? 80 : 100);
   const min = Math.min(...values, metricMode === "wpm" ? 0 : 85);
-  const range = Math.max(max - min, 1);
+  const ticks = buildTicks(min, max, 5, metricMode === "accuracy" ? 1 : 5);
+  const chartMin = ticks[0] ?? min;
+  const chartMax = ticks[ticks.length - 1] ?? max;
+  const range = Math.max(chartMax - chartMin, 1);
 
-  const points = history
-    .map((item, index) => {
-      const value = metricMode === "wpm" ? item.wpm : item.accuracy;
-      const x = padding + (index / Math.max(history.length - 1, 1)) * (width - padding * 2);
-      const y = height - padding - ((value - min) / range) * (height - padding * 2);
-      return `${x},${y}`;
-    })
-    .join(" ");
+  const chartPoints = history.map((item, index) => {
+    const value = metricMode === "wpm" ? item.wpm : item.accuracy;
+    const x =
+      padding.left +
+      (index / Math.max(history.length - 1, 1)) * (width - padding.left - padding.right);
+    const y =
+      height -
+      padding.bottom -
+      ((value - chartMin) / range) * (height - padding.top - padding.bottom);
+
+    return {
+      day: item.day,
+      value,
+      x,
+      y,
+    };
+  });
+
+  const points = chartPoints.map((point) => `${point.x},${point.y}`).join(" ");
 
   return (
-    <svg viewBox={`0 0 ${width} ${height}`} className="h-[320px] w-full">
-      {[0, 1, 2, 3].map((line) => {
-        const y = padding + ((height - padding * 2) / 3) * line;
-        return <line key={line} x1={padding} x2={width - padding} y1={y} y2={y} stroke="var(--border)" strokeDasharray="4 8" />;
-      })}
-      {points && (
-        <>
-          <defs>
-            <linearGradient id="trend-fill" x1="0" x2="0" y1="0" y2="1">
-              <stop offset="0%" stopColor="var(--accent)" stopOpacity="0.5" />
-              <stop offset="100%" stopColor="var(--accent)" stopOpacity="0" />
-            </linearGradient>
-          </defs>
-          <polyline fill="none" stroke="var(--accent)" strokeWidth="4" strokeLinejoin="round" strokeLinecap="round" points={points} />
-          <polygon fill="url(#trend-fill)" points={`${padding},${height - padding} ${points} ${width - padding},${height - padding}`} />
-        </>
-      )}
+    <div className="relative">
+      {hoveredPoint && <ChartTooltip point={hoveredPoint} width={width} height={height} />}
+      <svg viewBox={`0 0 ${width} ${height}`} className="h-[320px] w-full overflow-visible">
+        {ticks.map((tick) => {
+          const y =
+            height -
+            padding.bottom -
+            ((tick - chartMin) / range) * (height - padding.top - padding.bottom);
+          return (
+            <g key={tick}>
+              <line
+                x1={padding.left}
+                x2={width - padding.right}
+                y1={y}
+                y2={y}
+                stroke="var(--border)"
+                strokeDasharray="4 8"
+              />
+              <text x={padding.left - 10} y={y + 4} fill="var(--text-muted)" fontSize="12" textAnchor="end">
+                {formatAxisValue(tick, metricMode)}
+              </text>
+            </g>
+          );
+        })}
+        <line
+          x1={padding.left}
+          x2={padding.left}
+          y1={padding.top}
+          y2={height - padding.bottom}
+          stroke="var(--border)"
+        />
+        <line
+          x1={padding.left}
+          x2={width - padding.right}
+          y1={height - padding.bottom}
+          y2={height - padding.bottom}
+          stroke="var(--border)"
+        />
 
-      {history.map((item, index) => {
-        const value = metricMode === "wpm" ? item.wpm : item.accuracy;
-        const x = padding + (index / Math.max(history.length - 1, 1)) * (width - padding * 2);
-        const y = height - padding - ((value - min) / range) * (height - padding * 2);
-        return <circle key={item.day} cx={x} cy={y} r="5" fill="var(--panel)" stroke="var(--accent)" strokeWidth="2" />;
-      })}
-    </svg>
+        {points && (
+          <>
+            <defs>
+              <linearGradient id="trend-fill" x1="0" x2="0" y1="0" y2="1">
+                <stop offset="0%" stopColor="var(--accent)" stopOpacity="0.5" />
+                <stop offset="100%" stopColor="var(--accent)" stopOpacity="0" />
+              </linearGradient>
+            </defs>
+            <polyline fill="none" stroke="var(--accent)" strokeWidth="4" strokeLinejoin="round" strokeLinecap="round" points={points} />
+            <polygon
+              fill="url(#trend-fill)"
+              points={`${padding.left},${height - padding.bottom} ${points} ${width - padding.right},${height - padding.bottom}`}
+            />
+          </>
+        )}
+
+        {chartPoints.map((point) => (
+          <circle
+            key={point.day}
+            cx={point.x}
+            cy={point.y}
+            r="5"
+            fill="var(--panel)"
+            stroke="var(--accent)"
+            strokeWidth="2"
+            onMouseEnter={() =>
+              setHoveredPoint({
+                x: point.x,
+                y: point.y,
+                label: formatDate(`${point.day}T00:00:00Z`),
+                value: `${formatAxisValue(point.value, metricMode)} ${metricMode === "wpm" ? "WPM" : "% accuracy"}`,
+              })
+            }
+            onMouseLeave={() => setHoveredPoint(null)}
+          />
+        ))}
+
+        {pickXLabelIndexes(history.length).map((index) => {
+          const point = chartPoints[index];
+          if (!point) {
+            return null;
+          }
+
+          return (
+            <text
+              key={`${point.day}-label`}
+              x={point.x}
+              y={height - 14}
+              fill="var(--text-muted)"
+              fontSize="12"
+              textAnchor={index === 0 ? "start" : index === history.length - 1 ? "end" : "middle"}
+            >
+              {formatShortDay(point.day)}
+            </text>
+          );
+        })}
+      </svg>
+    </div>
   );
 }
 
 function ScatterChart({ points }: { points: SessionPoint[] }) {
+  const [hoveredPoint, setHoveredPoint] = useState<{ x: number; y: number; label: string; value: string } | null>(null);
   const width = 420;
   const height = 320;
-  const padding = 40;
+  const padding = { top: 20, right: 20, bottom: 44, left: 52 };
+
+  if (points.length === 0) {
+    return <div className="flex h-[320px] items-center justify-center text-sm text-[var(--text-muted)]">No session points yet.</div>;
+  }
+
   const maxWpm = Math.max(...points.map((point) => point.wpm), 80);
   const minWpm = Math.min(...points.map((point) => point.wpm), 0);
+  const wpmTicks = buildTicks(minWpm, maxWpm, 5, 5);
   const maxAccuracy = 100;
   const minAccuracy = Math.max(Math.min(...points.map((point) => point.accuracy), 92), 80);
+  const accuracyTicks = buildTicks(minAccuracy, maxAccuracy, 5, 1);
+  const xMin = wpmTicks[0] ?? minWpm;
+  const xMax = wpmTicks[wpmTicks.length - 1] ?? maxWpm;
+  const yMin = accuracyTicks[0] ?? minAccuracy;
+  const yMax = accuracyTicks[accuracyTicks.length - 1] ?? maxAccuracy;
+
+  const chartPoints = points.map((point) => {
+    const x =
+      padding.left +
+      ((point.wpm - xMin) / Math.max(xMax - xMin, 1)) * (width - padding.left - padding.right);
+    const y =
+      height -
+      padding.bottom -
+      ((point.accuracy - yMin) / Math.max(yMax - yMin, 1)) * (height - padding.top - padding.bottom);
+    const radius = 4 + Math.min(point.durationSeconds / 900, 6);
+
+    return { point, x, y, radius };
+  });
 
   return (
-    <svg viewBox={`0 0 ${width} ${height}`} className="h-[320px] w-full">
-      <line x1={padding} x2={padding} y1={padding} y2={height - padding} stroke="var(--border)" />
-      <line x1={padding} x2={width - padding} y1={height - padding} y2={height - padding} stroke="var(--border)" />
-      {points.map((point) => {
-        const x = padding + ((point.wpm - minWpm) / Math.max(maxWpm - minWpm, 1)) * (width - padding * 2);
-        const y =
-          height - padding - ((point.accuracy - minAccuracy) / Math.max(maxAccuracy - minAccuracy, 1)) * (height - padding * 2);
-        const radius = 4 + Math.min(point.durationSeconds / 900, 6);
+    <div className="relative">
+      {hoveredPoint && <ChartTooltip point={hoveredPoint} width={width} height={height} />}
+      <svg viewBox={`0 0 ${width} ${height}`} className="h-[320px] w-full overflow-visible">
+        {accuracyTicks.map((tick) => {
+          const y =
+            height -
+            padding.bottom -
+            ((tick - yMin) / Math.max(yMax - yMin, 1)) * (height - padding.top - padding.bottom);
+          return (
+            <g key={`acc-${tick}`}>
+              <line x1={padding.left} x2={width - padding.right} y1={y} y2={y} stroke="var(--border)" strokeDasharray="4 8" />
+              <text x={padding.left - 10} y={y + 4} fill="var(--text-muted)" fontSize="12" textAnchor="end">
+                {tick.toFixed(0)}
+              </text>
+            </g>
+          );
+        })}
 
-        return <circle key={point.id} cx={x} cy={y} r={radius} fill="var(--success)" fillOpacity="0.72" />;
-      })}
-      <text x={padding} y={24} fill="var(--text-muted)" fontSize="12">
-        Accuracy
-      </text>
-      <text x={width - padding} y={height - 12} fill="var(--text-muted)" fontSize="12" textAnchor="end">
-        WPM
-      </text>
-    </svg>
+        {wpmTicks.map((tick) => {
+          const x =
+            padding.left +
+            ((tick - xMin) / Math.max(xMax - xMin, 1)) * (width - padding.left - padding.right);
+          return (
+            <g key={`wpm-${tick}`}>
+              <line x1={x} x2={x} y1={padding.top} y2={height - padding.bottom} stroke="var(--border)" strokeDasharray="4 8" />
+              <text x={x} y={height - 14} fill="var(--text-muted)" fontSize="12" textAnchor="middle">
+                {tick.toFixed(0)}
+              </text>
+            </g>
+          );
+        })}
+
+        <line x1={padding.left} x2={padding.left} y1={padding.top} y2={height - padding.bottom} stroke="var(--border)" />
+        <line
+          x1={padding.left}
+          x2={width - padding.right}
+          y1={height - padding.bottom}
+          y2={height - padding.bottom}
+          stroke="var(--border)"
+        />
+
+        {chartPoints.map(({ point, x, y, radius }) => (
+          <circle
+            key={point.id}
+            cx={x}
+            cy={y}
+            r={radius}
+            fill="var(--success)"
+            fillOpacity="0.72"
+            onMouseEnter={() =>
+              setHoveredPoint({
+                x,
+                y,
+                label: `${point.bookTitle} • ${formatDate(point.startTime)}`,
+                value: `${point.wpm.toFixed(1)} WPM • ${point.accuracy.toFixed(1)}% accuracy`,
+              })
+            }
+            onMouseLeave={() => setHoveredPoint(null)}
+          />
+        ))}
+
+        <text x={padding.left} y={14} fill="var(--text-muted)" fontSize="12">
+          Accuracy (%)
+        </text>
+        <text x={width - padding.right} y={height - 14} fill="var(--text-muted)" fontSize="12" textAnchor="end">
+          WPM
+        </text>
+      </svg>
+    </div>
   );
 }
 
@@ -278,6 +446,66 @@ function compareSessions(left: SessionPoint, right: SessionPoint, field: SortFie
     return right.durationSeconds - left.durationSeconds;
   }
   return right.wpm - left.wpm;
+}
+
+function ChartTooltip({
+  point,
+  width,
+  height,
+}: {
+  point: { x: number; y: number; label: string; value: string };
+  width: number;
+  height: number;
+}) {
+  return (
+    <div
+      className="pointer-events-none absolute z-10 rounded-2xl border border-[var(--border)] bg-[color-mix(in_srgb,var(--panel)_92%,transparent)] px-3 py-2 text-xs shadow-panel backdrop-blur-xl"
+      style={{
+        left: `${(point.x / width) * 100}%`,
+        top: `${(point.y / height) * 100}%`,
+        transform: "translate(-50%, calc(-100% - 12px))",
+      }}
+    >
+      <div className="font-medium text-[var(--text)]">{point.value}</div>
+      <div className="mt-1 text-[var(--text-muted)]">{point.label}</div>
+    </div>
+  );
+}
+
+function buildTicks(min: number, max: number, count: number, stepFloor: number) {
+  const safeMin = Math.floor(Math.min(min, max));
+  const safeMax = Math.ceil(Math.max(min, max));
+  const range = Math.max(safeMax - safeMin, stepFloor);
+  const rawStep = Math.max(range / Math.max(count - 1, 1), stepFloor);
+  const step = Math.max(stepFloor, Math.ceil(rawStep / stepFloor) * stepFloor);
+  const start = Math.floor(safeMin / step) * step;
+  const end = Math.ceil(safeMax / step) * step;
+
+  const ticks: number[] = [];
+  for (let value = start; value <= end; value += step) {
+    ticks.push(value);
+  }
+
+  return ticks;
+}
+
+function formatAxisValue(value: number, metricMode: MetricMode) {
+  return metricMode === "wpm" ? value.toFixed(0) : value.toFixed(1);
+}
+
+function pickXLabelIndexes(length: number) {
+  if (length <= 1) {
+    return [0];
+  }
+  if (length === 2) {
+    return [0, 1];
+  }
+
+  return [0, Math.floor((length - 1) / 2), length - 1];
+}
+
+function formatShortDay(day: string) {
+  return new Date(`${day}T00:00:00Z`).toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
 
 function formatDate(value: string) {

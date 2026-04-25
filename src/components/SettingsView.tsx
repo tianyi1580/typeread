@@ -96,16 +96,32 @@ export function SettingsView({
               </div>
 
               <div className="grid gap-6">
-                <SelectField<AppFont>
-                  label="Application Font"
-                  value={settings.font}
-                  options={[
-                    { value: "jetbrains-mono", label: "JetBrains Mono" },
-                    { value: "fira-code", label: "Fira Code" },
-                    { value: "geist-mono", label: "Geist Mono" },
-                  ]}
-                  onValueChange={(font) => onChange({ ...settings, font })}
-                />
+                <div className="space-y-3">
+                  <p className="text-xs uppercase tracking-[0.28em] text-[var(--text-muted)]">Typing Font</p>
+                  <div className="grid gap-4 md:grid-cols-3">
+                    <FontPreviewCard
+                      label="JetBrains Mono"
+                      value="jetbrains-mono"
+                      active={settings.font === "jetbrains-mono"}
+                      sample="The quick brown fox hits 87 WPM."
+                      onClick={(font) => onChange({ ...settings, font })}
+                    />
+                    <FontPreviewCard
+                      label="Fira Code"
+                      value="fira-code"
+                      active={settings.font === "fira-code"}
+                      sample="Pack my box with five dozen liquor jugs."
+                      onClick={(font) => onChange({ ...settings, font })}
+                    />
+                    <FontPreviewCard
+                      label="Geist Mono"
+                      value="geist-mono"
+                      active={settings.font === "geist-mono"}
+                      sample="Sphinx of black quartz, judge my vow."
+                      onClick={(font) => onChange({ ...settings, font })}
+                    />
+                  </div>
+                </div>
               </div>
 
               <SliderField
@@ -156,12 +172,19 @@ export function SettingsView({
                 onChange={(checked) => onChange({ ...settings, enterToSkip: checked })}
               />
 
-              <ToggleRow
-                label="Ignore Quotation Marks"
-                description="Quotation marks remain visible in the text, but the typing engine auto-skips them."
-                checked={settings.ignoreQuotationMarks}
-                onChange={(checked) => onChange({ ...settings, ignoreQuotationMarks: checked })}
-              />
+              <label className="space-y-3">
+                <span className="text-xs uppercase tracking-[0.28em] text-[var(--text-muted)]">Ignored Characters</span>
+                <p className="text-sm leading-7 text-[var(--text-muted)]">
+                  Enter characters to auto-skip while typing. Use the format <code>"a", "b", "c"</code>. They remain visible in the text but do not count as correct or incorrect input.
+                </p>
+                <textarea
+                  value={settings.ignoredCharacters}
+                  onChange={(event) => onChange({ ...settings, ignoredCharacters: event.target.value })}
+                  rows={3}
+                  placeholder={`"${'"'}", "'", "“", "”"`}
+                  className="w-full rounded-[22px] border border-[var(--border)] bg-[var(--panel-soft)] px-4 py-3 outline-none transition focus:border-[var(--accent)]"
+                />
+              </label>
             </div>
           )}
 
@@ -273,6 +296,43 @@ function SelectField<T extends string>({
         ))}
       </select>
     </label>
+  );
+}
+
+function FontPreviewCard({
+  label,
+  value,
+  active,
+  sample,
+  onClick,
+}: {
+  label: string;
+  value: AppFont;
+  active: boolean;
+  sample: string;
+  onClick: (font: AppFont) => void;
+}) {
+  const previewFont =
+    value === "fira-code"
+      ? '"Fira Code", ui-monospace, monospace'
+      : value === "geist-mono"
+        ? '"Geist Mono", ui-monospace, monospace'
+        : '"JetBrains Mono", ui-monospace, monospace';
+
+  return (
+    <button
+      type="button"
+      onClick={() => onClick(value)}
+      className={cn(
+        "rounded-[24px] border p-4 text-left transition",
+        active ? "border-[var(--accent)] bg-[var(--accent-soft)]" : "border-[var(--border)] bg-[var(--panel-soft)] hover:border-[var(--accent)]",
+      )}
+    >
+      <p className="text-sm font-semibold">{label}</p>
+      <p className="mt-3 text-sm leading-7 text-[var(--text-muted)]" style={{ fontFamily: previewFont }}>
+        {sample}
+      </p>
+    </button>
   );
 }
 

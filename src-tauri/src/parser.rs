@@ -15,7 +15,7 @@ use zip::ZipArchive;
 
 use crate::models::{BookChapter, BookChunk, ParsedImport};
 
-const CHUNK_TARGET: usize = 2400;
+const CHUNK_TARGET: usize = 2000;
 
 pub fn parse_file(path: &Path, covers_dir: &Path) -> Result<ParsedImport> {
     let extension = path
@@ -35,7 +35,7 @@ pub fn parse_file(path: &Path, covers_dir: &Path) -> Result<ParsedImport> {
 fn parse_txt(path: &Path) -> Result<ParsedImport> {
     let source = fs::read_to_string(path).with_context(|| format!("failed to read {}", path.display()))?;
     let title = fallback_title(path);
-    let chapters = split_plain_text_into_chapters(&source, &title);
+    let chapters = chapters_from_text(&source, &title);
     Ok(ParsedImport {
         title,
         author: None,
@@ -71,22 +71,27 @@ fn parse_markdown(path: &Path) -> Result<ParsedImport> {
     }
 
     if sections.is_empty() {
-        sections.push((fallback.clone(), source));
+        sections.push((fallback.clone(), source.clone()));
     }
 
-    let chapters = sections
-        .into_iter()
-        .enumerate()
-        .filter_map(|(index, (title, body))| {
-            let text = markdown_to_text(&body);
-            if text.trim().is_empty() {
-                None
-            } else {
-                Some((index, title, text))
-            }
-        })
-        .map(|(index, title, text)| build_chapter(index, &title, &text))
-        .collect::<Vec<_>>();
+    let chapters = if sections.len() > 1 {
+        build_chapters(
+            sections
+                .into_iter()
+                .enumerate()
+                .filter_map(|(index, (title, body))| {
+                    let text = markdown_to_text(&body);
+                    if text.trim().is_empty() {
+                        None
+                    } else {
+                        Some((index, title.clone(), prepend_heading(&title, &text)))
+                    }
+                })
+                .collect(),
+        )
+    } else {
+        chapters_from_text(&markdown_to_text(&source), &fallback)
+    };
 
     Ok(ParsedImport {
         title: fallback,
@@ -149,7 +154,7 @@ fn parse_epub(path: &Path, covers_dir: &Path) -> Result<ParsedImport> {
     }
 
     let cover_path = extract_cover(&mut archive, &manifest, covers_dir, &title)?;
-    let chapters = opf
+    let explicit_sections = opf
         .descendants()
         .filter(|node| node.tag_name().name() == "itemref")
         .filter_map(|itemref| itemref.attribute("idref"))
@@ -163,17 +168,34 @@ fn parse_epub(path: &Path, covers_dir: &Path) -> Result<ParsedImport> {
                     None
                 } else {
                     let chapter_title = detected_title.unwrap_or_else(|| chapter_title_from_path(index, href));
-                    Some(build_chapter(index, &chapter_title, &text))
+                    Some((index, chapter_title, text))
                 }
             }
             Err(_) => None,
         })
         .collect::<Vec<_>>();
 
-    let chapters = if chapters.is_empty() {
+    let chapters = if explicit_sections.is_empty() {
         vec![build_chapter(0, &title, "This EPUB did not expose readable XHTML content.")]
     } else {
-        chapters
+        let full_text = explicit_sections
+            .iter()
+            .map(|(_, _, text)| text.as_str())
+            .collect::<Vec<_>>()
+            .join("\n\n");
+        let inferred_sections = detect_chapter_sections(&full_text);
+
+        if inferred_sections.len() > explicit_sections.len() {
+            build_chapters(
+                inferred_sections
+                    .into_iter()
+                    .enumerate()
+                    .map(|(index, (chapter_title, text))| (index, chapter_title, text))
+                    .collect(),
+            )
+        } else {
+            build_chapters(explicit_sections)
+        }
     };
 
     Ok(ParsedImport {
@@ -186,41 +208,27 @@ fn parse_epub(path: &Path, covers_dir: &Path) -> Result<ParsedImport> {
     })
 }
 
-fn split_plain_text_into_chapters(source: &str, fallback: &str) -> Vec<BookChapter> {
-    static CHAPTER_REGEX: OnceLock<Regex> = OnceLock::new();
-    let chapter_pattern = CHAPTER_REGEX.get_or_init(|| {
-        Regex::new(r"(?im)^(chapter|part|section)\s+[\w\divxlc]+.*$").expect("valid chapter regex")
-    });
-    let mut sections = Vec::new();
-    let mut last_title = fallback.to_string();
-    let mut current = String::new();
+fn chapters_from_text(source: &str, fallback: &str) -> Vec<BookChapter> {
+    let normalized = normalize_text(source);
+    let sections = detect_chapter_sections(&normalized);
 
-    for line in source.lines() {
-        if chapter_pattern.is_match(line.trim()) {
-            if !current.trim().is_empty() {
-                sections.push((last_title.clone(), current.trim().to_string()));
-                current.clear();
-            }
-            last_title = line.trim().to_string();
-        } else {
-            current.push_str(line);
-            current.push('\n');
-        }
+    if !sections.is_empty() {
+        return build_chapters(
+            sections
+                .into_iter()
+                .enumerate()
+                .map(|(index, (title, text))| (index, title, text))
+                .collect(),
+        );
     }
 
-    if !current.trim().is_empty() {
-        sections.push((last_title.clone(), current.trim().to_string()));
-    }
-
-    if sections.is_empty() {
-        sections.push((fallback.to_string(), source.trim().to_string()));
-    }
-
-    sections
-        .into_iter()
-        .enumerate()
-        .map(|(index, (title, text))| build_chapter(index, &title, &normalize_text(&text)))
-        .collect()
+    build_chapters(
+        split_text_into_sections(&normalized, fallback)
+            .into_iter()
+            .enumerate()
+            .map(|(index, (title, text))| (index, title, text))
+            .collect(),
+    )
 }
 
 fn build_chapter(index: usize, title: &str, text: &str) -> BookChapter {
@@ -237,59 +245,206 @@ fn build_chapter(index: usize, title: &str, text: &str) -> BookChapter {
 }
 
 fn chunk_text(text: &str) -> Vec<BookChunk> {
-    // Chunks stay paragraph-aligned so the reader can stream chapter segments without slicing through sentence flow.
-    let paragraphs = text
+    let sections = split_text_into_sections(text, "Chunk");
+    if sections.is_empty() {
+        return vec![BookChunk {
+            id: "chunk-0".to_string(),
+            start: 0,
+            end: text.len(),
+            text: text.to_string(),
+        }];
+    }
+
+    let mut chunks = Vec::with_capacity(sections.len());
+    let mut cursor = 0usize;
+    for (index, (_, chunk_text)) in sections.into_iter().enumerate() {
+        let end = cursor + chunk_text.len();
+        chunks.push(BookChunk {
+            id: format!("chunk-{index}"),
+            start: cursor,
+            end,
+            text: chunk_text,
+        });
+        cursor = end;
+    }
+
+    chunks
+}
+
+fn build_chapters(sections: Vec<(usize, String, String)>) -> Vec<BookChapter> {
+    sections
+        .into_iter()
+        .filter(|(_, _, text)| !text.trim().is_empty())
+        .map(|(index, title, text)| build_chapter(index, &title, &text))
+        .collect()
+}
+
+fn detect_chapter_sections(source: &str) -> Vec<(String, String)> {
+    let mut sections = Vec::new();
+    let mut front_matter = String::new();
+    let mut current_title: Option<String> = None;
+    let mut current_blocks: Vec<String> = Vec::new();
+
+    for block in source
         .split("\n\n")
-        .map(str::trim)
-        .filter(|paragraph| !paragraph.is_empty())
+        .map(normalize_text)
+        .filter(|block| !block.is_empty())
+    {
+        if is_chapter_heading(&block) {
+            if let Some(title) = current_title.take() {
+                sections.push((title, current_blocks.join("\n\n")));
+                current_blocks.clear();
+            } else if !current_blocks.is_empty() {
+                front_matter = current_blocks.join("\n\n");
+                current_blocks.clear();
+            }
+
+            current_title = Some(block.clone());
+            current_blocks.push(block);
+            continue;
+        }
+
+        current_blocks.push(block);
+    }
+
+    if let Some(title) = current_title.take() {
+        sections.push((title, current_blocks.join("\n\n")));
+    }
+
+    if sections.is_empty() {
+        return Vec::new();
+    }
+
+    if !front_matter.is_empty() {
+        sections[0].1 = format!("{front_matter}\n\n{}", sections[0].1);
+    }
+
+    sections
+}
+
+fn split_text_into_sections(source: &str, fallback: &str) -> Vec<(String, String)> {
+    let chunks = split_text_on_sentence_boundaries(source, CHUNK_TARGET);
+    if chunks.is_empty() {
+        return Vec::new();
+    }
+
+    if chunks.len() == 1 {
+        return vec![(fallback.to_string(), chunks[0].clone())];
+    }
+
+    chunks
+        .into_iter()
+        .enumerate()
+        .map(|(index, text)| (format!("{fallback} · Part {}", index + 1), text))
+        .collect()
+}
+
+fn split_text_on_sentence_boundaries(source: &str, target: usize) -> Vec<String> {
+    let normalized = normalize_text(source);
+    if normalized.is_empty() {
+        return Vec::new();
+    }
+
+    static SENTENCE_REGEX: OnceLock<Regex> = OnceLock::new();
+    let sentence_regex = SENTENCE_REGEX.get_or_init(|| {
+        Regex::new(r#"(?s).*?[.!?](?:["')\]]+)?(?:\s+|$)"#).expect("valid sentence regex")
+    });
+
+    let mut sentences = sentence_regex
+        .find_iter(&normalized)
+        .map(|sentence| sentence.as_str().trim().to_string())
+        .filter(|sentence| !sentence.is_empty())
         .collect::<Vec<_>>();
+
+    let matched_len = sentence_regex.find_iter(&normalized).last().map(|sentence| sentence.end()).unwrap_or(0);
+    let tail = normalized[matched_len..].trim();
+    if !tail.is_empty() {
+        sentences.push(tail.to_string());
+    }
+
+    if sentences.is_empty() {
+        return split_text_on_word_boundaries(&normalized, target);
+    }
 
     let mut chunks = Vec::new();
     let mut current = String::new();
-    let mut start = 0usize;
 
-    for paragraph in paragraphs {
+    for sentence in sentences {
         let candidate = if current.is_empty() {
-            paragraph.to_string()
+            sentence.clone()
         } else {
-            format!("{current}\n\n{paragraph}")
+            format!("{current} {sentence}")
         };
 
-        if candidate.len() > CHUNK_TARGET && !current.is_empty() {
-            let end = start + current.len();
-            chunks.push(BookChunk {
-                id: format!("chunk-{}", chunks.len()),
-                start,
-                end,
-                text: current.clone(),
-            });
-            start = end;
-            current = paragraph.to_string();
+        if candidate.len() > target && !current.is_empty() {
+            chunks.push(current);
+            if sentence.len() > target {
+                chunks.extend(split_text_on_word_boundaries(&sentence, target));
+                current = String::new();
+            } else {
+                current = sentence;
+            }
+            continue;
+        }
+
+        if sentence.len() > target && current.is_empty() {
+            chunks.extend(split_text_on_word_boundaries(&sentence, target));
+            current = String::new();
+            continue;
+        }
+
+        current = candidate;
+    }
+
+    if !current.is_empty() {
+        chunks.push(current);
+    }
+
+    chunks
+}
+
+fn split_text_on_word_boundaries(source: &str, target: usize) -> Vec<String> {
+    let mut chunks = Vec::new();
+    let mut current = String::new();
+
+    for word in source.split_whitespace() {
+        let candidate = if current.is_empty() {
+            word.to_string()
+        } else {
+            format!("{current} {word}")
+        };
+
+        if candidate.len() > target && !current.is_empty() {
+            chunks.push(current);
+            current = word.to_string();
         } else {
             current = candidate;
         }
     }
 
     if !current.is_empty() {
-        let end = start + current.len();
-        chunks.push(BookChunk {
-            id: format!("chunk-{}", chunks.len()),
-            start,
-            end,
-            text: current,
-        });
-    }
-
-    if chunks.is_empty() {
-        chunks.push(BookChunk {
-            id: "chunk-0".to_string(),
-            start: 0,
-            end: text.len(),
-            text: text.to_string(),
-        });
+        chunks.push(current);
     }
 
     chunks
+}
+
+fn prepend_heading(title: &str, text: &str) -> String {
+    if text.starts_with(title) {
+        text.to_string()
+    } else {
+        format!("{title}\n\n{text}")
+    }
+}
+
+fn is_chapter_heading(block: &str) -> bool {
+    static CHAPTER_REGEX: OnceLock<Regex> = OnceLock::new();
+    let chapter_pattern = CHAPTER_REGEX.get_or_init(|| {
+        Regex::new(r"(?i)^(chapter|part|section)\s+[\w\divxlcdm-]+(?:[:.\-]?\s+.*)?$|^(prologue|epilogue|interlude)\b.*$")
+            .expect("valid chapter regex")
+    });
+
+    block.lines().count() == 1 && block.len() <= 120 && chapter_pattern.is_match(block.trim())
 }
 
 fn markdown_to_text(source: &str) -> String {
@@ -424,11 +579,28 @@ fn chapter_title_from_path(index: usize, href: &str) -> String {
 }
 
 fn normalize_text(source: &str) -> String {
-    source
+    static MULTI_BLANK_LINE_REGEX: OnceLock<Regex> = OnceLock::new();
+    static SPACE_BEFORE_PUNCT_REGEX: OnceLock<Regex> = OnceLock::new();
+    let normalized = source
         .replace('\u{00a0}', " ")
         .replace("\r\n", "\n")
         .replace('\r', "\n")
-        .replace('\t', "    ")
+        .replace('\t', " ");
+
+    let lines = normalized
+        .lines()
+        .map(|line| line.split_whitespace().collect::<Vec<_>>().join(" "))
+        .collect::<Vec<_>>();
+
+    let compacted = lines.join("\n").replace("\n \n", "\n\n");
+    let no_extra_blank_lines = MULTI_BLANK_LINE_REGEX
+        .get_or_init(|| Regex::new(r"\n{3,}").expect("valid blank-line regex"))
+        .replace_all(&compacted, "\n\n")
+        .into_owned();
+
+    SPACE_BEFORE_PUNCT_REGEX
+        .get_or_init(|| Regex::new(r"\s+([,.;:!?])").expect("valid punctuation regex"))
+        .replace_all(&no_extra_blank_lines, "$1")
         .trim()
         .to_string()
 }
@@ -451,7 +623,7 @@ mod tests {
 
     use zip::write::FileOptions;
 
-    use super::{chunk_text, markdown_to_text, normalize_text, parse_file};
+    use super::{chapters_from_text, chunk_text, markdown_to_text, normalize_text, parse_file};
 
     #[test]
     fn markdown_blocks_preserve_paragraphs() {
@@ -465,6 +637,15 @@ mod tests {
         let text = (0..200).map(|_| "Long paragraph").collect::<Vec<_>>().join("\n\n");
         let chunks = chunk_text(&text);
         assert!(chunks.len() > 1);
+    }
+
+    #[test]
+    fn chapter_headings_in_text_override_single_blob_parsing() {
+        let text = "Front matter\n\nChapter 1\n\nFirst chapter body.\n\nChapter 2\n\nSecond chapter body.";
+        let chapters = chapters_from_text(text, "Fallback");
+        assert_eq!(chapters.len(), 2);
+        assert_eq!(chapters[0].title, "Chapter 1");
+        assert!(chapters[1].text.contains("Second chapter body."));
     }
 
     #[test]

@@ -93,5 +93,5 @@ export function applyTheme(settings: AppSettings) {
   root.style.setProperty("--line-height-base", settings.lineHeight.toString());
 
   const appFont = settings.font === "fira-code" ? "Fira Code" : settings.font === "geist-mono" ? "Geist Mono" : "JetBrains Mono";
-  root.style.setProperty("--font-main", `${appFont}, ui-monospace, monospace`);
+  root.style.setProperty("--font-main", `"${appFont}", ui-monospace, monospace`);
 }
