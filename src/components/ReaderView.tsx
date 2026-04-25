@@ -14,6 +14,7 @@ import {
   tokenizeText,
 } from "../utils/typing";
 import type {
+  ActiveTab,
   AnalyticsSummary,
   AppSettings,
   InteractionMode,
@@ -43,6 +44,10 @@ interface ReaderViewProps {
   onChapterChange: (index: number) => void;
   onInteractionModeChange: (mode: InteractionMode) => void;
   onOpenSettings: () => void;
+  menuOpen: boolean;
+  onToggleMenu: () => void;
+  onCloseMenu: () => void;
+  onOpenTab: (tab: ActiveTab) => void;
   onProgress: (bookId: number, currentIndex: number, currentChapter: number) => Promise<void>;
   onProcessBatch: (payload: ProcessKeystrokeBatchInput) => Promise<ProcessKeystrokeBatchResult>;
   onError: (message: string) => void;
@@ -72,6 +77,10 @@ export function ReaderView({
   onChapterChange,
   onInteractionModeChange,
   onOpenSettings,
+  menuOpen,
+  onToggleMenu,
+  onCloseMenu,
+  onOpenTab,
   onProgress,
   onProcessBatch,
   onError,
@@ -464,14 +473,75 @@ export function ReaderView({
               >
                 End Session
               </button>
-              <button
-                type="button"
-                aria-label="Open settings"
-                onClick={onOpenSettings}
-                className="rounded-full border border-[var(--border)] bg-[var(--panel-soft)] px-3 py-2 text-sm text-[var(--text)] transition hover:border-[var(--accent)]"
-              >
-                Settings
-              </button>
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => {
+                    console.log("Menu button clicked in ReaderView");
+                    onToggleMenu();
+                  }}
+                  className="flex h-9 w-9 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--panel-soft)] text-lg text-[var(--text)] transition hover:border-[var(--accent)]"
+                >
+                  ≡
+                </button>
+                {menuOpen && (
+                  <>
+                    <button
+                      type="button"
+                      aria-label="Close menu"
+                      className="fixed inset-0 z-40 cursor-default"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onCloseMenu();
+                      }}
+                    />
+                    <div className="absolute right-0 top-12 z-50 min-w-[240px] rounded-[24px] border border-[var(--border)] bg-[var(--panel)] p-2 shadow-panel backdrop-blur-xl">
+                      <MenuButton
+                        onClick={() => {
+                          onOpenTab("library");
+                        }}
+                      >
+                        Library
+                      </MenuButton>
+                      <MenuButton
+                        onClick={() => {
+                          onOpenTab("analytics");
+                        }}
+                      >
+                        Profile & Analytics
+                      </MenuButton>
+                      <MenuButton
+                        onClick={() => {
+                          onOpenTab("achievements");
+                        }}
+                      >
+                        Achievements
+                      </MenuButton>
+                      <MenuButton
+                        onClick={() => {
+                          onOpenTab("type-test");
+                        }}
+                      >
+                        Type Test
+                      </MenuButton>
+                      <MenuButton
+                        onClick={() => {
+                          onOpenTab("versus");
+                        }}
+                      >
+                        Versus Mode
+                      </MenuButton>
+                      <MenuButton
+                        onClick={() => {
+                          onOpenSettings();
+                        }}
+                      >
+                        Settings
+                      </MenuButton>
+                    </div>
+                  </>
+                )}
+              </div>
             </div>
           </div>
         </div>
@@ -667,5 +737,17 @@ function SpreadPage({
       </div>
       <div className="flex-1" />
     </div>
+  );
+}
+
+function MenuButton({ children, onClick }: { children: ReactNode; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex w-full items-center rounded-[18px] px-4 py-3 text-left text-sm text-[var(--text)] transition hover:bg-[var(--accent-soft)]"
+    >
+      {children}
+    </button>
   );
 }

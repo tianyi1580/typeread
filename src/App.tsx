@@ -469,6 +469,16 @@ export default function App() {
               onChapterChange={setSelectedChapterIndex}
               onInteractionModeChange={setInteractionMode}
               onOpenSettings={() => setSettingsOpen(true)}
+              menuOpen={menuOpen}
+              onToggleMenu={() => {
+                console.log("Toggle menu called, current state:", menuOpen);
+                setMenuOpen((current) => !current);
+              }}
+              onCloseMenu={() => setMenuOpen(false)}
+              onOpenTab={(tab) => {
+                setActiveTab(tab);
+                setMenuOpen(false);
+              }}
               onProgress={handleProgress}
               onProcessBatch={handleProcessBatch}
               onError={(message) => setError(message)}
