@@ -110,9 +110,11 @@ export function ReaderView({
     const lineHeightPx = Math.round(fontSize * lineHeight);
     
     // Vertical space calculation inside SpreadPage
-    // SpreadPage padding: 64px (py-8). Title: ~28px. Safe bottom margin: 28px.
-    const internalOverhead = 64 + 28 + 28;
-    const usableHeight = availableHeight - internalOverhead;
+    // SpreadPage padding: 52px (pt-8 pb-5). Title: ~28px. Safe bottom margin buffer: 12px.
+    const internalOverhead = 52 + 28 + 12;
+    // Fallback to window height if availableHeight is not yet measured (0)
+    const measuredHeight = availableHeight || (typeof window !== "undefined" ? window.innerHeight - 40 : 800);
+    const usableHeight = measuredHeight - internalOverhead;
     const maxLines = Math.max(5, Math.floor(usableHeight / lineHeightPx));
     
     // Horizontal space calculation
@@ -322,7 +324,7 @@ export function ReaderView({
   const visibleRight = pageRanges[pageIndex + 1];
 
   return (
-    <div className="relative min-h-screen overflow-hidden rounded-[34px] border border-[var(--border)] bg-[color-mix(in_srgb,var(--panel)_82%,transparent)] shadow-panel">
+    <div className="relative flex h-full flex-col overflow-hidden rounded-[34px] border border-[var(--border)] bg-[color-mix(in_srgb,var(--panel)_82%,transparent)] shadow-panel">
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.08),transparent_36%)]" />
 
       <div
@@ -397,8 +399,8 @@ export function ReaderView({
       <div
         ref={containerRef}
         className={cn(
-          "relative mx-auto px-4 md:px-6 transition-all duration-500",
-          readerMode === "spread" ? "max-w-[1600px] pt-20 pb-8 h-[calc(100vh-40px)]" : "max-w-[1360px] pt-24 pb-24",
+          "relative mx-auto flex-1 px-4 md:px-6 transition-all duration-500 w-full",
+          readerMode === "spread" ? "max-w-[1600px] pt-20 pb-6" : "max-w-[1360px] pt-24 pb-24",
         )}
       >
         {loadingBook && <p className="mb-4 text-sm text-[var(--text-muted)]">Loading book…</p>}
@@ -530,7 +532,7 @@ function SpreadPage({
 }) {
   return (
     <div
-      className="flex h-full flex-col overflow-hidden rounded-[34px] border border-[var(--border)] bg-[linear-gradient(180deg,rgba(255,255,255,0.12),transparent)] px-6 py-8 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]"
+      className="flex h-full flex-col overflow-hidden rounded-[34px] border border-[var(--border)] bg-[linear-gradient(180deg,rgba(255,255,255,0.12),transparent)] px-6 pt-8 pb-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]"
       style={{ fontSize: `${style.baseFontSize}px`, lineHeight: `${lineHeightPx}px` }}
     >
       <p className="mb-4 shrink-0 text-xs uppercase tracking-[0.24em] text-[var(--text-muted)]">{title}</p>

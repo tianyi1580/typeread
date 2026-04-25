@@ -10,6 +10,7 @@ import { demoAnalytics, demoBook, demoSettings } from "./lib/demo";
 import { api } from "./lib/tauri";
 import { applyTheme, themeMap } from "./theme";
 import { useAppStore } from "./store/app-store";
+import { cn } from "./lib/utils";
 import type { AppSettings, InteractionMode, ParsedBook, TypingSessionInput } from "./types";
 
 export default function App() {
@@ -362,12 +363,15 @@ export default function App() {
 
   return (
     <div
-      className="min-h-screen bg-[var(--bg)] text-[var(--text)]"
+      className={cn(
+        "bg-[var(--bg)] text-[var(--text)] transition-colors duration-500",
+        activeTab === "reader" ? "flex flex-col h-screen overflow-hidden" : "min-h-screen"
+      )}
       style={{
         backgroundImage: `radial-gradient(circle at top left, ${theme.accentSoft}, transparent 26%), radial-gradient(circle at bottom right, ${theme.panelSoft}, transparent 22%)`,
       }}
     >
-      <div className="min-h-screen px-4 py-4 md:px-6 md:py-6">
+      <div className={cn(activeTab === "reader" ? "flex flex-col h-full overflow-hidden" : "min-h-screen px-4 py-4 md:px-6 md:py-6")}>
         {showWindowShell && (
           <WindowShell
             activeTab={activeTab}
@@ -393,7 +397,7 @@ export default function App() {
           />
         )}
 
-        <main className={showWindowShell ? "mx-auto mt-5 max-w-[1480px]" : ""}>
+        <main className={cn("relative", showWindowShell ? "mx-auto mt-5 max-w-[1480px]" : "flex flex-col h-full overflow-hidden")}>
           {activeTab === "library" && (
             <LibraryView
               books={filteredBooks}
