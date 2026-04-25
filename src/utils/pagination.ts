@@ -83,9 +83,8 @@ export function paginateText(
 
       // Check again after separator
       if (linesUsed > safeMaxLines) {
-        // If the separator pushed us over, we still include this word but the next page 
-        // will start after this token.
-        bestBreakIndex = i;
+        // If the separator pushed us over, we stop BEFORE this word to ensure 
+        // the next page starts with this word and its potentially layout-critical separator.
         break;
       }
       

@@ -117,21 +117,20 @@ export function ReaderView({
     const lineHeightPx = Math.round(fontSize * lineHeight);
     
     // Vertical space calculation inside SpreadPage
-    // SpreadPage padding: 52px (pt-8 pb-5). Title: ~28px. Safe bottom margin buffer: 12px.
-    const internalOverhead = 52 + 28 + 12;
+    // SpreadPage padding: 52px (pt-8 pb-5). Title: ~32px. Safe bottom margin buffer: 16px.
+    const internalOverhead = 52 + 32 + 16;
     // Fallback to window height if availableHeight is not yet measured (0)
     const measuredHeight = availableHeight || (typeof window !== "undefined" ? window.innerHeight - 40 : 800);
     const usableHeight = measuredHeight - internalOverhead;
     const maxLines = Math.max(5, Math.floor(usableHeight / lineHeightPx));
     
     // Horizontal space calculation
-    // Gap: 24px. SpreadPage padding: 48px.
-    const usableWidth = (availableWidth - 24) / 2 - 48;
+    // Gap: 24px. SpreadPage padding: 48px. Border: 2px.
+    const usableWidth = (availableWidth - 24) / 2 - 48 - 2;
     
-    // Use 0.48 as average character width for modern proportional fonts.
-    // This is more conservative than 0.43 and helps prevent text cutoff by ensuring 
-    // the pagination logic breaks lines earlier than the browser might.
-    const charsPerLine = Math.max(20, Math.floor(usableWidth / (fontSize * 0.48)));
+    // Use 0.6 as average character width for monospace fonts (JetBrains Mono, Fira Code, etc.).
+    // We remove tracking-[0.01em] from the UI to ensure the simulation matches the browser exactly.
+    const charsPerLine = Math.max(20, Math.floor(usableWidth / (fontSize * 0.6)));
     
     return {
       maxLines: Math.max(5, maxLines),
@@ -455,7 +454,7 @@ export function ReaderView({
                 tokens={tokens}
                 snapshot={snapshot}
                 chapterText={normalizedText}
-                className="tracking-[0.01em]"
+                className=""
                 interactionMode={interactionMode}
                 compareOptions={{ ignoredCharacters: ignoredCharacterSet }}
                 onWordClick={handleWordSelect}
@@ -473,7 +472,7 @@ export function ReaderView({
                   chapterText={normalizedText}
                   visibleRange={visibleLeft}
                   noScroll={true}
-                  className="tracking-[0.01em]"
+                  className=""
                   faded={false}
                   interactionMode={interactionMode}
                   compareOptions={{ ignoredCharacters: ignoredCharacterSet }}
@@ -491,7 +490,7 @@ export function ReaderView({
                   chapterText={normalizedText}
                   visibleRange={visibleRight}
                   noScroll={true}
-                  className="tracking-[0.01em]"
+                  className=""
                   faded={false}
                   interactionMode={interactionMode}
                   compareOptions={{ ignoredCharacters: ignoredCharacterSet }}

@@ -128,7 +128,7 @@ export function TypingLayer({
   return (
     <div
       className={cn(
-        "whitespace-pre-wrap tracking-[0.01em] text-[var(--text)]",
+        "whitespace-pre-wrap text-[var(--text)]",
         className,
       )}
     >
