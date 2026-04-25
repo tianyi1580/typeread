@@ -35,9 +35,13 @@ export function TypingLayer({
   botCursorIndex = null,
 }: TypingLayerProps) {
   const currentWordRef = useRef<HTMLSpanElement | null>(null);
-  const [windowStart, setWindowStart] = React.useState(0);
   const WINDOW_SIZE = 300;
   const BUFFER = 80;
+  const [windowStart, setWindowStart] = React.useState(() => {
+    if (visibleRange || noScroll) return 0;
+    const current = snapshot.currentWordIndex;
+    return Math.max(0, current - Math.floor(WINDOW_SIZE / 2));
+  });
   const preShiftRelativeTop = useRef<number | null>(null);
   const lastOffsetTop = useRef<number | null>(null);
   const lastWordIndex = useRef<number>(-1);
@@ -115,12 +119,59 @@ export function TypingLayer({
       .map((token, index) => ({ token, index: start + index }));
   }, [tokens, visibleRange, windowStart]);
 
-  // Smooth spring-based scroll logic
+  // Immediate jump for initial mount or manual jumps to prevent sliding from top
+  React.useLayoutEffect(() => {
+    const el = currentWordRef.current;
+    if (noScroll || visibleRange || !el) return;
+
+    const currentIndex = snapshot.currentWordIndex;
+    const isManualJump = lastWordIndex.current === -1 || Math.abs(currentIndex - lastWordIndex.current) > 1;
+
+    if (isManualJump) {
+      let container: HTMLElement | null = el.parentElement;
+      while (container && container !== document.body) {
+        const style = window.getComputedStyle(container);
+        if (/(auto|scroll|hidden)/.test(style.overflowY) && container.offsetHeight < container.scrollHeight) {
+          break;
+        }
+        container = container.parentElement;
+      }
+      if (!container) return;
+
+      const isWindowScroll = container === document.body;
+      const containerRect = isWindowScroll 
+        ? { top: 0, height: window.innerHeight } 
+        : container.getBoundingClientRect();
+      const elRect = el.getBoundingClientRect();
+      
+      const currentRelativeCenter = (elRect.top + elRect.height / 2) - (containerRect.top + containerRect.height / 2);
+      const currentScroll = isWindowScroll ? window.scrollY : container.scrollTop;
+      const target = currentScroll + currentRelativeCenter;
+
+      if (isWindowScroll) window.scrollTo(0, target);
+      else container.scrollTop = target;
+
+      springRef.current.target = target;
+      springRef.current.current = target;
+      springRef.current.velocity = 0;
+      springRef.current.isActive = false;
+      
+      lastWordIndex.current = currentIndex;
+      lastOffsetTop.current = el.offsetTop;
+    }
+  }, [snapshot.currentWordIndex, windowStart, noScroll, visibleRange]);
+
+  // Smooth spring-based scroll logic for line changes
   useEffect(() => {
     const el = currentWordRef.current;
     if (noScroll || visibleRange || !el) return;
 
     const currentIndex = snapshot.currentWordIndex;
+    const isManualJump = lastWordIndex.current === -1 || Math.abs(currentIndex - lastWordIndex.current) > 1;
+    
+    // We handle manual jumps in useLayoutEffect for immediate positioning.
+    // Here we only care about line changes during normal typing.
+    if (isManualJump) return;
 
     // Find the nearest scrollable ancestor
     let container: HTMLElement | null = el.parentElement;
@@ -140,15 +191,13 @@ export function TypingLayer({
     const elRect = el.getBoundingClientRect();
     
     const currentRelativeCenter = (elRect.top + elRect.height / 2) - (containerRect.top + containerRect.height / 2);
-    const isManualJump = lastWordIndex.current === -1 || Math.abs(currentIndex - lastWordIndex.current) > 1;
     
     // Improved new line detection: check if the vertical offset changed since the last word we processed
     const currentOffsetTop = el.offsetTop;
     const isLineChanged = lastOffsetTop.current !== null && Math.abs(currentOffsetTop - lastOffsetTop.current) > 10;
     const currentScroll = isWindowScroll ? window.scrollY : container.scrollTop;
 
-    // Set or update target only on new line, manual jump, or initial load
-    if (isLineChanged || isManualJump) {
+    if (isLineChanged) {
       springRef.current.target = currentScroll + currentRelativeCenter;
       
       if (!springRef.current.isActive) {
