@@ -1,4 +1,4 @@
-import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useBufferedKeystrokeTransport } from "../hooks/useBufferedKeystrokeTransport";
 import { resolveKeyboardLayout } from "../lib/keyboard-layouts";
 import { cn, formatPercent } from "../lib/utils";
@@ -157,12 +157,27 @@ export function ReaderView({
     const fontSize = settings.baseFontSize;
     const lineHeight = settings.lineHeight;
     const lineHeightPx = Math.round(fontSize * lineHeight);
-    const internalOverhead = 52 + 32 + 16;
-    const measuredHeight = availableHeight || (typeof window !== "undefined" ? window.innerHeight - 40 : 800);
-    const usableHeight = measuredHeight - internalOverhead;
+    
+    // Internal overhead accounts for:
+    // 1. ReaderView top/bottom padding: pt-20 (80px) + pb-6 (24px) = 104px
+    // 2. SpreadPage top/bottom padding: pt-8 (32px) + pb-5 (20px) = 52px
+    // 3. SpreadPage title: approx 16px height + mb-4 (16px) = 32px
+    // Total vertical overhead: 104 (grid) + 32 (page pt) + 32 (title) + 2 (buffer) = 170px
+    const verticalOverhead = 170;
+    const measuredHeight = availableHeight || (typeof window !== "undefined" ? window.innerHeight : 800);
+    const usableHeight = measuredHeight - verticalOverhead;
     const maxLines = Math.max(5, Math.floor(usableHeight / lineHeightPx));
-    const usableWidth = (availableWidth - 24) / 2 - 48 - 2;
-    const charsPerLine = Math.max(20, Math.floor(usableWidth / (fontSize * 0.6)));
+    
+    // Horizontal overhead:
+    // 1. ReaderView side padding: px-4 or px-6 (max 24px each side) = 48px total
+    // 2. Grid gap: gap-6 = 24px
+    // 3. SpreadPage side padding: px-6 = 24px each side = 48px total
+    // Per page horizontal overhead: (48 + 24 + 48*2) / 2 = 84px
+    const horizontalOverhead = 84;
+    const usableWidth = (availableWidth || (typeof window !== "undefined" ? window.innerWidth : 1200)) / 2 - horizontalOverhead;
+    
+    // Using 0.65 for a balance between fitting text and avoiding overflow.
+    const charsPerLine = Math.max(20, Math.floor(usableWidth / (fontSize * 0.65)));
 
     return {
       maxLines,
@@ -405,12 +420,20 @@ export function ReaderView({
   }, [readerMode]);
 
   useEffect(() => {
+    // Only auto-snap the page if the user is in typing mode or versus mode.
+    // In read mode, we let the user navigate freely with arrows/buttons.
+    if (interactionMode === "read") {
+      return;
+    }
     const currentIndex = currentCursorIndex(snapshot, tokens);
     const activePage = pageRanges.findIndex((range) => currentIndex >= range.start && currentIndex < range.end);
     if (activePage >= 0) {
-      setPageIndex(activePage - (activePage % 2));
+      const targetPageIndex = activePage - (activePage % 2);
+      if (targetPageIndex !== pageIndex) {
+        setPageIndex(targetPageIndex);
+      }
     }
-  }, [pageRanges, snapshot, tokens]);
+  }, [pageRanges, snapshot, tokens, interactionMode]);
 
   async function flushSession(revealSummary: boolean, inactive: boolean) {
     const startAt = sessionStartRef.current;
@@ -452,7 +475,7 @@ export function ReaderView({
     }
   }
 
-  function handleWordSelect(wordIndex: number) {
+  const handleWordSelect = useCallback((wordIndex: number) => {
     if (interactionMode === "read") {
       onSettingsChange({ ...settings, interactionMode: "type" });
     }
@@ -462,7 +485,7 @@ export function ReaderView({
     setSnapshot(nextSnapshot);
     snapshotRef.current = nextSnapshot;
     setMetrics(EMPTY_METRICS);
-  }
+  }, [interactionMode, onSettingsChange, settings, tokens]);
 
   function handleChapterJump(nextIndex: number) {
     void flushSession(false, false);
@@ -482,12 +505,14 @@ export function ReaderView({
         )
       : 0;
 
+  const compareOptions = useMemo(() => ({ ignoredCharacters: ignoredCharacterSet }), [ignoredCharacterSet]);
+
   return (
     <>
       <div
         className={cn(
           "relative flex flex-col rounded-[34px] border border-[var(--border)] bg-[color-mix(in_srgb,var(--panel)_82%,transparent)] shadow-panel",
-          readerMode === "spread" ? "h-full overflow-hidden" : "mb-12 min-h-screen",
+          "h-screen overflow-hidden",
           readerFontClass,
         )}
       >
@@ -649,17 +674,17 @@ export function ReaderView({
         <div
           ref={containerRef}
           className={cn(
-            "relative mx-auto flex-1 w-full px-4 md:px-6",
-            readerMode === "spread" ? "max-w-[1600px] pb-6 pt-20" : "max-w-[1360px] pb-24 pt-24",
+            "relative mx-auto flex-1 w-full overflow-hidden flex flex-col",
+            readerMode === "spread" ? "max-w-[1600px]" : "max-w-[1360px]"
           )}
         >
 
           {loadingBook && <p className="mb-4 text-sm text-[var(--text-muted)]">Loading book…</p>}
 
           {readerMode === "scroll" ? (
-            <div className={cn("mx-auto max-w-5xl", readerFontClass)}>
+            <div className={cn("mx-auto flex-1 w-full max-w-5xl overflow-hidden flex flex-col px-4 md:px-6 pb-24 pt-24", readerFontClass)}>
               <div
-                className="rounded-[36px] border border-[var(--border)] bg-[color-mix(in_srgb,var(--panel-soft)_68%,transparent)] px-6 py-8 md:px-10 md:py-12"
+                className="flex-1 overflow-y-auto no-scrollbar rounded-[36px] border border-[var(--border)] bg-[color-mix(in_srgb,var(--panel-soft)_68%,transparent)] px-6 py-8 md:px-10 md:py-12"
                 style={{ fontSize: `${settings.baseFontSize}px`, lineHeight: settings.lineHeight }}
               >
                 <TypingLayer
@@ -670,13 +695,13 @@ export function ReaderView({
                   interactionMode={interactionMode}
                   smoothCaret={settings.smoothCaret && analytics?.profile.unlocks.smoothCaret}
                   botCursorIndex={interactionMode === "versus" ? botCursorIndex : null}
-                  compareOptions={{ ignoredCharacters: ignoredCharacterSet }}
+                  compareOptions={compareOptions}
                   onWordClick={handleWordSelect}
                 />
               </div>
             </div>
           ) : (
-            <div className="grid h-full w-full gap-6 lg:grid-cols-2">
+            <div className="grid h-full w-full gap-6 lg:grid-cols-2 pt-20 pb-6 px-4 md:px-6">
               <SpreadPage title={`Page ${pageIndex + 1}`} style={settings} maxLines={maxLines} lineHeightPx={lineHeightPx}>
                 {visibleLeft && (
                   <TypingLayer
@@ -690,7 +715,7 @@ export function ReaderView({
                     interactionMode={interactionMode}
                     smoothCaret={settings.smoothCaret && analytics?.profile.unlocks.smoothCaret}
                     botCursorIndex={interactionMode === "versus" ? botCursorIndex : null}
-                    compareOptions={{ ignoredCharacters: ignoredCharacterSet }}
+                    compareOptions={compareOptions}
                     onWordClick={handleWordSelect}
                   />
                 )}
@@ -709,7 +734,7 @@ export function ReaderView({
                     interactionMode={interactionMode}
                     smoothCaret={settings.smoothCaret && analytics?.profile.unlocks.smoothCaret}
                     botCursorIndex={interactionMode === "versus" ? botCursorIndex : null}
-                    compareOptions={{ ignoredCharacters: ignoredCharacterSet }}
+                    compareOptions={compareOptions}
                     onWordClick={handleWordSelect}
                   />
                 )}
@@ -813,7 +838,7 @@ function SpreadPage({
   return (
     <div
       className={cn(
-        "flex h-full flex-col overflow-hidden rounded-[34px] border border-[var(--border)] bg-[linear-gradient(180deg,rgba(255,255,255,0.12),transparent)] px-6 pb-5 pt-8 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]",
+        "flex h-full flex-col overflow-hidden rounded-[34px] border border-[var(--border)] bg-[linear-gradient(180deg,rgba(255,255,255,0.12),transparent)] px-6 pb-0 pt-8 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]",
         "font-[var(--font-main)]",
       )}
       style={{ fontSize: `${style.baseFontSize}px`, lineHeight: `${lineHeightPx}px` }}

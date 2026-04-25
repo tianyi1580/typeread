@@ -70,9 +70,11 @@ export function paginateText(
 
       // 3. Handle the separator (spaces or newlines)
       if (token.separator.includes("\n")) {
-        const newlineCount = (token.separator.match(/\n/g) || []).length;
+        const parts = token.separator.split("\n");
+        const newlineCount = parts.length - 1;
         linesUsed += newlineCount;
-        currentLineChars = 0;
+        // The characters after the last newline start the new line
+        currentLineChars = parts[parts.length - 1].length;
       } else {
         currentLineChars += token.separator.length;
         if (currentLineChars > safeCharsPerLine) {

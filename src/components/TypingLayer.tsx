@@ -35,6 +35,63 @@ export function TypingLayer({
   botCursorIndex = null,
 }: TypingLayerProps) {
   const currentWordRef = useRef<HTMLSpanElement | null>(null);
+  const [windowStart, setWindowStart] = React.useState(0);
+  const WINDOW_SIZE = 300;
+  const BUFFER = 80;
+  const preShiftRelativeTop = useRef<number | null>(null);
+
+  // Buffered windowing to prevent shifting the DOM on every single word.
+  useEffect(() => {
+    if (visibleRange || noScroll) return;
+    const current = snapshot.currentWordIndex;
+    if (current < windowStart + BUFFER || current > windowStart + WINDOW_SIZE - BUFFER) {
+      const newStart = Math.max(0, current - Math.floor(WINDOW_SIZE / 2));
+      if (Math.abs(newStart - windowStart) > 15) {
+        // Capture position before shift for anchoring
+        if (currentWordRef.current) {
+          preShiftRelativeTop.current = currentWordRef.current.getBoundingClientRect().top;
+        }
+        setWindowStart(newStart);
+      }
+    }
+  }, [snapshot.currentWordIndex, windowStart, visibleRange, noScroll]);
+
+  const animationRef = useRef<{ 
+    startY: number; 
+    distance: number; 
+    startTime: number;
+    duration: number;
+  } | null>(null);
+
+  // Scroll anchoring: compensate for DOM shifts caused by window changes instantly.
+  React.useLayoutEffect(() => {
+    if (preShiftRelativeTop.current !== null && currentWordRef.current) {
+      const el = currentWordRef.current;
+      let container: HTMLElement | null = el.parentElement;
+      while (container && container !== document.body) {
+        const style = window.getComputedStyle(container);
+        if (/(auto|scroll|hidden)/.test(style.overflowY) && container.offsetHeight < container.scrollHeight) {
+          break;
+        }
+        container = container.parentElement;
+      }
+      
+      if (container) {
+        const newTop = el.getBoundingClientRect().top;
+        const delta = newTop - preShiftRelativeTop.current;
+        if (Math.abs(delta) > 0.5) {
+          container.scrollTop += delta;
+          // IMPORTANT: If an animation is running, we must adjust its starting point
+          // to account for the DOM shift, otherwise it will "snap" or drift.
+          if (animationRef.current) {
+            animationRef.current.startY += delta;
+          }
+        }
+      }
+      preShiftRelativeTop.current = null;
+    }
+  }, [windowStart]);
+
   const visibleTokens = useMemo(() => {
     if (visibleRange) {
       return tokens
@@ -42,121 +99,102 @@ export function TypingLayer({
         .filter(({ token }) => token.start >= visibleRange.start && token.start < visibleRange.end);
     }
 
-    const WINDOW_SIZE = 400; // Reduced for peak performance during rapid typing
-    const start = Math.max(0, snapshot.currentWordIndex - WINDOW_SIZE / 2);
+    const start = windowStart;
     const end = Math.min(tokens.length, start + WINDOW_SIZE);
 
     return tokens
       .slice(start, end)
       .map((token, index) => ({ token, index: start + index }));
-  }, [tokens, visibleRange, snapshot.currentWordIndex]);
+  }, [tokens, visibleRange, windowStart]);
 
-  const scrollAnimationRef = useRef<number | null>(null);
-  const lastOffsetTop = useRef<number>(-1);
+  const scrollAnimationId = useRef<number | null>(null);
   const lastWordIndex = useRef<number>(-1);
 
+  // Smooth scroll logic that ensures the active word is ALWAYS perfectly centered.
   useEffect(() => {
     const el = currentWordRef.current;
     if (noScroll || visibleRange || !el) return;
 
     const currentIndex = snapshot.currentWordIndex;
-    const currentOffset = el.offsetTop;
 
-    // First run initialization
-    if (lastWordIndex.current === -1) {
-      lastWordIndex.current = currentIndex;
-      lastOffsetTop.current = currentOffset;
-      return;
+    // Find the nearest scrollable ancestor
+    let container: HTMLElement | null = el.parentElement;
+    while (container && container !== document.body) {
+      const style = window.getComputedStyle(container);
+      if (/(auto|scroll|hidden)/.test(style.overflowY) && container.offsetHeight < container.scrollHeight) {
+        break;
+      }
+      container = container.parentElement;
     }
+    if (!container) return;
 
-    // Only perform expensive layout checks and scrolling when the word index actually changes.
-    // Within-word typing no longer triggers reflows, eliminating input lag.
-    if (currentIndex !== lastWordIndex.current) {
-      const offsetDiff = Math.abs(currentOffset - lastOffsetTop.current);
+    const isWindowScroll = container === document.body;
+    const containerRect = isWindowScroll 
+      ? { top: 0, height: window.innerHeight } 
+      : container.getBoundingClientRect();
+    const elRect = el.getBoundingClientRect();
+    
+    // Check if the word is currently centered.
+    // We target the vertical middle of the element to the vertical middle of the container.
+    const currentRelativeCenter = (elRect.top + elRect.height / 2) - (containerRect.top + containerRect.height / 2);
+    const isManualJump = Math.abs(currentIndex - lastWordIndex.current) > 1;
+    
+    // We trigger centering if:
+    // 1. We just moved to a new word and it's not centered (allow 2px slack)
+    // 2. It's a manual jump
+    // 3. It's the first initialization
+    if (Math.abs(currentRelativeCenter) > 2 || isManualJump || lastWordIndex.current === -1) {
+      if (scrollAnimationId.current !== null) {
+        cancelAnimationFrame(scrollAnimationId.current);
+      }
 
-      if (offsetDiff > 15) {
-        if (scrollAnimationRef.current !== null) {
-          cancelAnimationFrame(scrollAnimationRef.current);
-        }
+      const currentScroll = isWindowScroll ? window.scrollY : container.scrollTop;
+      const distance = currentRelativeCenter;
+      const duration = isManualJump ? 250 : 400;
 
-        // Find the nearest scrollable ancestor
-        let container: HTMLElement | null = el.parentElement;
-        while (container && container !== document.body) {
-          const style = window.getComputedStyle(container);
-          if (/(auto|scroll|hidden)/.test(style.overflowY) && container.offsetHeight < container.scrollHeight) {
-            break;
-          }
-          container = container.parentElement;
-        }
+      animationRef.current = {
+        startY: currentScroll,
+        distance,
+        startTime: performance.now(),
+        duration,
+      };
 
-        const isWindowScroll = !container || container === document.body;
+      const animate = (currentTime: number) => {
+        if (!animationRef.current) return;
+        
+        const state = animationRef.current;
+        const timeElapsed = currentTime - state.startTime;
+        const progress = Math.min(timeElapsed / state.duration, 1);
+        
+        const ease = 1 - Math.pow(1 - progress, 4);
+        const nextScroll = state.startY + state.distance * ease;
 
         if (isWindowScroll) {
-          const targetY = el.getBoundingClientRect().top + window.scrollY - window.innerHeight / 2;
-          const startY = window.scrollY;
-          const distance = targetY - startY;
-          const duration = 500;
-          let startTime: number | null = null;
-
-          const animate = (currentTime: number) => {
-            if (startTime === null) startTime = currentTime;
-            const timeElapsed = currentTime - startTime;
-            const progress = Math.min(timeElapsed / duration, 1);
-            const ease = 1 - Math.pow(1 - progress, 5);
-            window.scrollTo(0, startY + distance * ease);
-            if (timeElapsed < duration) {
-              scrollAnimationRef.current = requestAnimationFrame(animate);
-            } else {
-              scrollAnimationRef.current = null;
-            }
-          };
-          scrollAnimationRef.current = requestAnimationFrame(animate);
+          window.scrollTo(0, nextScroll);
         } else {
-          const targetY = el.offsetTop - container!.offsetHeight / 2 + el.offsetHeight / 2;
-          const startY = container!.scrollTop;
-          const distance = targetY - startY;
-          const duration = 400;
-          let startTime: number | null = null;
-
-          const animate = (currentTime: number) => {
-            if (startTime === null) startTime = currentTime;
-            const timeElapsed = currentTime - startTime;
-            const progress = Math.min(timeElapsed / duration, 1);
-            const ease = 1 - Math.pow(1 - progress, 5);
-            container!.scrollTop = startY + distance * ease;
-            if (timeElapsed < duration) {
-              scrollAnimationRef.current = requestAnimationFrame(animate);
-            } else {
-              scrollAnimationRef.current = null;
-            }
-          };
-          scrollAnimationRef.current = requestAnimationFrame(animate);
+          container!.scrollTop = nextScroll;
         }
-      }
 
-      lastOffsetTop.current = currentOffset;
-      lastWordIndex.current = currentIndex;
+        if (timeElapsed < state.duration) {
+          scrollAnimationId.current = requestAnimationFrame(animate);
+        } else {
+          scrollAnimationId.current = null;
+          animationRef.current = null;
+        }
+      };
+      scrollAnimationId.current = requestAnimationFrame(animate);
     }
 
-    return () => {
-      if (scrollAnimationRef.current !== null) {
-        cancelAnimationFrame(scrollAnimationRef.current);
-        scrollAnimationRef.current = null;
-      }
-    };
-  }, [snapshot.currentWordIndex, visibleRange]);
+    lastWordIndex.current = currentIndex;
 
-  // Handle window resizing separately to avoid mixing it with typing logic
-  useEffect(() => {
-    const handleResize = () => {
-      const el = currentWordRef.current;
-      if (el) {
-        lastOffsetTop.current = el.offsetTop;
+    return () => {
+      if (scrollAnimationId.current !== null) {
+        cancelAnimationFrame(scrollAnimationId.current);
+        scrollAnimationId.current = null;
       }
     };
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
-  }, []);
+  }, [snapshot.currentWordIndex, visibleRange, noScroll]);
+
 
   return (
     <div
