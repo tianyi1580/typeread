@@ -735,8 +735,14 @@ export function ReaderView({
             </Button>
           </div>
 
-          <div className="pointer-events-auto rounded-full border border-[var(--border)] bg-[color-mix(in_srgb,var(--panel)_65%,transparent)] px-6 py-2.5 text-sm font-medium text-[var(--text)] shadow-panel backdrop-blur-xl">
+          <div className="relative pointer-events-auto overflow-hidden rounded-full border border-[var(--border)] bg-[color-mix(in_srgb,var(--panel)_65%,transparent)] px-6 py-2.5 text-sm font-medium text-[var(--text)] shadow-panel backdrop-blur-xl">
             {Math.round(metrics.wpm)} WPM • {formatPercent(metrics.accuracy)} Acc
+            <div className="absolute inset-x-0 bottom-0 h-[2px] bg-white/5">
+              <div
+                className="h-full bg-[var(--accent)] transition-[width] duration-300"
+                style={{ width: `${metrics.chapterProgress * 100}%` }}
+              />
+            </div>
           </div>
 
           <div className="pointer-events-auto">
