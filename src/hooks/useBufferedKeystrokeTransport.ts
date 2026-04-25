@@ -84,7 +84,8 @@ export function useBufferedKeystrokeTransport({
         if (events.length > 0) {
           pendingEventsRef.current = [...events, ...pendingEventsRef.current];
         }
-        onError?.(caught instanceof Error ? caught.message : "Failed to sync keystroke analytics.");
+        const message = typeof caught === "string" ? caught : caught instanceof Error ? caught.message : "Failed to sync keystroke analytics.";
+        onError?.(message);
         return undefined;
       }
     };

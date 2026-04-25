@@ -373,7 +373,20 @@ export function computeMetrics(
   let correctChars = 0;
   let errors = 0;
 
-  const recentEvents = events.length > 100 ? events.slice(-100) : events;
+  const firstAttempts = new Map<number, boolean>();
+  for (const event of events) {
+    if ((event.type === "char" || event.type === "space") && event.cursorIndex !== undefined) {
+      if (!firstAttempts.has(event.cursorIndex)) {
+        firstAttempts.set(event.cursorIndex, !!event.isCorrect);
+      }
+    }
+  }
+
+  const totalFirstAttempts = firstAttempts.size;
+  const correctFirstAttempts = Array.from(firstAttempts.values()).filter(Boolean).length;
+  const accuracy = totalFirstAttempts === 0 ? 100 : clamp((correctFirstAttempts / totalFirstAttempts) * 100, 0, 100);
+
+  const recentEvents = events.length > 200 ? events.slice(-200) : events;
   for (const event of recentEvents) {
     if (event.skippedWord || event.typedChars === undefined) {
       continue;
@@ -385,8 +398,8 @@ export function computeMetrics(
     errors += event.errors ?? 0;
   }
 
-  if (events.length > 100) {
-    const ratio = events.length / 100;
+  if (events.length > 200) {
+    const ratio = events.length / 200;
     typedWords = Math.round(typedWords * ratio);
     typedChars = Math.round(typedChars * ratio);
     correctChars = Math.round(correctChars * ratio);
@@ -395,7 +408,6 @@ export function computeMetrics(
 
   const minutes = Math.max(elapsedSeconds / 60, 1 / 60);
   const wpm = correctChars / 5 / minutes;
-  const accuracy = typedChars === 0 ? 100 : clamp((correctChars / typedChars) * 100, 0, 100);
   const progress = currentProgress(snapshot, tokens);
 
   return {
@@ -422,22 +434,29 @@ export function finalizeMetrics(
   let typedChars = 0;
   let correctChars = 0;
   let errors = 0;
-
+  const firstAttempts = new Map<number, boolean>();
   for (const event of filteredEvents) {
-    if (event.skippedWord || event.typedChars === undefined) {
-      continue;
+    if ((event.type === "char" || event.type === "space") && event.cursorIndex !== undefined) {
+      if (!firstAttempts.has(event.cursorIndex)) {
+        firstAttempts.set(event.cursorIndex, !!event.isCorrect);
+      }
     }
-
-    typedWords += 1;
-    typedChars += event.typedChars;
-    correctChars += event.correctChars ?? 0;
-    errors += event.errors ?? 0;
+    
+    if (!event.skippedWord && event.typedChars !== undefined) {
+      typedWords += 1;
+      typedChars += event.typedChars;
+      correctChars += event.correctChars ?? 0;
+      errors += event.errors ?? 0;
+    }
   }
+
+  const totalFirstAttempts = firstAttempts.size;
+  const correctFirstAttempts = Array.from(firstAttempts.values()).filter(Boolean).length;
+  const accuracy = totalFirstAttempts === 0 ? 100 : clamp((correctFirstAttempts / totalFirstAttempts) * 100, 0, 100);
 
   const durationSeconds = Math.max(1, Math.round((effectiveEnd - startTime) / 1000));
   const minutes = durationSeconds / 60;
   const wpm = minutes <= 0 ? 0 : correctChars / 5 / minutes;
-  const accuracy = typedChars === 0 ? 100 : clamp((correctChars / typedChars) * 100, 0, 100);
 
   return {
     wordsTyped: typedWords,

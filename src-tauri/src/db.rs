@@ -116,7 +116,7 @@ impl Database {
 
             CREATE TABLE IF NOT EXISTS typing_sessions (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-                book_id INTEGER NOT NULL DEFAULT -1,
+                book_id INTEGER,
                 source TEXT NOT NULL DEFAULT 'book',
                 source_label TEXT NOT NULL DEFAULT '',
                 start_time TEXT NOT NULL,
@@ -292,36 +292,87 @@ impl Database {
 
         ensure_column(conn, "typing_sessions", "source", "TEXT NOT NULL DEFAULT 'book'")?;
         ensure_column(conn, "typing_sessions", "source_label", "TEXT NOT NULL DEFAULT ''")?;
+        ensure_column(conn, "typing_sessions", "start_time", "TEXT NOT NULL DEFAULT ''")?;
+        ensure_column(conn, "typing_sessions", "end_time", "TEXT NOT NULL DEFAULT ''")?;
+        ensure_column(conn, "typing_sessions", "words_typed", "INTEGER NOT NULL DEFAULT 0")?;
+        ensure_column(conn, "typing_sessions", "chars_typed", "INTEGER NOT NULL DEFAULT 0")?;
+        ensure_column(conn, "typing_sessions", "errors", "INTEGER NOT NULL DEFAULT 0")?;
+        ensure_column(conn, "typing_sessions", "wpm", "REAL NOT NULL DEFAULT 0")?;
+        ensure_column(conn, "typing_sessions", "accuracy", "REAL NOT NULL DEFAULT 0")?;
+        ensure_column(conn, "typing_sessions", "duration_seconds", "INTEGER NOT NULL DEFAULT 0")?;
         ensure_column(conn, "typing_sessions", "xp_gained", "INTEGER NOT NULL DEFAULT 0")?;
         ensure_column(conn, "typing_sessions", "rhythm_score", "REAL NOT NULL DEFAULT 0")?;
         ensure_column(conn, "typing_sessions", "focus_score", "REAL NOT NULL DEFAULT 0")?;
-        conn.execute_batch(
-            r#"
-            CREATE TABLE IF NOT EXISTS session_analytics (
-                session_id INTEGER PRIMARY KEY,
-                keyboard_layout_id TEXT NOT NULL DEFAULT 'qwerty-us',
-                keyboard_layout_name TEXT NOT NULL DEFAULT 'QWERTY (US)',
-                keyboard_layout_rows_json TEXT NOT NULL DEFAULT '[]',
-                macro_wpm_json TEXT NOT NULL DEFAULT '[]',
-                recent_wpm_json TEXT NOT NULL DEFAULT '[]',
-                confusion_json TEXT NOT NULL DEFAULT '[]',
-                transition_stats_json TEXT NOT NULL DEFAULT '[]',
-                cadence_cv REAL NOT NULL DEFAULT 0,
-                active_typing_seconds INTEGER NOT NULL DEFAULT 0
-            );
-            CREATE TABLE IF NOT EXISTS profile_progress (
-                id INTEGER PRIMARY KEY CHECK (id = 1),
-                total_xp INTEGER NOT NULL DEFAULT 0,
-                streak_days INTEGER NOT NULL DEFAULT 0,
-                last_active_day TEXT,
-                rested_words_available INTEGER NOT NULL DEFAULT 500
-            );
-            CREATE TABLE IF NOT EXISTS achievements (
-                achievement_key TEXT PRIMARY KEY,
-                earned_at TEXT NOT NULL
-            );
-            "#,
-        )?;
+
+        // Migration: Make book_id nullable and remove FK constraint if it exists
+        let is_book_id_nullable = {
+            let mut stmt = conn.prepare("PRAGMA table_info(typing_sessions)")?;
+            let mut rows = stmt.query([])?;
+            let mut nullable = true;
+            while let Some(row) = rows.next()? {
+                let name: String = row.get(1)?;
+                if name == "book_id" {
+                    let notnull: i32 = row.get(3)?;
+                    nullable = notnull == 0;
+                    break;
+                }
+            }
+            nullable
+        };
+
+        let version: i32 = conn.query_row("PRAGMA user_version", [], |r| r.get(0))?;
+        if version < 2 || !is_book_id_nullable {
+            conn.execute("PRAGMA foreign_keys = OFF", [])?;
+            conn.execute_batch(
+                r#"
+                CREATE TABLE typing_sessions_new (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    book_id INTEGER,
+                    source TEXT NOT NULL DEFAULT 'book',
+                    source_label TEXT NOT NULL DEFAULT '',
+                    start_time TEXT NOT NULL,
+                    end_time TEXT NOT NULL,
+                    words_typed INTEGER NOT NULL DEFAULT 0,
+                    chars_typed INTEGER NOT NULL DEFAULT 0,
+                    errors INTEGER NOT NULL DEFAULT 0,
+                    wpm REAL NOT NULL DEFAULT 0,
+                    accuracy REAL NOT NULL DEFAULT 0,
+                    duration_seconds INTEGER NOT NULL DEFAULT 0,
+                    xp_gained INTEGER NOT NULL DEFAULT 0,
+                    rhythm_score REAL NOT NULL DEFAULT 0,
+                    focus_score REAL NOT NULL DEFAULT 0
+                );
+                INSERT INTO typing_sessions_new (id, book_id, source, source_label, start_time, end_time, words_typed, chars_typed, errors, wpm, accuracy, duration_seconds, xp_gained, rhythm_score, focus_score)
+                SELECT 
+                    id, 
+                    CASE WHEN book_id = -1 THEN NULL ELSE CAST(book_id AS INTEGER) END, 
+                    source, 
+                    source_label, 
+                    start_time, 
+                    end_time, 
+                    CAST(words_typed AS INTEGER), 
+                    CAST(chars_typed AS INTEGER), 
+                    CAST(errors AS INTEGER), 
+                    CAST(wpm AS REAL), 
+                    CAST(accuracy AS REAL), 
+                    CAST(duration_seconds AS INTEGER), 
+                    CAST(xp_gained AS INTEGER), 
+                    CAST(rhythm_score AS REAL), 
+                    CAST(focus_score AS REAL) 
+                FROM typing_sessions;
+                DROP TABLE typing_sessions;
+                ALTER TABLE typing_sessions_new RENAME TO typing_sessions;
+                "#,
+            )?;
+            conn.execute("PRAGMA foreign_keys = ON", [])?;
+            conn.execute("PRAGMA user_version = 2", [])?;
+        }
+
+        ensure_column(conn, "profile_progress", "total_xp", "INTEGER NOT NULL DEFAULT 0")?;
+        ensure_column(conn, "profile_progress", "streak_days", "INTEGER NOT NULL DEFAULT 0")?;
+        ensure_column(conn, "profile_progress", "last_active_day", "TEXT")?;
+        ensure_column(conn, "profile_progress", "rested_words_available", "INTEGER NOT NULL DEFAULT 500")?;
+
         Ok(())
     }
 
@@ -371,7 +422,7 @@ impl Database {
                 books.current_chapter,
                 books.total_chars,
                 books.pinned,
-                COALESCE(book_sessions.average_wpm, 0),
+                COALESCE(book_sessions.average_wpm, 0.0),
                 books.added_at
             FROM books
             LEFT JOIN (
@@ -403,7 +454,7 @@ impl Database {
                 books.current_chapter,
                 books.total_chars,
                 books.pinned,
-                COALESCE(book_sessions.average_wpm, 0),
+                COALESCE(book_sessions.average_wpm, 0.0),
                 books.added_at
             FROM books
             LEFT JOIN (
@@ -546,13 +597,13 @@ impl Database {
         let endurance_multiplier = 1.0 + finalized.endurance_segments as f64 * 0.05;
         let base_xp = (session.words_typed as f64 * accuracy_multiplier * cadence_multiplier * endurance_multiplier).round() as i64;
         let rested_words_consumed = rested_words_available.min(session.words_typed.max(0));
-        let rested_bonus_xp =
-            (rested_words_consumed as f64 * accuracy_multiplier * cadence_multiplier * endurance_multiplier).round() as i64;
-        let xp_gained = base_xp + rested_bonus_xp;
+        let rested_bonus_xp = (rested_words_consumed as f64 * accuracy_multiplier * cadence_multiplier * endurance_multiplier).round() as i64;
+        let is_practice_session = session.source == "test" || session.source == "practice" || session.book_id.is_none();
+        let xp_gained = if is_practice_session { 0 } else { base_xp + rested_bonus_xp };
         let total_xp = before.total_xp + xp_gained;
         let level_before = level_from_xp(before.total_xp);
         let level_after = level_from_xp(total_xp);
-        let remaining_rested_words = (rested_words_available - rested_words_consumed).max(0);
+        let remaining_rested_words = if is_practice_session { rested_words_available } else { (rested_words_available - rested_words_consumed).max(0) };
 
         tx.execute(
             r#"
@@ -588,7 +639,7 @@ impl Database {
             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)
             "#,
             params![
-                session.book_id.unwrap_or(-1),
+                if is_practice_session { None } else { session.book_id },
                 session.source,
                 session.source_label,
                 session.start_time,
@@ -645,7 +696,7 @@ impl Database {
         ).context("failed to persist session analytics")?;
 
         let total_words_after: i64 = tx.query_row(
-            "SELECT COALESCE(SUM(words_typed), 0) FROM typing_sessions",
+            "SELECT CAST(COALESCE(SUM(words_typed), 0) AS INTEGER) FROM typing_sessions",
             [],
             |row| row.get(0),
         )?;
@@ -702,13 +753,13 @@ impl Database {
         let conn = self.connection()?;
         let (total_words_typed, total_chars_typed, total_time_seconds, average_wpm, average_accuracy, sessions) = conn.query_row(
             r#"
-            SELECT
-                COALESCE(SUM(words_typed), 0),
-                COALESCE(SUM(chars_typed), 0),
-                COALESCE(SUM(duration_seconds), 0),
-                COALESCE(AVG(wpm), 0),
-                COALESCE(AVG(accuracy), 0),
-                COUNT(*)
+            SELECT 
+                CAST(COALESCE(SUM(words_typed), 0) AS INTEGER), 
+                CAST(COALESCE(SUM(chars_typed), 0) AS INTEGER), 
+                CAST(COALESCE(SUM(duration_seconds), 0) AS INTEGER), 
+                COALESCE(AVG(wpm), 0.0), 
+                COALESCE(AVG(accuracy), 100.0), 
+                COUNT(*) 
             FROM typing_sessions
             "#,
             [],
@@ -751,7 +802,7 @@ impl Database {
             r#"
             SELECT
                 typing_sessions.id,
-                CASE WHEN typing_sessions.book_id > 0 THEN typing_sessions.book_id ELSE NULL END,
+                CASE WHEN typing_sessions.book_id > 0 THEN CAST(typing_sessions.book_id AS INTEGER) ELSE NULL END,
                 CASE
                     WHEN typing_sessions.source = 'book' THEN COALESCE(books.title, typing_sessions.source_label)
                     ELSE typing_sessions.source_label
@@ -759,14 +810,14 @@ impl Database {
                 typing_sessions.source,
                 typing_sessions.start_time,
                 typing_sessions.end_time,
-                typing_sessions.duration_seconds,
-                typing_sessions.words_typed,
-                typing_sessions.chars_typed,
-                typing_sessions.wpm,
-                typing_sessions.accuracy,
-                typing_sessions.xp_gained,
-                typing_sessions.rhythm_score,
-                typing_sessions.focus_score
+                CAST(typing_sessions.duration_seconds AS INTEGER),
+                CAST(typing_sessions.words_typed AS INTEGER),
+                CAST(typing_sessions.chars_typed AS INTEGER),
+                CAST(typing_sessions.wpm AS REAL),
+                CAST(typing_sessions.accuracy AS REAL),
+                CAST(typing_sessions.xp_gained AS INTEGER),
+                CAST(typing_sessions.rhythm_score AS REAL),
+                CAST(typing_sessions.focus_score AS REAL)
             FROM typing_sessions
             LEFT JOIN books ON books.id = typing_sessions.book_id
             ORDER BY typing_sessions.start_time DESC
@@ -974,7 +1025,7 @@ impl Database {
                 books.current_chapter,
                 books.total_chars,
                 books.pinned,
-                COALESCE(book_sessions.average_wpm, 0),
+                COALESCE(book_sessions.average_wpm, 0.0),
                 books.added_at
             FROM books
             LEFT JOIN (

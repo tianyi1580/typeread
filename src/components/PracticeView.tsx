@@ -123,8 +123,10 @@ export function PracticeView({
   }, [clock, events, sessionStartAt, snapshot, tokens]);
 
   useEffect(() => {
-    setMetrics(liveMetrics);
-  }, [liveMetrics]);
+    if (status !== "completed") {
+      setMetrics(liveMetrics);
+    }
+  }, [liveMetrics, status]);
 
   useEffect(() => {
     if (status !== "active" || !sessionStartAt || !lastInputAt) {
@@ -269,6 +271,19 @@ export function PracticeView({
     statusRef.current = "completed";
 
     const result = finalizeMetrics(eventsRef.current, startAt, Date.now(), reason === "inactive" ? 30_000 : 0);
+    
+    // Update live metrics one last time with finalized values
+    setMetrics({
+      wpm: result.wpm,
+      accuracy: result.accuracy,
+      elapsedSeconds: result.durationSeconds,
+      typedWords: result.wordsTyped,
+      typedChars: result.charsTyped,
+      errors: result.errors,
+      progress: snapshotRef.current.currentWordIndex / tokens.length,
+      chapterProgress: snapshotRef.current.currentWordIndex / tokens.length,
+    });
+
     setSessionStartAt(null);
     sessionStartRef.current = null;
     setLastInputAt(null);
@@ -302,8 +317,6 @@ export function PracticeView({
       }
     } catch (err) {
       console.error("Session flush failed:", err);
-      // Even if sync fails, the UI should stay in completed state to show metrics
-      // though summary modal might not appear if 'saved' is null.
     }
   }
 
@@ -329,42 +342,7 @@ export function PracticeView({
     <>
       <div className="space-y-5">
         <Card className="overflow-hidden p-6">
-          <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
-            <div>
-              <p className="text-xs uppercase tracking-[0.28em] text-[var(--text-muted)]">
-                {mode === "type-test" ? "Type Test" : "Versus Mode"}
-              </p>
-              <h1 className="mt-4 text-4xl font-semibold">
-                {mode === "type-test"
-                  ? "Timed pressure strips the excuses out of your pacing."
-                  : "The bot only respects the CPM you set. If you lag, it shows."}
-              </h1>
-              <p className="mt-4 max-w-3xl text-sm leading-7 text-[var(--text-muted)]">
-                {mode === "type-test"
-                  ? "This is a straight timed test with no book context. Hit the words, beat the clock, and bank the session."
-                  : "Race a configurable bot on the same word stream. If it gets 30 words ahead, it idles until you close the gap."}
-              </p>
-            </div>
-
-            <div className="flex flex-wrap gap-3">
-              <Button variant="ghost" onClick={onBackToLibrary}>
-                Back to Library
-              </Button>
-              <Button variant="secondary" onClick={restart}>
-                New Run
-              </Button>
-              <Button variant="secondary" onClick={onOpenSettings}>
-                Settings
-              </Button>
-              <Button onClick={() => void flushSession("manual")} disabled={status !== "active"}>
-                End Session
-              </Button>
-            </div>
-          </div>
-        </Card>
-
-        <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_320px]">
-          <Card className="overflow-hidden p-6">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex flex-wrap items-center gap-3">
               {mode === "type-test" ? (
                 [15, 30, 60, 120].map((seconds) => (
@@ -391,75 +369,105 @@ export function PracticeView({
               )}
             </div>
 
-            <div className="relative mt-6 rounded-[34px] border border-[var(--border)] bg-[color-mix(in_srgb,var(--panel-soft)_74%,transparent)] px-6 py-8 md:px-10 md:py-12">
-              <TypingLayer
-                tokens={tokens}
-                snapshot={snapshot}
-                chapterText={practiceText}
-                className={`text-lg leading-9 md:text-[1.35rem] md:leading-[2.6rem] transition-opacity duration-500 ${status === "completed" ? "opacity-40 grayscale pointer-events-none" : ""}`}
-                interactionMode="type"
-                smoothCaret={settings.smoothCaret && analytics?.profile.unlocks.smoothCaret}
-                compareOptions={{ ignoredCharacters: ignoredCharacterSet }}
-              />
-
-              {mode === "versus" && (
-                <div className="absolute inset-x-6 bottom-5 h-8 md:inset-x-10">
-                  <div className="absolute inset-x-0 top-1/2 h-px -translate-y-1/2 bg-white/10" />
-                  {bestGhostPace && (
-                    <div
-                      className="absolute top-1/2 h-1 -translate-y-1/2 rounded-full bg-white/25"
-                      style={{ width: `${ghostProgress * 100}%` }}
-                    />
-                  )}
-                  <div
-                    className="absolute top-1/2 h-2 w-2 -translate-y-1/2 rounded-full bg-[var(--accent)] shadow-[0_0_18px_var(--accent)]"
-                    style={{ left: `calc(${botProgress * 100}% - 4px)` }}
-                  />
-                </div>
-              )}
-              
-              {status === "completed" && (
-                <div className="absolute inset-0 flex items-center justify-center bg-black/20 backdrop-blur-sm rounded-[34px]">
-                  <div className="text-center animate-in fade-in zoom-in duration-300">
-                    <p className="text-2xl font-bold">Session Finished</p>
-                    <p className="text-[var(--text-muted)] mt-2">Syncing your results...</p>
-                    <Button className="mt-6" onClick={restart}>Start New Test</Button>
-                  </div>
-                </div>
-              )}
+            <div className="flex flex-wrap items-center gap-2">
+              <Button variant="ghost" size="sm" onClick={onBackToLibrary}>
+                Library
+              </Button>
+              <Button variant="secondary" size="sm" onClick={restart}>
+                New
+              </Button>
+              <Button variant="secondary" size="sm" onClick={onOpenSettings}>
+                Settings
+              </Button>
+              <Button size="sm" onClick={() => void flushSession("manual")} disabled={status !== "active"}>
+                End
+              </Button>
             </div>
-          </Card>
+          </div>
 
-          <div className="space-y-5">
-            <Card className="p-5">
-              <p className="text-xs uppercase tracking-[0.28em] text-[var(--text-muted)]">Live Metrics</p>
-              <div className="mt-5 grid gap-3">
-                <Metric label="WPM" value={metrics.wpm.toFixed(1)} />
-                <Metric label="Accuracy" value={formatPercent(metrics.accuracy)} />
-                <Metric label={mode === "type-test" ? "Time Left" : "Session"} value={mode === "type-test" ? `${timeRemaining}s` : status === "completed" ? "Finished" : status === "idle" ? "Ready" : "In Progress"} />
-                <Metric label="Words" value={metrics.typedWords.toLocaleString()} />
-              </div>
-            </Card>
+          <div className="relative mt-6 h-[320px] overflow-hidden rounded-[34px] border border-[var(--border)] bg-[color-mix(in_srgb,var(--panel-soft)_74%,transparent)] px-6 py-8 md:px-10 md:py-12">
+            <TypingLayer
+              tokens={tokens}
+              snapshot={snapshot}
+              chapterText={practiceText}
+              className={`text-lg leading-9 md:text-[1.35rem] md:leading-[2.6rem] transition-opacity duration-500 ${status === "completed" ? "opacity-40 grayscale pointer-events-none" : ""}`}
+              interactionMode="type"
+              smoothCaret={settings.smoothCaret && analytics?.profile.unlocks.smoothCaret}
+              compareOptions={{ ignoredCharacters: ignoredCharacterSet }}
+            />
 
             {mode === "versus" && (
-              <Card className="p-5">
-                <p className="text-xs uppercase tracking-[0.28em] text-[var(--text-muted)]">Race Status</p>
-                <div className="mt-4 space-y-3">
-                  <Metric label="Bot CPM" value={settings.versusBotCpm.toString()} compact />
-                  <Metric label="Bot Word" value={wordIndexFromTextIndex(tokens, botCursorIndex).toString()} compact />
-                  <Metric label="Your Word" value={snapshot.currentWordIndex.toString()} compact />
-                  {bestGhostPace && <Metric label="Ghost Pace" value={`${bestGhostPace.toFixed(1)} WPM`} compact />}
-                </div>
-              </Card>
+              <div className="absolute inset-x-6 bottom-5 h-8 md:inset-x-10">
+                <div className="absolute inset-x-0 top-1/2 h-px -translate-y-1/2 bg-white/10" />
+                {bestGhostPace && (
+                  <div
+                    className="absolute top-1/2 h-1 -translate-y-1/2 rounded-full bg-white/25"
+                    style={{ width: `${ghostProgress * 100}%` }}
+                  />
+                )}
+                <div
+                  className="absolute top-1/2 h-2 w-2 -translate-y-1/2 rounded-full bg-[var(--accent)] shadow-[0_0_18px_var(--accent)]"
+                  style={{ left: `calc(${botProgress * 100}% - 4px)` }}
+                />
+              </div>
             )}
+            
+            {status === "completed" && (
+              <div className="absolute inset-0 flex items-center justify-center bg-black/40 backdrop-blur-md rounded-[34px] z-50">
+                <div className="text-center animate-in fade-in zoom-in duration-500 max-w-sm px-6">
+                  <p className="text-3xl font-bold">Session Finished</p>
+                  
+                  <div className="mt-8 grid grid-cols-2 gap-4">
+                    <div className="rounded-2xl bg-white/5 p-4 border border-white/10">
+                      <p className="text-[10px] uppercase tracking-widest text-[var(--text-muted)]">WPM</p>
+                      <p className="text-2xl font-bold mt-1">{metrics.wpm.toFixed(1)}</p>
+                    </div>
+                    <div className="rounded-2xl bg-white/5 p-4 border border-white/10">
+                      <p className="text-[10px] uppercase tracking-widest text-[var(--text-muted)]">Accuracy</p>
+                      <p className="text-2xl font-bold mt-1">{formatPercent(metrics.accuracy)}</p>
+                    </div>
+                  </div>
 
-            {!desktopReady && (
-              <Card className="p-5 text-sm text-[var(--text-muted)]">
-                Practice works in preview mode, but progression, achievements, and analytics persistence only work in the desktop app.
-              </Card>
+                  {!summary ? (
+                    <p className="text-[var(--text-muted)] mt-8 text-sm flex items-center justify-center gap-2">
+                      <span className="h-2 w-2 rounded-full bg-[var(--accent)] animate-pulse" />
+                      Syncing your results...
+                    </p>
+                  ) : (
+                    <p className="text-[var(--accent)] mt-8 text-sm font-medium">✓ Results synced to profile</p>
+                  )}
+                  
+                  <div className="mt-10 flex flex-col gap-3">
+                    <Button size="lg" className="w-full" onClick={restart}>Start New Test</Button>
+                    <Button variant="ghost" className="w-full" onClick={() => setStatus("idle")}>Review Text</Button>
+                  </div>
+                </div>
+              </div>
             )}
           </div>
-        </div>
+
+          <div className="mt-6 grid grid-cols-2 gap-4 md:grid-cols-4">
+            <Metric label="WPM" value={metrics.wpm.toFixed(1)} />
+            <Metric label="Accuracy" value={formatPercent(metrics.accuracy)} />
+            <Metric label={mode === "type-test" ? "Time Left" : "Session"} value={mode === "type-test" ? `${timeRemaining}s` : status === "completed" ? "Finished" : status === "idle" ? "Ready" : "In Progress"} />
+            <Metric label="Words" value={metrics.typedWords.toLocaleString()} />
+          </div>
+
+          {mode === "versus" && (
+            <div className="mt-4 grid grid-cols-2 gap-4 md:grid-cols-4">
+              <Metric label="Bot CPM" value={settings.versusBotCpm.toString()} compact />
+              <Metric label="Bot Word" value={wordIndexFromTextIndex(tokens, botCursorIndex).toString()} compact />
+              <Metric label="Your Word" value={snapshot.currentWordIndex.toString()} compact />
+              {bestGhostPace && <Metric label="Ghost Pace" value={`${bestGhostPace.toFixed(1)} WPM`} compact />}
+            </div>
+          )}
+        </Card>
+
+        {!desktopReady && (
+          <Card className="p-5 text-sm text-[var(--text-muted)]">
+            Practice works in preview mode, but progression, achievements, and analytics persistence only work in the desktop app.
+          </Card>
+        )}
       </div>
 
       <SessionSummaryModal summary={summary} onClose={() => setSummary(null)} onRestart={restart} />

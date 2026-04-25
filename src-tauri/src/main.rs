@@ -228,7 +228,15 @@ fn prepare_state(app: &tauri::AppHandle) -> Result<AppState> {
 }
 
 fn to_message(error: anyhow::Error) -> String {
-    error.to_string()
+    let mut message = error.to_string();
+    let mut current = error.source();
+    while let Some(source) = current {
+        message.push_str(": ");
+        message.push_str(&source.to_string());
+        current = source.source();
+    }
+    println!("API Error: {}", message);
+    message
 }
 
 fn import_book_files(paths: Vec<PathBuf>, state: &AppState) -> Result<Vec<models::BookRecord>, String> {

@@ -16,6 +16,8 @@ pub struct LiveSessionAnalytics {
     transitions: HashMap<String, TransitionAccumulator>,
     last_correct_char: Option<(String, i64)>,
     total_events: usize,
+    total_keystrokes: i64,
+    correct_keystrokes: i64,
 }
 
 #[derive(Clone)]
@@ -77,6 +79,8 @@ impl LiveSessionAnalytics {
             transitions: HashMap::new(),
             last_correct_char: None,
             total_events: 0,
+            total_keystrokes: 0,
+            correct_keystrokes: 0,
         }
     }
 
@@ -100,6 +104,11 @@ impl LiveSessionAnalytics {
         let active_typing_seconds = ((duration_ms - inactive_ms).max(0) as f64 / 1000.0).round() as i64;
         let cadence_cv = coefficient_of_variation(&filtered_intervals);
         let rhythm_score = rhythm_score_from_cv(cadence_cv);
+        let _accuracy = if self.total_keystrokes == 0 {
+            100.0
+        } else {
+            (self.correct_keystrokes as f64 * 100.0 / self.total_keystrokes as f64).clamp(0.0, 100.0)
+        };
         let focus_score = if duration_ms <= 0 {
             0.0
         } else {
@@ -140,6 +149,13 @@ impl LiveSessionAnalytics {
         let expected = normalized_single_char(event.expected.as_deref());
         let typed = normalized_single_char(event.char.as_deref());
         let is_typed_event = matches!(event.r#type.as_str(), "char" | "space");
+
+        if is_typed_event {
+            self.total_keystrokes += 1;
+            if event.is_correct.unwrap_or(false) {
+                self.correct_keystrokes += 1;
+            }
+        }
 
         if !is_typed_event {
             if matches!(event.r#type.as_str(), "enter" | "meta") {

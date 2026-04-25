@@ -39,7 +39,7 @@ export function SessionSummaryModal({ summary, onClose, onRestart }: SessionSumm
   const achievementNames = new Map(achievementDefinitions.map((achievement) => [achievement.key, achievement.name]));
 
   useEffect(() => {
-    if (!summary) {
+    if (!summary || summary.xpGained === 0) {
       setAnimatedXp(0);
       return;
     }
@@ -72,9 +72,13 @@ export function SessionSummaryModal({ summary, onClose, onRestart }: SessionSumm
           <div className="space-y-8">
             <div>
               <p className="text-xs font-bold uppercase tracking-[0.4em] text-[var(--text-muted)]">Session Complete</p>
-              <h2 className="mt-4 text-5xl font-bold tracking-tight text-[var(--text)]">XP lands after the work is done.</h2>
+              <h2 className="mt-4 text-5xl font-bold tracking-tight text-[var(--text)]">
+                {summary.xpGained > 0 ? "XP lands after the work is done." : "Session complete. The silent growth counts."}
+              </h2>
               <p className="mt-4 max-w-2xl text-base leading-relaxed text-[var(--text-muted)]">
-                The session was silent. The growth is loud. Your efforts have been recorded.
+                {summary.xpGained > 0 
+                  ? "The session was silent. The growth is loud. Your efforts have been recorded." 
+                  : "Type tests and practice sessions don't grant XP, but they sharpen the blade."}
               </p>
             </div>
 
@@ -96,46 +100,50 @@ export function SessionSummaryModal({ summary, onClose, onRestart }: SessionSumm
                 <SummaryMetric label="Cadence" value={`${summary.cadenceMultiplier.toFixed(2)}x`} compact />
                 <SummaryMetric label="Endurance" value={`${summary.enduranceMultiplier.toFixed(2)}x`} compact />
               </div>
-              <div className="mt-8 flex items-end justify-between gap-4 border-t border-[var(--border)] pt-6">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <p className="text-xs font-bold uppercase tracking-[0.24em] text-[var(--text-muted)]">Rested Bonus</p>
-                    <InfoTooltip content={SUMMARY_DESCRIPTIONS.rested} trigger="hover">
-                      <InfoIcon className="h-3 w-3" />
-                    </InfoTooltip>
+              {summary.xpGained > 0 && (
+                <div className="mt-8 flex items-end justify-between gap-4 border-t border-[var(--border)] pt-6">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <p className="text-xs font-bold uppercase tracking-[0.24em] text-[var(--text-muted)]">Rested Bonus</p>
+                      <InfoTooltip content={SUMMARY_DESCRIPTIONS.rested} trigger="hover">
+                        <InfoIcon className="h-3 w-3" />
+                      </InfoTooltip>
+                    </div>
+                    <p className="mt-2 text-3xl font-bold tracking-tight tabular-nums">+{summary.restedBonusXp.toLocaleString()} XP</p>
                   </div>
-                  <p className="mt-2 text-3xl font-bold tracking-tight tabular-nums">+{summary.restedBonusXp.toLocaleString()} XP</p>
+                  <div className="text-right">
+                    <p className="text-xs font-bold uppercase tracking-[0.24em] text-[var(--text-muted)]">Session Total</p>
+                    <p className="mt-2 text-6xl font-black tracking-tighter text-[var(--accent)] tabular-nums drop-shadow-[0_0_20px_rgba(138,173,244,0.3)]">
+                      {animatedXp.toLocaleString()} <span className="text-2xl font-bold tracking-tight">XP</span>
+                    </p>
+                  </div>
                 </div>
-                <div className="text-right">
-                  <p className="text-xs font-bold uppercase tracking-[0.24em] text-[var(--text-muted)]">Session Total</p>
-                  <p className="mt-2 text-6xl font-black tracking-tighter text-[var(--accent)] tabular-nums drop-shadow-[0_0_20px_rgba(138,173,244,0.3)]">
-                    {animatedXp.toLocaleString()} <span className="text-2xl font-bold tracking-tight">XP</span>
-                  </p>
-                </div>
-              </div>
+              )}
             </div>
 
-            <div className="rounded-[32px] border border-[var(--border)] bg-gradient-to-r from-[rgba(138,173,244,0.1)] to-transparent p-6">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <p className="text-xs font-bold uppercase tracking-[0.28em] text-[var(--text-muted)]">Profile Progression</p>
-                  <h3 className="mt-3 text-3xl font-bold tracking-tight">
-                    Level {summary.profile.level} <span className="text-[var(--accent)]">·</span> {summary.profile.title}
-                  </h3>
-                </div>
-                {summary.levelAfter > summary.levelBefore && (
-                  <div className="rounded-full bg-[var(--accent)] px-5 py-2 text-xs font-bold uppercase tracking-widest text-black shadow-[0_0_20px_rgba(138,173,244,0.5)]">
-                    Level Up
+            {summary.xpGained > 0 && (
+              <div className="rounded-[32px] border border-[var(--border)] bg-gradient-to-r from-[rgba(138,173,244,0.1)] to-transparent p-6">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <p className="text-xs font-bold uppercase tracking-[0.28em] text-[var(--text-muted)]">Profile Progression</p>
+                    <h3 className="mt-3 text-3xl font-bold tracking-tight">
+                      Level {summary.profile.level} <span className="text-[var(--accent)]">·</span> {summary.profile.title}
+                    </h3>
                   </div>
-                )}
+                  {summary.levelAfter > summary.levelBefore && (
+                    <div className="rounded-full bg-[var(--accent)] px-5 py-2 text-xs font-bold uppercase tracking-widest text-black shadow-[0_0_20px_rgba(138,173,244,0.5)]">
+                      Level Up
+                    </div>
+                  )}
+                </div>
+                <div className="mt-6 h-4 overflow-hidden rounded-full bg-black/30 p-1">
+                  <div
+                    className="h-full rounded-full bg-gradient-to-r from-[var(--accent)] to-[#b8d0ff] transition-[width] duration-1000 ease-out"
+                    style={{ width: `${summary.profile.progressToNextLevel * 100}%` }}
+                  />
+                </div>
               </div>
-              <div className="mt-6 h-4 overflow-hidden rounded-full bg-black/30 p-1">
-                <div
-                  className="h-full rounded-full bg-gradient-to-r from-[var(--accent)] to-[#b8d0ff] transition-[width] duration-1000 ease-out"
-                  style={{ width: `${summary.profile.progressToNextLevel * 100}%` }}
-                />
-              </div>
-            </div>
+            )}
           </div>
 
           <div className="space-y-4">

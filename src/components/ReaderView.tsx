@@ -163,8 +163,10 @@ export function ReaderView({
   }, [clock, events, sessionStartAt, snapshot, tokens]);
 
   useEffect(() => {
-    setMetrics(liveMetrics);
-  }, [liveMetrics]);
+    if (!summary) {
+      setMetrics(liveMetrics);
+    }
+  }, [liveMetrics, summary]);
 
   useEffect(() => {
     const nextSnapshot = createTypingSnapshot(tokens, resumeCursorIndex);

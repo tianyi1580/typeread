@@ -77,30 +77,59 @@ export function TypingLayer({
           cancelAnimationFrame(scrollAnimationRef.current);
         }
 
-        const targetY = el.getBoundingClientRect().top + window.scrollY - window.innerHeight / 2;
-        const startY = window.scrollY;
-        const distance = targetY - startY;
-        const duration = 500; // Snappier response
-        let startTime: number | null = null;
-
-        const animate = (currentTime: number) => {
-          if (startTime === null) startTime = currentTime;
-          const timeElapsed = currentTime - startTime;
-          const progress = Math.min(timeElapsed / duration, 1);
-
-          // smooth easeOutQuint
-          const ease = 1 - Math.pow(1 - progress, 5);
-
-          window.scrollTo(0, startY + distance * ease);
-
-          if (timeElapsed < duration) {
-            scrollAnimationRef.current = requestAnimationFrame(animate);
-          } else {
-            scrollAnimationRef.current = null;
+        // Find the nearest scrollable ancestor
+        let container: HTMLElement | null = el.parentElement;
+        while (container && container !== document.body) {
+          const style = window.getComputedStyle(container);
+          if (/(auto|scroll|hidden)/.test(style.overflowY) && container.offsetHeight < container.scrollHeight) {
+            break;
           }
-        };
+          container = container.parentElement;
+        }
 
-        scrollAnimationRef.current = requestAnimationFrame(animate);
+        const isWindowScroll = !container || container === document.body;
+
+        if (isWindowScroll) {
+          const targetY = el.getBoundingClientRect().top + window.scrollY - window.innerHeight / 2;
+          const startY = window.scrollY;
+          const distance = targetY - startY;
+          const duration = 500;
+          let startTime: number | null = null;
+
+          const animate = (currentTime: number) => {
+            if (startTime === null) startTime = currentTime;
+            const timeElapsed = currentTime - startTime;
+            const progress = Math.min(timeElapsed / duration, 1);
+            const ease = 1 - Math.pow(1 - progress, 5);
+            window.scrollTo(0, startY + distance * ease);
+            if (timeElapsed < duration) {
+              scrollAnimationRef.current = requestAnimationFrame(animate);
+            } else {
+              scrollAnimationRef.current = null;
+            }
+          };
+          scrollAnimationRef.current = requestAnimationFrame(animate);
+        } else {
+          const targetY = el.offsetTop - container.offsetHeight / 2 + el.offsetHeight / 2;
+          const startY = container.scrollTop;
+          const distance = targetY - startY;
+          const duration = 400;
+          let startTime: number | null = null;
+
+          const animate = (currentTime: number) => {
+            if (startTime === null) startTime = currentTime;
+            const timeElapsed = currentTime - startTime;
+            const progress = Math.min(timeElapsed / duration, 1);
+            const ease = 1 - Math.pow(1 - progress, 5);
+            container!.scrollTop = startY + distance * ease;
+            if (timeElapsed < duration) {
+              scrollAnimationRef.current = requestAnimationFrame(animate);
+            } else {
+              scrollAnimationRef.current = null;
+            }
+          };
+          scrollAnimationRef.current = requestAnimationFrame(animate);
+        }
       }
 
       lastOffsetTop.current = currentOffset;
