@@ -42,6 +42,10 @@ export function AnalyticsView({
   analytics: AnalyticsSummary | null;
   settings: AppSettings | null;
 }) {
+  const [activeTab, setActiveTab] = useState<"session" | "lifetime" | "heatmap" | "recent">("session");
+  const [sessionMetric, setSessionMetric] = useState<"wpm" | "accuracy">("wpm");
+  const [lifetimeMetric, setLifetimeMetric] = useState<"wpm" | "accuracy" | "words">("wpm");
+  const [timeRange, setTimeRange] = useState<"7" | "30" | "90" | "365" | "all">("all");
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
 
   const layout = useMemo(
@@ -61,6 +65,33 @@ export function AnalyticsView({
   const selectedDrifts = activeKey
     ? analytics.aggregateConfusions.filter((pair) => pair.expected === activeKey).sort((left, right) => right.count - left.count).slice(0, 8)
     : [];
+
+  // Prepare graph points based on active toggles
+  const sessionPoints = useMemo(() => {
+    return analytics.latestDeepAnalytics?.macroWpm ?? [];
+  }, [analytics]);
+
+  const lifetimePoints = useMemo(() => {
+    const now = new Date();
+    const filtered = analytics.history.filter((d) => {
+      if (timeRange === "all") return true;
+      const date = new Date(d.day);
+      const diffDays = (now.getTime() - date.getTime()) / (1000 * 3600 * 24);
+      return diffDays <= parseInt(timeRange);
+    });
+
+    if (filtered.length === 0) return [];
+
+    // Sort by date just in case
+    filtered.sort((a, b) => new Date(a.day).getTime() - new Date(b.day).getTime());
+
+    const firstDate = new Date(filtered[0].day).getTime();
+
+    return filtered.map((d) => ({
+      at: (new Date(d.day).getTime() - firstDate) / (1000 * 3600 * 24), // Days offset
+      value: lifetimeMetric === "wpm" ? d.wpm : lifetimeMetric === "accuracy" ? d.accuracy : d.sessions * 10 // scale sessions
+    }));
+  }, [analytics, lifetimeMetric, timeRange]);
 
   return (
     <div className="space-y-6 pb-12">
@@ -121,120 +152,214 @@ export function AnalyticsView({
         </div>
       </Card>
 
-      {/* 3. Hero Graph / Session Quality */}
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1.25fr)_minmax(320px,0.75fr)]">
-        <Card className="p-8">
-          <div className="flex items-center gap-3">
-            <p className="text-xs uppercase tracking-[0.3em] text-[var(--text-muted)]">Hero Graph</p>
-            <InfoTooltip content={SECTION_DESCRIPTIONS.graph} trigger="click">
-              <InfoIcon className="h-3.5 w-3.5" />
-            </InfoTooltip>
-          </div>
-          <h2 className="mt-3 text-3xl font-bold">Rolling WPM progression</h2>
-          <div className="mt-8">
-            <SessionGraph points={analytics.latestDeepAnalytics?.macroWpm ?? []} />
-          </div>
-        </Card>
-
-        <Card className="p-8">
-          <div className="flex items-center gap-3">
-            <p className="text-xs uppercase tracking-[0.3em] text-[var(--text-muted)]">Session Quality</p>
-            <InfoTooltip content={SECTION_DESCRIPTIONS.quality} trigger="click">
-              <InfoIcon className="h-3.5 w-3.5" />
-            </InfoTooltip>
-          </div>
-          <div className="mt-8 grid gap-4">
-            <HeroMetric label="Rhythm Score" value={`${(analytics.latestDeepAnalytics?.rhythmScore ?? 0).toFixed(0)}%`} />
-            <HeroMetric label="Focus Score" value={`${(analytics.latestDeepAnalytics?.focusScore ?? 0).toFixed(0)}%`} />
-            <HeroMetric label="Cadence CV" value={(analytics.latestDeepAnalytics?.cadenceCv ?? 0).toFixed(2)} />
-            <HeroMetric
-              label="Active Typing"
-              value={formatDuration(analytics.latestDeepAnalytics?.activeTypingSeconds ?? 0)}
-            />
-          </div>
-        </Card>
+      {/* Tab Selector */}
+      <div className="flex flex-wrap gap-2 rounded-[28px] border border-[var(--border)] bg-black/10 p-2 backdrop-blur-md">
+        <TabButton active={activeTab === "session"} onClick={() => setActiveTab("session")} label="Session Stats" />
+        <TabButton active={activeTab === "lifetime"} onClick={() => setActiveTab("lifetime")} label="Lifetime Stats" />
+        <TabButton active={activeTab === "heatmap"} onClick={() => setActiveTab("heatmap")} label="Keyboard Heatmap" />
+        <TabButton active={activeTab === "recent"} onClick={() => setActiveTab("recent")} label="Recent Sessions" />
       </div>
 
-      {/* 4. Keyboard Heatmap (Full Width) */}
-      <Card className="p-8">
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div>
+      {/* 3. Session Stats Tab */}
+      {activeTab === "session" && (
+        <div className="grid gap-6 animate-fade-in xl:grid-cols-[minmax(0,1.25fr)_minmax(320px,0.75fr)]">
+          <Card className="p-8">
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <h2 className="text-3xl font-bold tracking-tight">Rolling {sessionMetric === "wpm" ? "WPM" : "Accuracy"} progression</h2>
+                <InfoTooltip content={SECTION_DESCRIPTIONS.graph} trigger="click">
+                  <InfoIcon className="h-4 w-4" />
+                </InfoTooltip>
+              </div>
+              <div className="flex gap-1 rounded-full bg-black/20 p-1">
+                <ToggleButton active={sessionMetric === "wpm"} onClick={() => setSessionMetric("wpm")} label="WPM" />
+                <ToggleButton active={sessionMetric === "accuracy"} onClick={() => setSessionMetric("accuracy")} label="Accuracy" />
+              </div>
+            </div>
+            <div className="mt-12">
+              <SessionGraph 
+                points={sessionPoints} 
+                unit={sessionMetric === "wpm" ? "WPM" : "%"} 
+                xAxisLabel="Time (Seconds)"
+                xAxisType="time"
+              />
+            </div>
+          </Card>
+
+          <Card className="p-8">
             <div className="flex items-center gap-3">
-              <p className="text-xs uppercase tracking-[0.3em] text-[var(--text-muted)]">Keyboard Heatmap</p>
-              <InfoTooltip content={SECTION_DESCRIPTIONS.heatmap} trigger="click">
+              <p className="text-xs uppercase tracking-[0.3em] text-[var(--text-muted)]">Session Quality</p>
+              <InfoTooltip content={SECTION_DESCRIPTIONS.quality} trigger="click">
                 <InfoIcon className="h-3.5 w-3.5" />
               </InfoTooltip>
             </div>
-            <h2 className="mt-3 text-3xl font-bold">Directional drift by key</h2>
-          </div>
-          <div className="rounded-full border border-[var(--border)] bg-white/5 px-5 py-2 text-xs font-semibold tracking-wide text-[var(--text-muted)] backdrop-blur-md">
-            {layout.name}
-          </div>
+            <div className="mt-8 grid gap-4">
+              <HeroMetric label="Rhythm Score" value={`${(analytics.latestDeepAnalytics?.rhythmScore ?? 0).toFixed(0)}%`} />
+              <HeroMetric label="Focus Score" value={`${(analytics.latestDeepAnalytics?.focusScore ?? 0).toFixed(0)}%`} />
+              <HeroMetric label="Cadence CV" value={(analytics.latestDeepAnalytics?.cadenceCv ?? 0).toFixed(2)} />
+              <HeroMetric
+                label="Active Typing"
+                value={formatDuration(analytics.latestDeepAnalytics?.activeTypingSeconds ?? 0)}
+              />
+            </div>
+          </Card>
         </div>
-        <div className="mt-10 grid gap-10 xl:grid-cols-[minmax(0,1fr)_340px]">
-          <div className="flex items-center justify-center rounded-[32px] border border-[var(--border)] bg-black/20 p-8 shadow-inner overflow-x-auto">
-            <KeyboardHeatmap
-              layout={layout}
-              confusions={analytics.aggregateConfusions}
-              selectedKey={activeKey}
-              onSelectKey={setSelectedKey}
-            />
-          </div>
-          <DirectionalPanel layout={layout} selectedKey={activeKey} drifts={selectedDrifts} />
-        </div>
-      </Card>
+      )}
 
-      {/* 5. Transition Tables */}
-      <Card className="p-8">
-        <div className="flex items-center gap-3">
-          <p className="text-xs uppercase tracking-[0.3em] text-[var(--text-muted)]">Transition Tables</p>
-          <InfoTooltip content={SECTION_DESCRIPTIONS.transitions} trigger="click">
-            <InfoIcon className="h-3.5 w-3.5" />
-          </InfoTooltip>
+      {/* 4. Lifetime Stats Tab */}
+      {activeTab === "lifetime" && (
+        <div className="animate-fade-in">
+          <Card className="p-8">
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <h2 className="text-3xl font-bold tracking-tight">Lifetime Trends</h2>
+                <InfoTooltip content={SECTION_DESCRIPTIONS.lifetime} trigger="click">
+                  <InfoIcon className="h-4 w-4" />
+                </InfoTooltip>
+              </div>
+              <div className="flex flex-wrap items-center gap-4">
+                <div className="flex gap-1 rounded-full bg-black/20 p-1">
+                  <ToggleButton active={timeRange === "7"} onClick={() => setTimeRange("7")} label="7d" />
+                  <ToggleButton active={timeRange === "30"} onClick={() => setTimeRange("30")} label="30d" />
+                  <ToggleButton active={timeRange === "90"} onClick={() => setTimeRange("90")} label="90d" />
+                  <ToggleButton active={timeRange === "365"} onClick={() => setTimeRange("365")} label="1y" />
+                  <ToggleButton active={timeRange === "all"} onClick={() => setTimeRange("all")} label="All" />
+                </div>
+                <div className="flex gap-1 rounded-full bg-black/20 p-1">
+                  <ToggleButton active={lifetimeMetric === "wpm"} onClick={() => setLifetimeMetric("wpm")} label="WPM" />
+                  <ToggleButton active={lifetimeMetric === "accuracy"} onClick={() => setLifetimeMetric("accuracy")} label="Accuracy" />
+                  <ToggleButton active={lifetimeMetric === "words"} onClick={() => setLifetimeMetric("words")} label="Words" />
+                </div>
+              </div>
+            </div>
+            <div className="mt-12">
+              <SessionGraph 
+                points={lifetimePoints} 
+                unit={lifetimeMetric === "wpm" ? "WPM" : lifetimeMetric === "accuracy" ? "%" : "Words"}
+                xAxisLabel="Time (Days)"
+                xAxisType="day"
+              />
+            </div>
+          </Card>
         </div>
-        <div className="mt-8 grid gap-6 lg:grid-cols-3">
-          <TransitionTable title="Fastest" rows={analytics.aggregateTransitions.fastest} description={SECTION_DESCRIPTIONS.fastest} />
-          <TransitionTable title="Slowest" rows={analytics.aggregateTransitions.slowest} description={SECTION_DESCRIPTIONS.slowest} />
-          <TransitionTable title="Drill List" rows={analytics.aggregateTransitions.errorProne} showErrorRate description={SECTION_DESCRIPTIONS.drills} />
-        </div>
-      </Card>
+      )}
 
-      {/* 6. Recent Sessions */}
-      <Card className="p-8">
-        <div className="flex items-center gap-3">
-          <p className="text-xs uppercase tracking-[0.3em] text-[var(--text-muted)]">Recent Sessions</p>
-          <InfoTooltip content={SECTION_DESCRIPTIONS.recent} trigger="click">
-            <InfoIcon className="h-3.5 w-3.5" />
-          </InfoTooltip>
+      {/* 5. Keyboard Heatmap Tab */}
+      {activeTab === "heatmap" && (
+        <div className="space-y-6 animate-fade-in">
+          <Card className="p-8">
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div>
+                <div className="flex items-center gap-3">
+                  <p className="text-xs uppercase tracking-[0.3em] text-[var(--text-muted)]">Keyboard Heatmap</p>
+                  <InfoTooltip content={SECTION_DESCRIPTIONS.heatmap} trigger="click">
+                    <InfoIcon className="h-3.5 w-3.5" />
+                  </InfoTooltip>
+                </div>
+                <h2 className="mt-3 text-3xl font-bold">Directional drift by key</h2>
+              </div>
+              <div className="rounded-full border border-[var(--border)] bg-white/5 px-5 py-2 text-xs font-semibold tracking-wide text-[var(--text-muted)] backdrop-blur-md">
+                {layout.name}
+              </div>
+            </div>
+            <div className="mt-10 grid gap-10 xl:grid-cols-[minmax(0,1fr)_340px]">
+              <div className="flex items-center justify-center rounded-[32px] border border-[var(--border)] bg-black/20 p-8 shadow-inner overflow-x-auto">
+                <KeyboardHeatmap
+                  layout={layout}
+                  confusions={analytics.aggregateConfusions}
+                  selectedKey={activeKey}
+                  onSelectKey={setSelectedKey}
+                />
+              </div>
+              <DirectionalPanel layout={layout} selectedKey={activeKey} drifts={selectedDrifts} />
+            </div>
+          </Card>
+
+          <Card className="p-8">
+            <div className="flex items-center gap-3">
+              <p className="text-xs uppercase tracking-[0.3em] text-[var(--text-muted)]">Transition Tables</p>
+              <InfoTooltip content={SECTION_DESCRIPTIONS.transitions} trigger="click">
+                <InfoIcon className="h-3.5 w-3.5" />
+              </InfoTooltip>
+            </div>
+            <div className="mt-8 grid gap-6 lg:grid-cols-3">
+              <TransitionTable title="Fastest" rows={analytics.aggregateTransitions.fastest} description={SECTION_DESCRIPTIONS.fastest} />
+              <TransitionTable title="Slowest" rows={analytics.aggregateTransitions.slowest} description={SECTION_DESCRIPTIONS.slowest} />
+              <TransitionTable title="Drill List" rows={analytics.aggregateTransitions.errorProne} showErrorRate description={SECTION_DESCRIPTIONS.drills} />
+            </div>
+          </Card>
         </div>
-        <div className="mt-8 overflow-hidden rounded-[24px] border border-[var(--border)] bg-black/10">
-          <table className="w-full border-collapse text-left">
-            <thead className="bg-[var(--panel-soft)] text-xs uppercase tracking-[0.22em] text-[var(--text-muted)]">
-              <tr>
-                <th className="px-6 py-4 font-semibold">Date</th>
-                <th className="px-6 py-4 font-semibold">Title</th>
-                <th className="px-6 py-4 font-semibold">Mode</th>
-                <th className="px-6 py-4 font-semibold">WPM</th>
-                <th className="px-6 py-4 font-semibold">XP</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-[var(--border)]">
-              {analytics.sessionPoints.slice(0, 10).map((session) => (
-                <tr key={session.id} className="group transition-colors hover:bg-white/5">
-                  <td className="px-6 py-4 text-sm tabular-nums">{new Date(session.startTime).toLocaleDateString()}</td>
-                  <td className="px-6 py-4 text-sm font-medium text-[var(--text-muted)] group-hover:text-[var(--text)]">{session.title}</td>
-                  <td className="px-6 py-4 text-xs font-bold uppercase tracking-widest text-[var(--accent)] opacity-70">{session.source}</td>
-                  <td className="px-6 py-4 text-sm font-semibold tabular-nums">{session.wpm.toFixed(1)}</td>
-                  <td className="px-6 py-4 text-sm font-semibold tabular-nums text-[var(--success)]">+{session.xpGained.toLocaleString()}</td>
+      )}
+
+      {/* 6. Recent Sessions Tab */}
+      {activeTab === "recent" && (
+        <Card className="p-8 animate-fade-in">
+          <div className="flex items-center gap-3">
+            <p className="text-xs uppercase tracking-[0.3em] text-[var(--text-muted)]">Recent Sessions</p>
+            <InfoTooltip content={SECTION_DESCRIPTIONS.recent} trigger="click">
+              <InfoIcon className="h-3.5 w-3.5" />
+            </InfoTooltip>
+          </div>
+          <div className="mt-8 overflow-hidden rounded-[24px] border border-[var(--border)] bg-black/10">
+            <table className="w-full border-collapse text-left">
+              <thead className="bg-[var(--panel-soft)] text-xs uppercase tracking-[0.22em] text-[var(--text-muted)]">
+                <tr>
+                  <th className="px-6 py-4 font-semibold">Date</th>
+                  <th className="px-6 py-4 font-semibold">Title</th>
+                  <th className="px-6 py-4 font-semibold">Mode</th>
+                  <th className="px-6 py-4 font-semibold">WPM</th>
+                  <th className="px-6 py-4 font-semibold">XP</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </Card>
+              </thead>
+              <tbody className="divide-y divide-[var(--border)]">
+                {analytics.sessionPoints.slice(0, 10).map((session) => (
+                  <tr key={session.id} className="group transition-colors hover:bg-white/5">
+                    <td className="px-6 py-4 text-sm tabular-nums">{new Date(session.startTime).toLocaleDateString()}</td>
+                    <td className="px-6 py-4 text-sm font-medium text-[var(--text-muted)] group-hover:text-[var(--text)]">{session.title}</td>
+                    <td className="px-6 py-4 text-xs font-bold uppercase tracking-widest text-[var(--accent)] opacity-70">{session.source}</td>
+                    <td className="px-6 py-4 text-sm font-semibold tabular-nums">{session.wpm.toFixed(1)}</td>
+                    <td className="px-6 py-4 text-sm font-semibold tabular-nums text-[var(--success)]">+{session.xpGained.toLocaleString()}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      )}
     </div>
   );
 }
+
+function TabButton({ active, onClick, label }: { active: boolean; onClick: () => void; label: string }) {
+  return (
+    <button
+      onClick={onClick}
+      className={`px-8 py-3 rounded-[20px] text-sm font-bold tracking-tight transition-all duration-300 ${
+        active 
+          ? "bg-[var(--accent)] text-black shadow-lg shadow-[var(--accent)]/20" 
+          : "text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-white/5"
+      }`}
+    >
+      {label}
+    </button>
+  );
+}
+
+function ToggleButton({ active, onClick, label }: { active: boolean; onClick: () => void; label: string }) {
+  return (
+    <button
+      onClick={onClick}
+      className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all ${
+        active 
+          ? "bg-[var(--accent)] text-black" 
+          : "text-[var(--text-muted)] hover:text-[var(--text)]"
+      }`}
+    >
+      {label}
+    </button>
+  );
+}
+
 
 function HeroMetric({ label, value }: { label: string; value: string }) {
   const description = METRIC_DESCRIPTIONS[label] || "Description not available.";
@@ -252,61 +377,239 @@ function HeroMetric({ label, value }: { label: string; value: string }) {
   );
 }
 
-function SessionGraph({ points }: { points: WpmSample[] }) {
-  const width = 920;
-  const height = 320;
-  const padding = { top: 20, right: 20, bottom: 36, left: 52 };
+function SessionGraph({ 
+  points, 
+  unit = "WPM", 
+  xAxisLabel = "Time (Seconds)",
+  xAxisType = "time"
+}: { 
+  points: WpmSample[]; 
+  unit?: string; 
+  xAxisLabel?: string;
+  xAxisType?: "time" | "day";
+}) {
+  const width = 940;
+  const height = 340;
+  const padding = { top: 30, right: 30, bottom: 50, left: 70 };
+  const [hoveredPointIndex, setHoveredPointIndex] = useState<number | null>(null);
 
   if (points.length === 0) {
-    return <div className="flex h-[320px] items-center justify-center text-sm font-medium text-[var(--text-muted)]">No session curve yet.</div>;
+    return <div className="flex h-[320px] items-center justify-center text-sm font-medium text-[var(--text-muted)]">No data available for this range.</div>;
   }
 
   const minAt = points[0]?.at ?? 0;
   const maxAt = points[points.length - 1]?.at ?? minAt + 1;
   const values = points.map((point) => point.value);
-  const minValue = Math.min(...values, 0);
-  const maxValue = Math.max(...values, 80);
+  const minValue = 0;
+  const maxValue = Math.max(...values, unit === "%" ? 100 : 80);
+  
   const chartPoints = points.map((point) => ({
-    x: padding.left + ((point.at - minAt) / Math.max(maxAt - minAt, 1)) * (width - padding.left - padding.right),
+    x: padding.left + ((point.at - minAt) / Math.max(maxAt - minAt, 0.0001)) * (width - padding.left - padding.right),
     y:
       height -
       padding.bottom -
       ((point.value - minValue) / Math.max(maxValue - minValue, 1)) * (height - padding.top - padding.bottom),
+    raw: point
   }));
 
+  const handleMouseMove = (e: React.MouseEvent<SVGSVGElement>) => {
+    const svg = e.currentTarget;
+    const rect = svg.getBoundingClientRect();
+    const x = ((e.clientX - rect.left) / rect.width) * width;
+    
+    // Find closest point
+    let closestIndex = 0;
+    let minDistance = Math.abs(chartPoints[0].x - x);
+    
+    for (let i = 1; i < chartPoints.length; i++) {
+      const distance = Math.abs(chartPoints[i].x - x);
+      if (distance < minDistance) {
+        minDistance = distance;
+        closestIndex = i;
+      }
+    }
+    
+    setHoveredPointIndex(closestIndex);
+  };
+
+  const hoveredPoint = hoveredPointIndex !== null ? chartPoints[hoveredPointIndex] : null;
+
   return (
-    <div className="relative">
-      <svg viewBox={`0 0 ${width} ${height}`} className="h-[320px] w-full">
+    <div className="relative group/graph">
+      <svg 
+        viewBox={`0 0 ${width} ${height}`} 
+        className="h-[340px] w-full overflow-visible cursor-crosshair"
+        onMouseMove={handleMouseMove}
+        onMouseLeave={() => setHoveredPointIndex(null)}
+      >
         <defs>
           <linearGradient id="lineGradient" x1="0" y1="0" x2="1" y2="0">
             <stop offset="0%" stopColor="var(--accent)" />
             <stop offset="100%" stopColor="#b8d0ff" />
           </linearGradient>
+          <filter id="glow">
+            <feGaussianBlur stdDeviation="3" result="blur" />
+            <feComposite in="SourceGraphic" in2="blur" operator="over" />
+          </filter>
         </defs>
+
+        {/* Y-Axis Grid Lines & Numbers */}
         {[0, 0.25, 0.5, 0.75, 1].map((ratio) => {
-          const y = padding.top + ratio * (height - padding.top - padding.bottom);
+          const y = height - padding.bottom - ratio * (height - padding.top - padding.bottom);
+          const val = Math.round(minValue + ratio * (maxValue - minValue));
           return (
-            <line
-              key={ratio}
-              x1={padding.left}
-              x2={width - padding.right}
-              y1={y}
-              y2={y}
-              stroke="var(--border)"
-              strokeDasharray="5 8"
-              strokeWidth="1"
-            />
+            <g key={`y-${ratio}`}>
+              <line
+                x1={padding.left}
+                x2={width - padding.right}
+                y1={y}
+                y2={y}
+                stroke="var(--border)"
+                strokeDasharray="5 8"
+                strokeWidth="1"
+                opacity="0.3"
+              />
+              <text
+                x={padding.left - 15}
+                y={y}
+                textAnchor="end"
+                alignmentBaseline="middle"
+                className="fill-[var(--text-muted)] text-[10px] font-bold tabular-nums"
+              >
+                {val}{ratio === 1 ? unit : ""}
+              </text>
+            </g>
           );
         })}
-        <polyline
-          fill="none"
-          stroke="url(#lineGradient)"
-          strokeWidth="4"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          points={chartPoints.map((point) => `${point.x},${point.y}`).join(" ")}
-          className="drop-shadow-[0_0_8px_rgba(138,173,244,0.4)]"
+
+        {/* X-Axis Labels */}
+        {[0, 0.25, 0.5, 0.75, 1].map((ratio) => {
+          const x = padding.left + ratio * (width - padding.left - padding.right);
+          let label = "";
+          if (xAxisType === "time") {
+            label = `${(((maxAt - minAt) * ratio) / 1000).toFixed(1)}s`;
+          } else {
+            label = `${Math.round((maxAt - minAt) * ratio)}d`;
+          }
+          
+          return (
+            <text
+              key={`x-${ratio}`}
+              x={x}
+              y={height - padding.bottom + 25}
+              textAnchor="middle"
+              className="fill-[var(--text-muted)] text-[10px] font-bold tabular-nums"
+            >
+              {label}
+            </text>
+          );
+        })}
+
+        {/* Axis Lines */}
+        <line
+          x1={padding.left}
+          x2={padding.left}
+          y1={padding.top}
+          y2={height - padding.bottom}
+          stroke="var(--border)"
+          strokeWidth="2"
+          opacity="0.5"
         />
+        <line
+          x1={padding.left}
+          x2={width - padding.right}
+          y1={height - padding.bottom}
+          y2={height - padding.bottom}
+          stroke="var(--border)"
+          strokeWidth="2"
+          opacity="0.5"
+        />
+
+        {/* The Graph Path */}
+        {chartPoints.length > 1 ? (
+          <polyline
+            fill="none"
+            stroke="url(#lineGradient)"
+            strokeWidth="4"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            points={chartPoints.map((point) => `${point.x},${point.y}`).join(" ")}
+            className="drop-shadow-[0_0_8px_rgba(138,173,244,0.4)]"
+          />
+        ) : chartPoints.length === 1 ? (
+          <circle cx={chartPoints[0].x} cy={chartPoints[0].y} r="4" fill="var(--accent)" />
+        ) : null}
+
+        {/* Hover Interaction Elements */}
+        {hoveredPoint && (
+          <g className="animate-in fade-in duration-200">
+            {/* Vertical Guide Line */}
+            <line
+              x1={hoveredPoint.x}
+              x2={hoveredPoint.x}
+              y1={padding.top}
+              y2={height - padding.bottom}
+              stroke="var(--accent)"
+              strokeWidth="2"
+              strokeDasharray="4 4"
+              opacity="0.5"
+            />
+            
+            {/* Active Data Point */}
+            <circle
+              cx={hoveredPoint.x}
+              cy={hoveredPoint.y}
+              r="6"
+              fill="var(--accent)"
+              className="drop-shadow-[0_0_10px_var(--accent)]"
+            />
+            <circle
+              cx={hoveredPoint.x}
+              cy={hoveredPoint.y}
+              r="12"
+              fill="var(--accent)"
+              opacity="0.15"
+            />
+
+            {/* Hover Data Bubble */}
+            <foreignObject
+              x={hoveredPoint.x > width - 150 ? hoveredPoint.x - 140 : hoveredPoint.x + 10}
+              y={hoveredPoint.y - 60}
+              width="130"
+              height="50"
+              className="pointer-events-none"
+            >
+              <div className="rounded-xl border border-[var(--border)] bg-[rgba(36,39,58,0.9)] px-3 py-2 shadow-2xl backdrop-blur-xl">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--text-muted)]">
+                  {xAxisType === "time" ? `${((hoveredPoint.raw.at - minAt) / 1000).toFixed(1)}s` : `Day ${Math.round(hoveredPoint.raw.at)}`}
+                </p>
+                <p className="mt-0.5 text-lg font-bold tabular-nums text-[var(--accent)]">
+                  {hoveredPoint.raw.value.toFixed(1)}
+                  <span className="ml-1 text-xs text-[var(--text-muted)]">{unit}</span>
+                </p>
+              </div>
+            </foreignObject>
+          </g>
+        )}
+
+        {/* Axis Titles */}
+        <text
+          x={padding.left - 60}
+          y={height / 2}
+          transform={`rotate(-90, ${padding.left - 60}, ${height / 2})`}
+          textAnchor="middle"
+          className="fill-[var(--text-muted)] text-[9px] font-bold uppercase tracking-[0.2em]"
+        >
+          {unit}
+        </text>
+        <text
+          x={width / 2}
+          y={height - 5}
+          textAnchor="middle"
+          className="fill-[var(--text-muted)] text-[9px] font-bold uppercase tracking-[0.2em]"
+        >
+          {xAxisLabel}
+        </text>
       </svg>
     </div>
   );

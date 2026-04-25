@@ -101,7 +101,7 @@ export function InfoTooltip({
     <>
       <div
         ref={triggerRef}
-        className={cn("inline-block", className)}
+        className={cn("inline-flex items-center", className)}
         onMouseEnter={handleMouseEnter}
         onMouseMove={handleMouseMove}
         onMouseLeave={handleMouseLeave}
@@ -139,18 +139,16 @@ export function InfoTooltip({
 
 export function InfoIcon({ className }: { className?: string }) {
   return (
-    <div className={cn("p-1 -m-1 rounded-full hover:bg-white/10 transition-colors cursor-help", className)}>
+    <div className={cn("flex items-center justify-center rounded-full hover:bg-white/10 transition-colors cursor-help", className)}>
       <svg
         xmlns="http://www.w3.org/2000/svg"
-        width="16"
-        height="16"
         viewBox="0 0 24 24"
         fill="none"
         stroke="currentColor"
         strokeWidth="2.5"
         strokeLinecap="round"
         strokeLinejoin="round"
-        className="text-[var(--text-muted)] hover:text-[var(--accent)] transition-colors"
+        className="h-full w-full text-[var(--text-muted)] hover:text-[var(--accent)] transition-colors"
       >
         <circle cx="12" cy="12" r="10" />
         <path d="M12 16v-4" />
