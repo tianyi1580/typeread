@@ -102,7 +102,7 @@ fn save_settings(settings: AppSettings, state: tauri::State<'_, AppState>) -> Re
 fn export_database(state: tauri::State<'_, AppState>) -> Result<(), String> {
     let Some(path) = rfd::FileDialog::new()
         .add_filter("SQLite", &["sqlite", "db"])
-        .set_file_name("booktyper-backup.sqlite")
+        .set_file_name("typeread-backup.sqlite")
         .save_file()
     else {
         return Ok(());
@@ -140,7 +140,7 @@ fn prepare_state(app: &tauri::AppHandle) -> Result<AppState> {
         .context("failed to resolve app data directory")?;
     let covers_dir = app_data_dir.join("covers");
     fs::create_dir_all(&covers_dir).context("failed to create covers directory")?;
-    let database_path = app_data_dir.join("booktyper.sqlite");
+    let database_path = app_data_dir.join("typeread.sqlite");
     let db = Database::new(database_path)?;
     Ok(AppState { db, covers_dir })
 }

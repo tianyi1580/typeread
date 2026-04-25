@@ -15,7 +15,7 @@ export const demoSettings: AppSettings = {
 
 const demoText = `Chapter One
 
-BookTyper exists to turn passive reading into measurable, repeatable practice. The point is not to gamify every keystroke. The point is to make long-form text usable again for deliberate work.
+TypeRead exists to turn passive reading into measurable, repeatable practice. The point is not to gamify every keystroke. The point is to make long-form text usable again for deliberate work.
 
 You import a real book. You choose a chapter. You either read it cleanly or type through it with loose anchors that let you recover from mistakes without stopping cold. That matters because friction ruins consistency.
 
@@ -31,7 +31,7 @@ const chapterRanges = demoText.split(/\n\n(?=Chapter )/);
 
 export const demoBook: ParsedBook = {
   id: 1,
-  title: "BookTyper Spec Demo",
+  title: "TypeRead Spec Demo",
   author: "Local Preview",
   path: "/demo/design.md",
   format: "md",
@@ -79,7 +79,7 @@ export const demoAnalytics: AnalyticsSummary = {
     {
       id: 1,
       bookId: 1,
-      bookTitle: "BookTyper Spec Demo",
+      bookTitle: "TypeRead Spec Demo",
       startTime: "2026-04-24T13:15:00.000Z",
       endTime: "2026-04-24T13:42:00.000Z",
       durationSeconds: 1620,
@@ -91,7 +91,7 @@ export const demoAnalytics: AnalyticsSummary = {
     {
       id: 2,
       bookId: 1,
-      bookTitle: "BookTyper Spec Demo",
+      bookTitle: "TypeRead Spec Demo",
       startTime: "2026-04-23T20:04:00.000Z",
       endTime: "2026-04-23T20:26:00.000Z",
       durationSeconds: 1320,
@@ -103,7 +103,7 @@ export const demoAnalytics: AnalyticsSummary = {
     {
       id: 3,
       bookId: 1,
-      bookTitle: "BookTyper Spec Demo",
+      bookTitle: "TypeRead Spec Demo",
       startTime: "2026-04-22T17:20:00.000Z",
       endTime: "2026-04-22T17:40:00.000Z",
       durationSeconds: 1200,
@@ -115,7 +115,7 @@ export const demoAnalytics: AnalyticsSummary = {
     {
       id: 4,
       bookId: 1,
-      bookTitle: "BookTyper Spec Demo",
+      bookTitle: "TypeRead Spec Demo",
       startTime: "2026-04-21T11:00:00.000Z",
       endTime: "2026-04-21T11:23:00.000Z",
       durationSeconds: 1380,
@@ -127,7 +127,7 @@ export const demoAnalytics: AnalyticsSummary = {
     {
       id: 5,
       bookId: 1,
-      bookTitle: "BookTyper Spec Demo",
+      bookTitle: "TypeRead Spec Demo",
       startTime: "2026-04-20T09:28:00.000Z",
       endTime: "2026-04-20T09:47:00.000Z",
       durationSeconds: 1140,

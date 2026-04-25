@@ -205,6 +205,22 @@ export function ReaderView({
   }, [interactionMode, settings.enterToSkip, settings.ignoreQuotationMarks, tokens]);
 
   useEffect(() => {
+    const handleNav = (event: KeyboardEvent) => {
+      if (readerMode !== "spread") return;
+      if (event.metaKey || event.ctrlKey || event.altKey) return;
+
+      if (event.key === "ArrowRight") {
+        setPageIndex((current) => Math.min(Math.max(pages.length - 2, 0), current + 2));
+      } else if (event.key === "ArrowLeft") {
+        setPageIndex((current) => Math.max(0, current - 2));
+      }
+    };
+
+    window.addEventListener("keydown", handleNav);
+    return () => window.removeEventListener("keydown", handleNav);
+  }, [readerMode, pages.length]);
+
+  useEffect(() => {
     const timer = window.setTimeout(() => {
       void onProgress(book.id, currentChapterIndex(snapshot, tokens), chapterIndex);
     }, 500);
@@ -303,7 +319,42 @@ export function ReaderView({
         </div>
       </div>
 
-      <div className="relative mx-auto max-w-[1360px] px-4 pb-24 pt-24 md:px-6">
+      <div
+        className={cn(
+          "fixed left-4 top-1/2 z-50 -translate-y-1/2 transition duration-500 md:left-8",
+          headerVisible && readerMode === "spread" ? "translate-x-0 opacity-100" : "-translate-x-8 opacity-0 pointer-events-none",
+        )}
+      >
+        <button
+          type="button"
+          onClick={() => setPageIndex((current) => Math.max(0, current - 2))}
+          disabled={pageIndex === 0}
+          className="group flex h-14 w-14 items-center justify-center rounded-full border border-[var(--border)] bg-[color-mix(in_srgb,var(--panel)_76%,transparent)] text-[var(--text)] shadow-panel backdrop-blur-2xl transition hover:border-[var(--accent)] hover:text-[var(--accent)] disabled:opacity-30"
+        >
+          <span className="text-2xl transition group-hover:-translate-x-0.5">‹</span>
+        </button>
+      </div>
+
+      <div
+        className={cn(
+          "fixed right-4 top-1/2 z-50 -translate-y-1/2 transition duration-500 md:right-8",
+          headerVisible && readerMode === "spread" ? "translate-x-0 opacity-100" : "translate-x-8 opacity-0 pointer-events-none",
+        )}
+      >
+        <button
+          type="button"
+          onClick={() => setPageIndex((current) => Math.min(Math.max(pages.length - 2, 0), current + 2))}
+          disabled={pageIndex >= pages.length - 2}
+          className="group flex h-14 w-14 items-center justify-center rounded-full border border-[var(--border)] bg-[color-mix(in_srgb,var(--panel)_76%,transparent)] text-[var(--text)] shadow-panel backdrop-blur-2xl transition hover:border-[var(--accent)] hover:text-[var(--accent)] disabled:opacity-30"
+        >
+          <span className="text-2xl transition group-hover:translate-x-0.5">›</span>
+        </button>
+      </div>
+
+      <div className={cn(
+        "relative mx-auto px-4 md:px-6 transition-all duration-500",
+        readerMode === "spread" ? "max-w-[1600px] pt-20 pb-8 h-[calc(100vh-40px)]" : "max-w-[1360px] pt-24 pb-24"
+      )}>
         {loadingBook && <p className="mb-4 text-sm text-[var(--text-muted)]">Loading book…</p>}
 
         {readerMode === "scroll" ? (
@@ -331,28 +382,7 @@ export function ReaderView({
             </div>
           </div>
         ) : (
-          <div className="relative grid gap-4 lg:grid-cols-2">
-            {interactionMode === "read" && (
-              <>
-                <Button
-                  variant="secondary"
-                  className="absolute left-2 top-1/2 z-20 -translate-y-1/2 rounded-full"
-                  onClick={() => setPageIndex((current) => Math.max(0, current - 2))}
-                  disabled={pageIndex === 0}
-                >
-                  ←
-                </Button>
-                <Button
-                  variant="secondary"
-                  className="absolute right-2 top-1/2 z-20 -translate-y-1/2 rounded-full"
-                  onClick={() => setPageIndex((current) => Math.min(Math.max(pages.length - 2, 0), current + 2))}
-                  disabled={pageIndex >= pages.length - 2}
-                >
-                  →
-                </Button>
-              </>
-            )}
-
+          <div className="grid h-full w-full gap-6 lg:grid-cols-2">
             <SpreadPage title={`Page ${pageIndex + 1}`} style={settings}>
               {interactionMode === "type" ? (
                 <TypingLayer
@@ -448,11 +478,11 @@ function SpreadPage({
 }) {
   return (
     <div
-      className="min-h-[640px] rounded-[34px] border border-[var(--border)] bg-[linear-gradient(180deg,rgba(255,255,255,0.12),transparent)] px-6 py-8 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]"
+      className="flex h-full flex-col overflow-hidden rounded-[34px] border border-[var(--border)] bg-[linear-gradient(180deg,rgba(255,255,255,0.12),transparent)] px-6 py-8 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]"
       style={{ fontSize: `${style.baseFontSize}px`, lineHeight: style.lineHeight }}
     >
-      <p className="mb-4 text-xs uppercase tracking-[0.24em] text-[var(--text-muted)]">{title}</p>
-      <div className="min-h-[540px] whitespace-pre-wrap">{children}</div>
+      <p className="mb-4 shrink-0 text-xs uppercase tracking-[0.24em] text-[var(--text-muted)]">{title}</p>
+      <div className="flex-1 overflow-hidden whitespace-pre-wrap">{children}</div>
     </div>
   );
 }

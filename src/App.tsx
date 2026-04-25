@@ -502,7 +502,7 @@ function WindowShell({
                 Back to Library
               </Button>
             ) : (
-              <div className="pl-3 text-xs uppercase tracking-[0.28em] text-[var(--text-muted)]">BookTyper</div>
+              <div className="pl-3 text-xs uppercase tracking-[0.28em] text-[var(--text-muted)]">TypeRead</div>
             )}
           </div>
 

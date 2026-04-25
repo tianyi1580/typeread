@@ -1,5 +1,5 @@
 [package]
-name = "booktyper"
+name = "typeread"
 version = "0.1.0"
 description = "A local desktop typing and reading application"
 authors = ["Codex"]

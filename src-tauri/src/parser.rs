@@ -541,7 +541,7 @@ mod tests {
             .duration_since(UNIX_EPOCH)
             .expect("time went backwards")
             .as_nanos();
-        let base = std::env::temp_dir().join(format!("booktyper-{label}-{suffix}"));
+        let base = std::env::temp_dir().join(format!("typeread-{label}-{suffix}"));
         fs::create_dir_all(&base).expect("create temp test dir");
         base
     }
