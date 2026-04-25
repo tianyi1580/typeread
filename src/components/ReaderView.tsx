@@ -449,7 +449,9 @@ export function ReaderView({
     setEvents([]);
     eventsRef.current = [];
 
-    if (result.wordsTyped === 0) {
+    // Only save if meaningful work was done.
+    // 5 words is a safe threshold to avoid accidental keypresses or just clicking around.
+    if (result.wordsTyped < 5) {
       transport.resetTransport();
       return;
     }

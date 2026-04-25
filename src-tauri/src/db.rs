@@ -787,6 +787,7 @@ impl Database {
                 COALESCE(AVG(accuracy), 100.0), 
                 COUNT(*) 
             FROM typing_sessions
+            WHERE words_typed >= 5 AND source NOT IN ('read', 'reader')
             "#,
             [],
             |row| {
@@ -809,6 +810,7 @@ impl Database {
                 AVG(accuracy),
                 COUNT(*)
             FROM typing_sessions
+            WHERE words_typed >= 5 AND source NOT IN ('read', 'reader')
             GROUP BY substr(start_time, 1, 10)
             ORDER BY day ASC
             "#,
@@ -833,13 +835,7 @@ impl Database {
                     WHEN typing_sessions.source = 'book' THEN COALESCE(books.title, typing_sessions.source_label)
                     ELSE typing_sessions.source_label
                 END AS title,
-                CASE
-                    WHEN typing_sessions.source = 'type-test' THEN 'Type Test'
-                    WHEN typing_sessions.source = 'versus' THEN 'Versus Mode'
-                    WHEN typing_sessions.source = 'book' THEN 'Reader'
-                    WHEN typing_sessions.source LIKE '202%' THEN 'Recovered'
-                    ELSE typing_sessions.source
-                END AS source,
+                typing_sessions.source,
                 typing_sessions.start_time,
                 typing_sessions.end_time,
                 CAST(typing_sessions.duration_seconds AS INTEGER),
@@ -852,7 +848,9 @@ impl Database {
                 CAST(typing_sessions.focus_score AS REAL)
             FROM typing_sessions
             LEFT JOIN books ON books.id = typing_sessions.book_id
+            WHERE typing_sessions.words_typed >= 5 AND typing_sessions.source NOT IN ('read', 'reader')
             ORDER BY typing_sessions.start_time DESC
+            LIMIT 100
             "#,
         )?;
         let session_points = session_stmt

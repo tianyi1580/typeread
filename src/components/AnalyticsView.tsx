@@ -35,6 +35,14 @@ const METRIC_DESCRIPTIONS: Record<string, string> = {
   "Time Typed": "Cumulative time spent in active typing sessions.",
 };
 
+const SOURCE_LABELS: Record<string, string> = {
+  book: "Library",
+  "type-test": "Type Test",
+  versus: "Versus Race",
+  reader: "Library",
+  read: "Library",
+};
+
 export function AnalyticsView({
   analytics,
   settings,
@@ -53,14 +61,22 @@ export function AnalyticsView({
     [settings],
   );
 
-  if (!analytics) {
+  const filteredSessionPoints = useMemo(() => {
+    if (!analytics) return [];
+    return analytics.sessionPoints.filter(
+      (s) => (s.source as string) !== "reader" && (s.source as string) !== "read" && s.wordsTyped >= 5
+    );
+  }, [analytics]);
+
+  if (!analytics || filteredSessionPoints.length === 0) {
     return (
       <Card className="p-10">
-        <p className="text-sm text-[var(--text-muted)]">No analytics are available yet.</p>
+        <p className="text-sm text-[var(--text-muted)]">No typing sessions have been recorded yet.</p>
       </Card>
     );
   }
 
+  const latestSession = filteredSessionPoints[0];
   const activeKey = selectedKey ?? analytics.aggregateConfusions[0]?.expected ?? null;
   const selectedDrifts = activeKey
     ? analytics.aggregateConfusions.filter((pair) => pair.expected === activeKey).sort((left, right) => right.count - left.count).slice(0, 8)
@@ -168,6 +184,36 @@ export function AnalyticsView({
       {activeTab === "session" && (
         <div className="grid gap-6 animate-fade-in xl:grid-cols-[minmax(0,1.25fr)_minmax(320px,0.75fr)]">
           <Card className="p-8">
+            {/* Session Identification Header */}
+            {latestSession && (
+              <div className="mb-10 flex flex-wrap items-center gap-8 border-b border-[var(--border)] pb-8">
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-[var(--accent)]">Session Details</p>
+                  <h3 className="mt-2 text-2xl font-bold tracking-tight">{latestSession.title}</h3>
+                </div>
+                <div className="hidden h-10 w-[1px] bg-[var(--border)] lg:block" />
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-[var(--text-muted)]">Training Mode</p>
+                  <p className="mt-2 text-xs font-black uppercase tracking-[0.2em] text-[var(--text)]">
+                    {SOURCE_LABELS[latestSession.source] || latestSession.source.replace("-", " ")}
+                  </p>
+                </div>
+                <div className="hidden h-10 w-[1px] bg-[var(--border)] lg:block" />
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-[var(--text-muted)]">Completed At</p>
+                  <p className="mt-2 text-sm font-semibold tabular-nums text-[var(--text)]">
+                    {new Date(latestSession.startTime).toLocaleDateString(undefined, { 
+                      month: 'short', 
+                      day: 'numeric', 
+                      year: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit'
+                    })}
+                  </p>
+                </div>
+              </div>
+            )}
+
             <div className="flex flex-wrap items-center justify-between gap-4">
               <div className="flex items-center gap-3">
                 <h2 className="text-3xl font-bold tracking-tight">Rolling {sessionMetric === "wpm" ? "WPM" : "Accuracy"} progression</h2>
@@ -316,7 +362,7 @@ export function AnalyticsView({
                 </tr>
               </thead>
               <tbody className="divide-y divide-[var(--border)]">
-                {analytics.sessionPoints.slice(0, 10).map((session) => (
+                {filteredSessionPoints.slice(0, 10).map((session) => (
                   <tr key={session.id} className="group transition-colors hover:bg-white/5">
                     <td className="px-6 py-4 text-sm tabular-nums">
                       {(() => {
@@ -325,7 +371,9 @@ export function AnalyticsView({
                       })()}
                     </td>
                     <td className="px-6 py-4 text-sm font-medium text-[var(--text-muted)] group-hover:text-[var(--text)]">{session.title}</td>
-                    <td className="px-6 py-4 text-xs font-bold uppercase tracking-widest text-[var(--accent)] opacity-70">{session.source}</td>
+                    <td className="px-6 py-4 text-xs font-bold uppercase tracking-widest text-[var(--accent)] opacity-70">
+                      {SOURCE_LABELS[session.source] || session.source}
+                    </td>
                     <td className="px-6 py-4 text-sm font-semibold tabular-nums">{session.wpm.toFixed(1)}</td>
                     <td className="px-6 py-4 text-sm font-semibold tabular-nums text-[var(--success)]">+{session.xpGained.toLocaleString()}</td>
                   </tr>

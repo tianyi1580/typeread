@@ -293,7 +293,7 @@ export function PracticeView({
     setEvents([]);
     eventsRef.current = [];
 
-    if (result.wordsTyped === 0) {
+    if (result.wordsTyped < 5) {
       transport.resetTransport();
       setStatus("idle");
       return;
