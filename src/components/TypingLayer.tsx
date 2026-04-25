@@ -39,6 +39,9 @@ export function TypingLayer({
   const WINDOW_SIZE = 300;
   const BUFFER = 80;
   const preShiftRelativeTop = useRef<number | null>(null);
+  const lastOffsetTop = useRef<number | null>(null);
+  const lastWordIndex = useRef<number>(-1);
+  const animationFrameId = useRef<number | null>(null);
 
   // Buffered windowing to prevent shifting the DOM on every single word.
   useEffect(() => {
@@ -56,12 +59,14 @@ export function TypingLayer({
     }
   }, [snapshot.currentWordIndex, windowStart, visibleRange, noScroll]);
 
-  const animationRef = useRef<{ 
-    startY: number; 
-    distance: number; 
-    startTime: number;
-    duration: number;
-  } | null>(null);
+  // Premium Spring Physics State
+  const springRef = useRef({
+    current: 0,
+    target: 0,
+    velocity: 0,
+    lastTime: 0,
+    isActive: false,
+  });
 
   // Scroll anchoring: compensate for DOM shifts caused by window changes instantly.
   React.useLayoutEffect(() => {
@@ -80,12 +85,15 @@ export function TypingLayer({
         const newTop = el.getBoundingClientRect().top;
         const delta = newTop - preShiftRelativeTop.current;
         if (Math.abs(delta) > 0.5) {
-          container.scrollTop += delta;
-          // IMPORTANT: If an animation is running, we must adjust its starting point
-          // to account for the DOM shift, otherwise it will "snap" or drift.
-          if (animationRef.current) {
-            animationRef.current.startY += delta;
-          }
+          const isWindowScroll = container === document.body;
+          const nextScroll = (isWindowScroll ? window.scrollY : container.scrollTop) + delta;
+          
+          if (isWindowScroll) window.scrollTo(0, nextScroll);
+          else container.scrollTop = nextScroll;
+
+          // Keep spring state in sync with anchoring jumps
+          springRef.current.current += delta;
+          springRef.current.target += delta;
         }
       }
       preShiftRelativeTop.current = null;
@@ -107,10 +115,7 @@ export function TypingLayer({
       .map((token, index) => ({ token, index: start + index }));
   }, [tokens, visibleRange, windowStart]);
 
-  const scrollAnimationId = useRef<number | null>(null);
-  const lastWordIndex = useRef<number>(-1);
-
-  // Smooth scroll logic that ensures the active word is ALWAYS perfectly centered.
+  // Smooth spring-based scroll logic
   useEffect(() => {
     const el = currentWordRef.current;
     if (noScroll || visibleRange || !el) return;
@@ -134,75 +139,103 @@ export function TypingLayer({
       : container.getBoundingClientRect();
     const elRect = el.getBoundingClientRect();
     
-    // Check if the word is currently centered.
-    // We target the vertical middle of the element to the vertical middle of the container.
     const currentRelativeCenter = (elRect.top + elRect.height / 2) - (containerRect.top + containerRect.height / 2);
-    const isManualJump = Math.abs(currentIndex - lastWordIndex.current) > 1;
+    const isManualJump = lastWordIndex.current === -1 || Math.abs(currentIndex - lastWordIndex.current) > 1;
     
-    // We trigger centering if:
-    // 1. We just moved to a new word and it's not centered (allow 2px slack)
-    // 2. It's a manual jump
-    // 3. It's the first initialization
-    if (Math.abs(currentRelativeCenter) > 2 || isManualJump || lastWordIndex.current === -1) {
-      if (scrollAnimationId.current !== null) {
-        cancelAnimationFrame(scrollAnimationId.current);
+    // Improved new line detection: check if the vertical offset changed since the last word we processed
+    const currentOffsetTop = el.offsetTop;
+    const isLineChanged = lastOffsetTop.current !== null && Math.abs(currentOffsetTop - lastOffsetTop.current) > 10;
+    const currentScroll = isWindowScroll ? window.scrollY : container.scrollTop;
+
+    // Set or update target only on new line, manual jump, or initial load
+    if (isLineChanged || isManualJump) {
+      springRef.current.target = currentScroll + currentRelativeCenter;
+      
+      if (!springRef.current.isActive) {
+        springRef.current.isActive = true;
+        springRef.current.current = currentScroll;
+        springRef.current.velocity = 0;
+        springRef.current.lastTime = 0;
+        animationFrameId.current = requestAnimationFrame(animate);
       }
-
-      const currentScroll = isWindowScroll ? window.scrollY : container.scrollTop;
-      const distance = currentRelativeCenter;
-      const duration = isManualJump ? 250 : 400;
-
-      animationRef.current = {
-        startY: currentScroll,
-        distance,
-        startTime: performance.now(),
-        duration,
-      };
-
-      const animate = (currentTime: number) => {
-        if (!animationRef.current) return;
-        
-        const state = animationRef.current;
-        const timeElapsed = currentTime - state.startTime;
-        const progress = Math.min(timeElapsed / state.duration, 1);
-        
-        const ease = 1 - Math.pow(1 - progress, 4);
-        const nextScroll = state.startY + state.distance * ease;
-
-        if (isWindowScroll) {
-          window.scrollTo(0, nextScroll);
-        } else {
-          container!.scrollTop = nextScroll;
-        }
-
-        if (timeElapsed < state.duration) {
-          scrollAnimationId.current = requestAnimationFrame(animate);
-        } else {
-          scrollAnimationId.current = null;
-          animationRef.current = null;
-        }
-      };
-      scrollAnimationId.current = requestAnimationFrame(animate);
     }
 
     lastWordIndex.current = currentIndex;
+    lastOffsetTop.current = currentOffsetTop;
 
     return () => {
-      if (scrollAnimationId.current !== null) {
-        cancelAnimationFrame(scrollAnimationId.current);
-        scrollAnimationId.current = null;
+      if (animationFrameId.current !== null) {
+        cancelAnimationFrame(animationFrameId.current);
+        animationFrameId.current = null;
       }
+      springRef.current.isActive = false;
     };
   }, [snapshot.currentWordIndex, visibleRange, noScroll]);
+
+  const animate = (time: number) => {
+    const state = springRef.current;
+    const el = currentWordRef.current;
+    if (!el || !state.isActive) return;
+    
+    let container: HTMLElement | null = el.parentElement;
+    while (container && container !== document.body) {
+      const style = window.getComputedStyle(container);
+      if (/(auto|scroll|hidden)/.test(style.overflowY) && container.offsetHeight < container.scrollHeight) {
+        break;
+      }
+      container = container.parentElement;
+    }
+    if (!container) return;
+
+    const isWindowScroll = container === document.body;
+
+    if (state.lastTime === 0) {
+      state.lastTime = time;
+      animationFrameId.current = requestAnimationFrame(animate);
+      return;
+    }
+
+    const delta = Math.min(Math.max(0, (time - state.lastTime) / 1000), 0.1);
+    state.lastTime = time;
+
+    if (delta > 0) {
+      const isManualJump = lastWordIndex.current === -1 || Math.abs(snapshot.currentWordIndex - lastWordIndex.current) > 1;
+      const stiffness = isManualJump ? 240 : 160;
+      const damping = isManualJump ? 32 : 28;
+
+      const displacement = state.current - state.target;
+      const springForce = -stiffness * displacement;
+      const dampingForce = -damping * state.velocity;
+      const acceleration = springForce + dampingForce;
+
+      state.velocity += acceleration * delta;
+      state.current += state.velocity * delta;
+
+      if (isWindowScroll) window.scrollTo(0, state.current);
+      else container.scrollTop = state.current;
+    }
+
+    if (Math.abs(state.velocity) > 0.05 || Math.abs(state.current - state.target) > 0.05) {
+      animationFrameId.current = requestAnimationFrame(animate);
+    } else {
+      state.isActive = false;
+      animationFrameId.current = null;
+    }
+  };
 
 
   return (
     <div
+      style={{
+        paddingTop: noScroll ? undefined : "50vh",
+        paddingBottom: noScroll ? undefined : "50vh",
+      }}
       className={cn(
         "whitespace-pre-wrap text-[var(--text)]",
         className,
       )}
     >
+
       {visibleRange && visibleTokens.length > 0 && tokens[visibleTokens[0].index].start > visibleRange.start && (
         <span className="text-[var(--text-muted)] opacity-0">
           {chapterText.substring(visibleRange.start, tokens[visibleTokens[0].index].start)}
