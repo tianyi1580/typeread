@@ -4,6 +4,7 @@ import { Button } from "./ui/button";
 import { Card } from "./ui/card";
 import { themeMap } from "../theme";
 import { cn, clamp } from "../lib/utils";
+import { api } from "../lib/tauri";
 import type { AppSettings, AppFont, KeyboardLayoutId, ProfileProgress, ThemeName } from "../types";
 
 type SettingsSection = "appearance" | "reading" | "storage";
@@ -19,6 +20,7 @@ interface SettingsViewProps {
   onImportDatabase: () => void;
   onClearSessionHistory: () => void;
   onDeleteLibrary: () => void;
+  onRefresh: () => Promise<void>;
 }
 
 export function SettingsView({
@@ -32,6 +34,7 @@ export function SettingsView({
   onImportDatabase,
   onClearSessionHistory,
   onDeleteLibrary,
+  onRefresh,
 }: SettingsViewProps) {
   const [section, setSection] = useState<SettingsSection>("appearance");
   const themeEntries = useMemo(() => Object.entries(themeMap) as Array<[ThemeName, (typeof themeMap)[ThemeName]]>, []);
@@ -292,6 +295,21 @@ export function SettingsView({
                   </Button>
                   <Button variant="danger" onClick={onDeleteLibrary} disabled={!desktopReady}>
                     Delete Library
+                  </Button>
+                  <Button 
+                    variant="secondary" 
+                    onClick={async () => {
+                      try {
+                        await api.gainOneLevel();
+                        await onRefresh();
+                      } catch (err) {
+                        console.error("Failed to gain level:", err);
+                        alert("Failed to gain level. Check console.");
+                      }
+                    }} 
+                    disabled={!desktopReady}
+                  >
+                    Gain 1 Level (Cheat)
                   </Button>
                 </div>
               </div>

@@ -545,7 +545,7 @@ export function ReaderView({
             metrics.typedWords / Math.max(1, analytics.profile.nextLevelXp - analytics.profile.currentLevelXp),
         )
       : 0;
-
+  
   const compareOptions = useMemo(() => ({ ignoredCharacters: ignoredCharacterSet }), [ignoredCharacterSet]);
 
   return (

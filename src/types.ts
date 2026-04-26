@@ -214,7 +214,6 @@ export interface UnlockState {
   nordTheme: boolean;
   smoothCaret: boolean;
   premiumTypography: boolean;
-  ghostPacer: boolean;
   customErrorColors: boolean;
 }
 

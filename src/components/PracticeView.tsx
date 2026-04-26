@@ -333,7 +333,6 @@ export function PracticeView({
     setSeed(Date.now());
   }
 
-  const bestGhostPace = analytics?.profile.unlocks.ghostPacer ? analytics.averageWpm : null;
   const timeRemaining =
     mode === "type-test"
       ? sessionStartAt
@@ -342,10 +341,6 @@ export function PracticeView({
       : 0;
 
   const botProgress = practiceText.length === 0 ? 0 : botCursorIndex / practiceText.length;
-  const ghostProgress =
-    bestGhostPace && sessionStartAt
-      ? Math.min(((clock - sessionStartAt) / 1000) * (bestGhostPace * 5 / 60) / practiceText.length, 1)
-      : 0;
 
   return (
     <>
@@ -431,18 +426,13 @@ export function PracticeView({
               className={`text-lg leading-9 md:text-[1.35rem] md:leading-[2.6rem] transition-opacity duration-500 ${status === "completed" ? "opacity-40 grayscale pointer-events-none" : ""}`}
               interactionMode="type"
               smoothCaret={settings.smoothCaret && analytics?.profile.unlocks.smoothCaret}
+              botCursorIndex={mode === "versus" ? botCursorIndex : null}
               compareOptions={{ ignoredCharacters: ignoredCharacterSet }}
             />
 
             {mode === "versus" && (
               <div className="absolute inset-x-6 bottom-5 h-8 md:inset-x-10">
                 <div className="absolute inset-x-0 top-1/2 h-px -translate-y-1/2 bg-white/10" />
-                {bestGhostPace && (
-                  <div
-                    className="absolute top-1/2 h-1 -translate-y-1/2 rounded-full bg-white/25"
-                    style={{ width: `${ghostProgress * 100}%` }}
-                  />
-                )}
                 <div
                   className="absolute top-1/2 h-2 w-2 -translate-y-1/2 rounded-full bg-[var(--accent)] shadow-[0_0_18px_var(--accent)]"
                   style={{ left: `calc(${botProgress * 100}% - 4px)` }}
@@ -496,7 +486,6 @@ export function PracticeView({
               <Metric label="Bot CPM" value={settings.versusBotCpm.toString()} compact />
               <Metric label="Bot Word" value={wordIndexFromTextIndex(tokens, botCursorIndex).toString()} compact />
               <Metric label="Your Word" value={snapshot.currentWordIndex.toString()} compact />
-              {bestGhostPace && <Metric label="Ghost Pace" value={`${bestGhostPace.toFixed(1)} WPM`} compact />}
             </div>
           )}
         </Card>

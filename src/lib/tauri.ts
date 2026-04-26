@@ -48,4 +48,5 @@ export const api = {
   importDatabase: () => call<void>("import_database"),
   clearSessionHistory: () => call<void>("clear_session_history"),
   deleteLibrary: () => call<void>("delete_library"),
+  gainOneLevel: () => call<void>("gain_one_level"),
 };

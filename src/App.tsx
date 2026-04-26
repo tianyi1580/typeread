@@ -146,8 +146,8 @@ export default function App() {
         setAnalytics(nextAnalytics);
       });
 
-      const bookToLoad = preferredBookId ?? selectedBookId ?? bookList[0]?.id ?? null;
-      if (bookToLoad) {
+      const bookToLoad = preferredBookId ?? selectedBookId ?? bookList.find(b => b.id > 0)?.id ?? null;
+      if (bookToLoad && bookToLoad > 0) {
         await loadBook(bookToLoad, false);
       } else {
         setCurrentBook(null);
@@ -182,7 +182,9 @@ export default function App() {
         setSelectedChapterIndex(book.currentChapter);
       });
     } catch (caught) {
-      setActiveTab("library");
+      if (switchToReader) {
+        setActiveTab("library");
+      }
       setError(caught instanceof Error ? caught.message : "Failed to load book.");
     } finally {
       setLoadingBook(false);
@@ -513,6 +515,7 @@ export default function App() {
           onImportDatabase={() => void handleImportDatabase()}
           onClearSessionHistory={() => void handleClearSessionHistory()}
           onDeleteLibrary={() => void handleDeleteLibrary()}
+          onRefresh={refreshAll}
         />
       )}
     </div>

@@ -591,6 +591,25 @@ impl Database {
         Ok(())
     }
 
+    pub fn gain_one_level(&self) -> Result<()> {
+        let conn = self.connection()?;
+        let current_xp: i64 = conn.query_row(
+            "SELECT total_xp FROM profile_progress WHERE id = 1",
+            [],
+            |row| row.get(0),
+        )?;
+        
+        let current_level = level_from_xp(current_xp).max(1);
+        let next_level = current_level + 1;
+        let next_xp = xp_threshold_for_level(next_level);
+
+        conn.execute(
+            "UPDATE profile_progress SET total_xp = ? WHERE id = 1",
+            [next_xp],
+        )?;
+        Ok(())
+    }
+
     pub fn delete_library(&self) -> Result<()> {
         let books = self.list_books()?;
         let conn = self.connection()?;

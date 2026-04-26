@@ -212,6 +212,11 @@ fn delete_library(state: tauri::State<'_, AppState>) -> Result<(), String> {
     state.db.delete_library().map_err(to_message)
 }
 
+#[tauri::command]
+fn gain_one_level(state: tauri::State<'_, AppState>) -> Result<(), String> {
+    state.db.gain_one_level().map_err(to_message)
+}
+
 fn prepare_state(app: &tauri::AppHandle) -> Result<AppState> {
     let app_data_dir = app
         .path()
@@ -290,7 +295,8 @@ fn main() {
             export_database,
             import_database,
             clear_session_history,
-            delete_library
+            delete_library,
+            gain_one_level
         ])
         .run(tauri::generate_context!())
         .expect("failed to run application");
