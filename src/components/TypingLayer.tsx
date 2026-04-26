@@ -46,6 +46,8 @@ export function TypingLayer({
   const lastOffsetTop = useRef<number | null>(null);
   const lastWordIndex = useRef<number>(-1);
   const animationFrameId = useRef<number | null>(null);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const [caretStyle, setCaretStyle] = React.useState<{ top: number; left: number; height: number; opacity: number }>({ top: 0, left: 0, height: 0, opacity: 0 });
 
   // Buffered windowing to prevent shifting the DOM on every single word.
   useEffect(() => {
@@ -272,18 +274,57 @@ export function TypingLayer({
     }
   };
 
+  useEffect(() => {
+    const updateCaret = () => {
+      if (!currentWordRef.current || !containerRef.current) return;
+      
+      const wordEl = currentWordRef.current;
+      const typedLength = snapshot.words[snapshot.currentWordIndex]?.typed.length ?? 0;
+      const charEl = wordEl.children[typedLength] as HTMLElement;
+      
+      if (charEl) {
+        const containerRect = containerRef.current.getBoundingClientRect();
+        const charRect = charEl.getBoundingClientRect();
+        
+        setCaretStyle({
+          top: charRect.top - containerRect.top + containerRef.current.scrollTop,
+          left: charRect.left - containerRect.left,
+          height: charRect.height * 0.8,
+          opacity: 1,
+        });
+      }
+    };
+
+    updateCaret();
+    // Also update on window resize or potential font loads
+    window.addEventListener("resize", updateCaret);
+    return () => window.removeEventListener("resize", updateCaret);
+  }, [snapshot.currentWordIndex, snapshot.words[snapshot.currentWordIndex]?.typed.length, interactionMode]);
+
 
   return (
     <div
+      ref={containerRef}
       style={{
         paddingTop: noScroll ? undefined : "0",
         paddingBottom: noScroll ? undefined : "50vh",
       }}
       className={cn(
-        "whitespace-pre-wrap text-[var(--text)]",
+        "relative whitespace-pre-wrap text-[var(--text)]",
         className,
       )}
     >
+      {smoothCaret && (
+        <div
+          className="absolute z-50 w-[2px] bg-[var(--accent)] transition-all duration-100 ease-out"
+          style={{
+            top: caretStyle.top + (caretStyle.height * 0.1),
+            left: caretStyle.left - 0.5,
+            height: caretStyle.height,
+            opacity: caretStyle.opacity,
+          }}
+        />
+      )}
 
       {visibleRange && visibleTokens.length > 0 && tokens[visibleTokens[0].index].start > visibleRange.start && (
         <span className="text-[var(--text-muted)] opacity-0">
@@ -438,12 +479,9 @@ function renderWordParts(
 
     output.push(
       <span key={index} className={cn("relative", charClass)}>
-        {index === cursorIndex && (
+        {!smoothCaret && index === cursorIndex && (
           <span
-            className={cn(
-              "absolute -left-[0.5px] top-[10%] h-[80%] w-[2px] bg-[var(--accent)]",
-              smoothCaret ? "transition-all duration-150 ease-out" : "animate-pulse",
-            )}
+            className="absolute -left-[0.5px] top-[10%] h-[80%] w-[2px] animate-pulse bg-[var(--accent)]"
           />
         )}
         {index === (botCursorOffset !== null ? Math.floor(botCursorOffset) : -1) && (
@@ -459,12 +497,11 @@ function renderWordParts(
   if (cursorIndex === expectedChars.length) {
     output.push(
       <span key="cursor-end" className="relative">
-        <span
-          className={cn(
-            "absolute -left-[0.5px] top-[10%] z-50 h-[80%] w-[2px] bg-[var(--accent)]",
-            smoothCaret ? "transition-all duration-150 ease-out" : "animate-pulse",
-          )}
-        />
+        {!smoothCaret && (
+          <span
+            className="absolute -left-[0.5px] top-[10%] z-50 h-[80%] w-[2px] animate-pulse bg-[var(--accent)]"
+          />
+        )}
         {(botCursorOffset !== null ? Math.floor(botCursorOffset) : -1) === expectedChars.length && (
           <span
             className="absolute -left-[0.5px] top-[10%] z-50 h-[80%] w-[2px] bg-[#00ffff] opacity-90 shadow-[0_0_8px_#00ffff] transition-all duration-100"
