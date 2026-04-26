@@ -14,7 +14,7 @@ pub struct LiveSessionAnalytics {
     transitions: HashMap<String, TransitionAccumulator>,
     last_correct_char: Option<(String, i64)>,
     total_events: usize,
-    seen_accuracy_indices: HashSet<i64>,
+    seen_accuracy_indices: HashSet<(i64, i64)>,
     accuracy_samples: Vec<(i64, bool)>,
 }
 
@@ -157,7 +157,8 @@ impl LiveSessionAnalytics {
 
         if is_typed_event {
             if let Some(cursor_index) = event.cursor_index {
-                if self.seen_accuracy_indices.insert(cursor_index) {
+                let key = (event.chapter_index.unwrap_or(0), cursor_index);
+                if self.seen_accuracy_indices.insert(key) {
                     self.accuracy_samples.push((event.at, is_correct));
                 }
             } else {

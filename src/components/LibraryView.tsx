@@ -98,10 +98,10 @@ export function LibraryView({
             <div>
               <p className="text-xs uppercase tracking-[0.28em] text-[var(--text-muted)]">Library</p>
               <h1 className="mt-4 max-w-3xl text-4xl font-semibold leading-tight">
-                The app opens as a library now, because users manage books before they type them.
+                Manage your books and track your progress.
               </h1>
               <p className="mt-4 max-w-2xl text-sm leading-7 text-[var(--text-muted)]">
-                Search, pin, rename, and delete from one grid. Click a book and the reader opens directly on the saved chapter instead of forcing a dead-end tab workflow.
+                Search, pin, and organize your collection. Click a book to resume typing exactly where you left off.
               </p>
             </div>
 
@@ -247,8 +247,8 @@ export function LibraryView({
                           danger
                           onClick={async (event) => {
                             event.stopPropagation();
-                            setMenuBookId(null);
                             await onDeleteBook(book.id);
+                            setMenuBookId(null);
                           }}
                         >
                           Delete
@@ -322,9 +322,9 @@ function EmptyLibraryState({
       )}
     >
       <p className="text-xs uppercase tracking-[0.28em] text-[var(--text-muted)]">Dropzone</p>
-      <h2 className="mt-4 max-w-3xl text-5xl font-semibold leading-tight">Drag and drop EPUB, Markdown, or TXT here.</h2>
+      <h2 className="mt-4 max-w-3xl text-5xl font-semibold leading-tight">Drop your books here.</h2>
       <p className="mt-4 max-w-2xl text-sm leading-7 text-[var(--text-muted)]">
-        The empty library turns the whole workspace into an intake surface. If you do nothing else, at least make the first-run state obvious and useful.
+        Drag and drop EPUB, Markdown, or TXT files to start building your library.
       </p>
       <div className="mt-8 flex flex-wrap justify-center gap-3">
         <Button onClick={onImportBooks} disabled={!desktopReady}>
@@ -344,7 +344,7 @@ function EmptySearchState({ query }: { query: string }) {
       <div>
         <p className="text-xs uppercase tracking-[0.28em] text-[var(--text-muted)]">No Results</p>
         <h2 className="mt-4 text-3xl font-semibold">Nothing matched “{query}”.</h2>
-        <p className="mt-3 text-sm text-[var(--text-muted)]">Your search is too narrow or your library is empty. Those are the only two honest explanations.</p>
+        <p className="mt-3 text-sm text-[var(--text-muted)]">Check your spelling or try clearing your search filters.</p>
       </div>
     </Card>
   );

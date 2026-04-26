@@ -230,6 +230,7 @@ pub struct KeystrokeEvent {
     pub expected: Option<String>,
     pub is_correct: Option<bool>,
     pub layout: Option<String>,
+    pub chapter_index: Option<i64>,
     pub cursor_index: Option<i64>,
     pub skipped_word: Option<bool>,
     pub correct_chars: Option<i64>,

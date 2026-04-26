@@ -11,13 +11,13 @@ export function AchievementsView({ earnedAwards }: { earnedAwards: AchievementAw
       <Card className="relative overflow-hidden bg-gradient-to-br from-[rgba(166,218,149,0.1)] to-transparent p-8">
         <div className="flex items-center gap-3">
           <p className="text-xs uppercase tracking-[0.3em] text-[var(--text-muted)]">Achievements</p>
-          <InfoTooltip content="Every achievement here is tied to real typing output: speed, endurance, volume, or a flawless session." trigger="click">
+          <InfoTooltip content="Earn rewards for speed, volume, and accuracy milestones." trigger="click">
             <InfoIcon className="h-3.5 w-3.5" />
           </InfoTooltip>
         </div>
-        <h1 className="mt-4 text-4xl font-bold tracking-tight">Earn them or don’t. The receipts are permanent.</h1>
+        <h1 className="mt-4 text-4xl font-bold tracking-tight">Milestones</h1>
         <p className="mt-6 max-w-3xl text-base leading-relaxed text-[var(--text-muted)]">
-          Milestones that mark your progress from a casual typist to a master of the craft.
+          Track your progress as you master the craft of typing.
         </p>
       </Card>
 

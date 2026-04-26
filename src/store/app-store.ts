@@ -20,6 +20,7 @@ interface AppState {
   interactionMode: InteractionMode;
   settings: AppSettings;
   analytics: AnalyticsSummary | null;
+  chapterProgress: Record<string, number>;
   desktopReady: boolean;
   setDesktopReady: (ready: boolean) => void;
   setActiveTab: (tab: AppState["activeTab"]) => void;
@@ -31,6 +32,8 @@ interface AppState {
   setInteractionMode: (mode: InteractionMode) => void;
   setSettings: (settings: AppSettings) => void;
   setAnalytics: (analytics: AnalyticsSummary | null) => void;
+  setChapterProgress: (bookId: number, chapterIndex: number, index: number) => void;
+  clearChapterProgress: () => void;
 }
 
 export const defaultSettings: AppSettings = {
@@ -120,6 +123,7 @@ export const useAppStore = create<AppState>((set) => ({
   interactionMode: initialSettings.interactionMode,
   settings: initialSettings,
   analytics: null,
+  chapterProgress: {},
   desktopReady: false,
   setDesktopReady: (desktopReady) => set({ desktopReady }),
   setActiveTab: (activeTab) => set({ activeTab }),
@@ -152,4 +156,12 @@ export const useAppStore = create<AppState>((set) => ({
     });
   },
   setAnalytics: (analytics) => set({ analytics }),
+  setChapterProgress: (bookId, chapterIndex, index) =>
+    set((state) => ({
+      chapterProgress: {
+        ...state.chapterProgress,
+        [`${bookId}-${chapterIndex}`]: index,
+      },
+    })),
+  clearChapterProgress: () => set({ chapterProgress: {} }),
 }));

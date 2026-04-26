@@ -2,6 +2,9 @@ mod analytics;
 mod db;
 mod models;
 mod parser;
+mod welcome;
+
+use welcome::WELCOME_BOOK_CONTENT;
 
 use std::collections::HashMap;
 use std::fs;
@@ -23,6 +26,7 @@ use tauri::Manager;
 struct AppState {
     db: Database,
     covers_dir: std::path::PathBuf,
+    app_data_dir: std::path::PathBuf,
     live_sessions: Arc<Mutex<HashMap<String, LiveSessionAnalytics>>>,
 }
 
@@ -117,7 +121,9 @@ fn set_book_pinned(
 
 #[tauri::command]
 fn delete_book(book_id: i64, state: tauri::State<'_, AppState>) -> Result<(), String> {
-    state.db.delete_book(book_id).map_err(to_message)
+    state.db.delete_book(book_id).map_err(to_message)?;
+    let _ = ensure_default_book(&state, &state.app_data_dir);
+    Ok(())
 }
 
 #[tauri::command]
@@ -220,7 +226,9 @@ fn clear_session_history(state: tauri::State<'_, AppState>) -> Result<(), String
 
 #[tauri::command]
 fn delete_library(state: tauri::State<'_, AppState>) -> Result<(), String> {
-    state.db.delete_library().map_err(to_message)
+    state.db.delete_library().map_err(to_message)?;
+    let _ = ensure_default_book(&state, &state.app_data_dir);
+    Ok(())
 }
 
 #[tauri::command]
@@ -237,11 +245,28 @@ fn prepare_state(app: &tauri::AppHandle) -> Result<AppState> {
     fs::create_dir_all(&covers_dir).context("failed to create covers directory")?;
     let database_path = app_data_dir.join("typeread.sqlite");
     let db = Database::new(database_path)?;
-    Ok(AppState {
+    let state = AppState {
         db,
         covers_dir,
+        app_data_dir: app_data_dir.clone(),
         live_sessions: Arc::new(Mutex::new(HashMap::new())),
-    })
+    };
+
+    ensure_default_book(&state, &app_data_dir)?;
+
+    Ok(state)
+}
+
+fn ensure_default_book(state: &AppState, app_data_dir: &std::path::Path) -> Result<()> {
+    let existing = state.db.list_books()?;
+    if existing.is_empty() {
+        let welcome_path = app_data_dir.join("Welcome to TypeRead.md");
+        // Always overwrite the default file to ensure content updates in welcome.rs are reflected
+        fs::write(&welcome_path, WELCOME_BOOK_CONTENT)
+            .context("failed to write default welcome book")?;
+        import_book_files(vec![welcome_path], state).map_err(|e| anyhow::anyhow!(e))?;
+    }
+    Ok(())
 }
 
 fn to_message(error: anyhow::Error) -> String {

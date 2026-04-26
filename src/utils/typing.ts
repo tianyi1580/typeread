@@ -244,6 +244,7 @@ export function applyTypingInput(
   tokens: TokenizedWord[],
   input: TypingInput,
   timestamp: number,
+  chapterIndex: number,
   options: TypingBehavior = {},
 ): { snapshot: TypingSnapshot; event?: KeystrokeEvent } {
   const current = getMutableWord(snapshot, snapshot.currentWordIndex);
@@ -263,6 +264,7 @@ export function applyTypingInput(
         type: "meta",
         expected,
         layout: options.layoutId,
+        chapterIndex,
         cursorIndex: token.start + current.typed.length,
       },
     };
@@ -285,6 +287,7 @@ export function applyTypingInput(
         type: "backspace",
         expected,
         layout: options.layoutId,
+        chapterIndex,
         cursorIndex,
       },
     };
@@ -308,6 +311,7 @@ export function applyTypingInput(
         type: "meta",
         expected: currentExpectedCharacter(current, token),
         layout: options.layoutId,
+        chapterIndex,
         cursorIndex: token.start + current.typed.length,
         skippedWord: true,
       },
@@ -345,6 +349,7 @@ export function applyTypingInput(
           expected,
           isCorrect,
           layout: options.layoutId,
+          chapterIndex,
           cursorIndex,
           correctChars: score.correctChars,
           typedChars: score.typedChars,
@@ -362,6 +367,7 @@ export function applyTypingInput(
         expected,
         isCorrect,
         layout: options.layoutId,
+        chapterIndex,
         cursorIndex,
       },
     };
@@ -433,8 +439,9 @@ function summarizeSessionEvents(events: KeystrokeEvent[]) {
 
   for (const event of events) {
     if ((event.type === "char" || event.type === "space") && event.cursorIndex !== undefined) {
-      if (!firstAttempts.has(event.cursorIndex)) {
-        firstAttempts.set(event.cursorIndex, !!event.isCorrect);
+      const key = `${event.chapterIndex ?? 0}:${event.cursorIndex}`;
+      if (!firstAttempts.has(key)) {
+        firstAttempts.set(key, !!event.isCorrect);
       }
       if (event.isCorrect) {
         correctChars += 1;

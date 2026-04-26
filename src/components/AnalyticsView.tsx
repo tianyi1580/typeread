@@ -6,33 +6,33 @@ import { Card } from "./ui/card";
 import { InfoTooltip, InfoIcon } from "./ui/InfoTooltip";
 
 const SECTION_DESCRIPTIONS = {
-  profile: "Overview of your current rank, level, and XP progression. Reflects your overall journey and dedication.",
-  graph: "Visualizes your speed evolution over time. It uses a rolling average to smooth out session-to-session volatility, showing your true growth curve.",
-  quality: "Measures the 'health' of your typing session. High scores indicate consistent rhythm and focus, while Consistency measures variation in your stroke timing.",
-  heatmap: "Identifies which keys you tend to drift from. The lines show 'directional drift'—where your fingers are landing vs. where they should be.",
-  lifetime: "Aggregated statistics across all your typing history, including total volume, accuracy, and time spent practicing.",
-  transitions: "Granular breakdown of your fastest and slowest character pairings. The Drill List highlights combinations with high error rates that need focused practice.",
-  recent: "A chronological log of your latest typing sessions, showing immediate performance metrics and XP gains.",
-  vectors: "A graphical representation of your finger drift. The blue pulse is the target key; red dots show where your fingers actually landed.",
-  misses: "A ranked list of your most frequent character substitutions, helping you identify recurring physical errors.",
-  fastest: "Your top performing character transitions by speed, reflecting your most fluid muscle memory.",
-  slowest: "Transitions where your fingers hesitate the most, often indicating awkward reaches or unfamiliar patterns.",
-  drills: "Pairings with high error rates. These combinations would benefit the most from focused repetition.",
+  profile: "Your current rank, level, and XP progress.",
+  graph: "Your speed and accuracy over time. Use this to track your growth curve.",
+  quality: "Measures your focus and rhythm consistency during sessions.",
+  heatmap: "Highlights keys where your fingers drift most frequently.",
+  lifetime: "Aggregate statistics across your entire typing history.",
+  transitions: "A breakdown of your fastest and most error-prone character pairs.",
+  recent: "A log of your latest typing sessions and performance.",
+  vectors: "Visual representation of finger drift—red dots show where you actually landed.",
+  misses: "Your most frequent character substitutions.",
+  fastest: "Your most fluid character transitions.",
+  slowest: "Transitions where your muscle memory hesitates most.",
+  drills: "Character pairings that would benefit from focused practice.",
 };
 
 const METRIC_DESCRIPTIONS: Record<string, string> = {
-  "Total XP": "Total experience points earned by completing typing sessions and challenges.",
-  "Streak": "Number of consecutive days you have logged a typing session.",
-  "Rested Buffer": "Bonus XP multiplier applied to your next words. This refreshes over time when you are not typing.",
-  "Sessions": "Total number of individual typing sessions completed.",
-  "Rhythm Score": "A measure of how consistent your inter-character timing is. High scores mean steady, predictable typing.",
-  "Focus Score": "Measures your ability to maintain speed without sudden pauses or corrections.",
-  "Consistency": "Coefficient of Variation for your typing rhythm. Lower values mean more stable and professional typing cadence.",
-  "Active Typing": "The actual time spent with fingers on keys, excluding pauses and navigation.",
-  "Average WPM": "Your mean Words Per Minute across all recorded sessions.",
-  "Average Accuracy": "Percentage of characters typed correctly on the first attempt across your lifetime.",
-  "Words Typed": "Total count of words processed by the typing engine.",
-  "Time Typed": "Cumulative time spent in active typing sessions.",
+  "Total XP": "Experience earned through sessions and challenges.",
+  "Streak": "Consecutive days with at least one session.",
+  "Rested Buffer": "Bonus XP applied to your next words. Refreshes while you're away.",
+  "Sessions": "Total typing sessions completed.",
+  "Rhythm Score": "A measure of how steady your typing cadence is.",
+  "Focus Score": "Your ability to maintain speed without sudden pauses.",
+  "Consistency": "Lower values indicate a more stable typing rhythm.",
+  "Active Typing": "Actual time spent with fingers on keys.",
+  "Average WPM": "Mean Words Per Minute across all sessions.",
+  "Average Accuracy": "Lifetime percentage of correct first-attempt characters.",
+  "Words Typed": "Total words processed.",
+  "Time Typed": "Total time spent in active sessions.",
 };
 
 const SOURCE_LABELS: Record<string, string> = {
@@ -138,7 +138,7 @@ export function AnalyticsView({
               Level {analytics.profile.level} <span className="text-[var(--accent)]">·</span> {analytics.profile.title}
             </h1>
             <p className="mt-6 max-w-2xl text-base leading-relaxed text-[var(--text-muted)]">
-              Your typing journey is distilled into these metrics. Focus on reducing <span className="text-[var(--text)]">cadence drift</span> and smoothing out <span className="text-[var(--text)]">slow transitions</span> to reach the next tier.
+              Track your evolution and master your rhythm. Focus on reducing <span className="text-[var(--text)]">cadence drift</span> to reach the next tier.
             </p>
             <div className="mt-8">
               <div className="flex items-center justify-between text-xs font-medium uppercase tracking-wider text-[var(--text-muted)]">

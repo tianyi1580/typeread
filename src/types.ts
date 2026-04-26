@@ -174,6 +174,7 @@ export interface KeystrokeEvent {
   expected?: string;
   isCorrect?: boolean;
   layout?: string;
+  chapterIndex?: number;
   cursorIndex?: number;
   skippedWord?: boolean;
   correctChars?: number;

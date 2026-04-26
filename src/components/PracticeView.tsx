@@ -263,7 +263,7 @@ export function PracticeView({
         ...nextSnapshot.words[nextSnapshot.currentWordIndex],
       };
 
-      const result = applyTypingInput(nextSnapshot, tokens, { key: event.key, ctrlKey: isWordDeletion }, now, {
+      const result = applyTypingInput(nextSnapshot, tokens, { key: event.key, ctrlKey: isWordDeletion }, now, 0, {
         tabToSkip: settings.tabToSkip,
         ignoredCharacterSet,
         layoutId: keyboardLayout.id,
@@ -409,9 +409,9 @@ export function PracticeView({
                       <div className="rounded-2xl border border-[var(--border)] bg-[var(--panel)] p-4 shadow-2xl backdrop-blur-xl">
                         <p className="text-xs font-semibold uppercase tracking-widest text-[var(--accent)]">Word Bank Difficulty</p>
                         <div className="mt-3 space-y-2 text-xs leading-5 text-[var(--text-muted)]">
-                          <p><span className="text-[var(--text)] font-medium">Easy:</span> 3,000 most common English words. Perfect for consistent speed training.</p>
-                          <p><span className="text-[var(--text)] font-medium">Medium:</span> 3,000 intermediate words. Introducing more complex syllables and patterns.</p>
-                          <p><span className="text-[var(--text)] font-medium">Hard:</span> 3,000 rare and complex words. Tests precision and unfamiliar transitions.</p>
+                          <p><span className="text-[var(--text)] font-medium">Easy:</span> 3,000 most common words. Great for speed training.</p>
+                          <p><span className="text-[var(--text)] font-medium">Medium:</span> Intermediate vocabulary with more complex patterns.</p>
+                          <p><span className="text-[var(--text)] font-medium">Hard:</span> Rare and complex words to test precision.</p>
                         </div>
                       </div>
                     </div>

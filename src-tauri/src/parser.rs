@@ -480,25 +480,58 @@ fn is_chapter_heading(block: &str) -> bool {
 }
 
 fn markdown_to_text(source: &str) -> String {
-    // Markdown is flattened block by block to preserve paragraph spacing while stripping formatting noise.
-    let mut rendered = Vec::new();
-    for block in source.split("\n\n") {
-        let mut text = String::new();
-        for event in Parser::new(block) {
-            match event {
-                Event::Text(value) | Event::Code(value) | Event::Html(value) => {
-                    text.push_str(&value)
+    let mut rendered = String::new();
+    let mut list_index: Vec<Option<u64>> = Vec::new();
+    let mut last_was_block = false;
+
+    for event in Parser::new(source) {
+        match event {
+            Event::Start(pulldown_cmark::Tag::Item) => {
+                if !rendered.is_empty() && !rendered.ends_with('\n') {
+                    rendered.push('\n');
                 }
-                Event::SoftBreak | Event::HardBreak => text.push('\n'),
-                _ => {}
+                if let Some(Some(index)) = list_index.last_mut() {
+                    rendered.push_str(&format!("{}. ", index));
+                    *index += 1;
+                } else {
+                    rendered.push_str("• ");
+                }
+                last_was_block = false;
             }
-        }
-        let normalized = normalize_text(&text);
-        if !normalized.is_empty() {
-            rendered.push(normalized);
+            Event::Start(pulldown_cmark::Tag::List(start)) => {
+                list_index.push(start);
+                if !rendered.is_empty() && !rendered.ends_with('\n') {
+                    rendered.push('\n');
+                }
+            }
+            Event::End(pulldown_cmark::TagEnd::List(_)) => {
+                list_index.pop();
+                rendered.push('\n');
+                last_was_block = true;
+            }
+            Event::Start(pulldown_cmark::Tag::Heading { .. }) | Event::Start(pulldown_cmark::Tag::Paragraph) => {
+                if !rendered.is_empty() && !rendered.ends_with('\n') {
+                    rendered.push_str("\n\n");
+                }
+                last_was_block = false;
+            }
+            Event::End(pulldown_cmark::TagEnd::Heading { .. }) | Event::End(pulldown_cmark::TagEnd::Paragraph) => {
+                rendered.push('\n');
+                last_was_block = true;
+            }
+            Event::Text(value) | Event::Code(value) => {
+                rendered.push_str(&value);
+                last_was_block = false;
+            }
+            Event::SoftBreak | Event::HardBreak => {
+                rendered.push('\n');
+                last_was_block = false;
+            }
+            _ => {}
         }
     }
-    rendered.join("\n\n")
+
+    normalize_text(&rendered)
 }
 
 fn html_to_text(source: &str) -> (Option<String>, String) {

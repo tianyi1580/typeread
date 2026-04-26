@@ -107,7 +107,7 @@ export function SettingsView({
             <div className="space-y-8">
               <SectionTitle
                 title="Appearance"
-                description="Theme and typography should change in real time. If settings feel inert, the UI is lying."
+                description="Customize your interface and typography."
               />
 
               <div className="grid gap-4 md:grid-cols-2">
@@ -250,7 +250,7 @@ export function SettingsView({
             <div className="space-y-8">
               <SectionTitle
                 title="Reading & Typing"
-                description="Launch defaults and typing behavior belong here, not scattered across random widgets."
+                description="Adjust how you read and interact with text."
               />
 
               <div className="space-y-3">
@@ -322,7 +322,7 @@ export function SettingsView({
             <div className="space-y-8">
               <SectionTitle
                 title="Data & Storage"
-                description="Everything is local. That means the user gets real control over backups and destructive maintenance."
+                description="Manage your local data and backups."
               />
 
               <div className="grid gap-4 md:grid-cols-2">

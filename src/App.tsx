@@ -60,6 +60,9 @@ export default function App() {
   const setInteractionMode = useAppStore((state) => state.setInteractionMode);
   const setSettings = useAppStore((state) => state.setSettings);
   const setAnalytics = useAppStore((state) => state.setAnalytics);
+  const setChapterProgress = useAppStore((state) => state.setChapterProgress);
+  const clearChapterProgress = useAppStore((state) => state.clearChapterProgress);
+  const chapterProgressMap = useAppStore((state) => state.chapterProgress);
 
   const [loadingBook, setLoadingBook] = useState(false);
   const [busyAction, setBusyAction] = useState<string | null>(null);
@@ -68,6 +71,12 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState("");
   const [draggingFiles, setDraggingFiles] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [confirmation, setConfirmation] = useState<{
+    title: string;
+    message: string;
+    confirmLabel: string;
+    onConfirm: () => void | Promise<void>;
+  } | null>(null);
 
   useEffect(() => {
     const ready = api.isDesktop();
@@ -201,6 +210,7 @@ export default function App() {
     try {
       setError(null);
       setLoadingBook(true);
+      clearChapterProgress();
       const book = await api.loadBook(bookId);
       startTransition(() => {
         setCurrentBook(book as ParsedBook);
@@ -266,6 +276,7 @@ export default function App() {
   }
 
   async function handleProgress(bookId: number, currentIndex: number, currentChapter: number) {
+    setChapterProgress(bookId, currentChapter, currentIndex);
     if (!desktopReady) {
       return;
     }
@@ -277,6 +288,7 @@ export default function App() {
   }
 
   async function handleReadProgress(bookId: number, readIndex: number, readChapter: number) {
+    setChapterProgress(bookId, readChapter, readIndex);
     if (!desktopReady) {
       return;
     }
@@ -332,23 +344,35 @@ export default function App() {
   }
 
   async function handleDeleteBook(bookId: number) {
-    const book = books.find((item) => item.id === bookId);
-    if (!book || !window.confirm(`Delete "${book.title}" from the library? This also removes its typing sessions.`)) {
+    const book = books.find((item) => String(item.id) === String(bookId));
+    if (!book) {
+      setError(`Could not find book with ID ${bookId} in the library.`);
       return;
     }
 
-    try {
-      setError(null);
-      await api.deleteBook(bookId);
-      const nextSelected = selectedBookId === bookId ? null : selectedBookId;
-      if (selectedBookId === bookId) {
-        setCurrentBook(null);
-        setActiveTab("library");
-      }
-      await refreshAll({ preferredBookId: nextSelected });
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Failed to delete book.");
-    }
+    setConfirmation({
+      title: "Delete Book",
+      message: `Are you sure you want to delete "${book.title}"? This will also remove all typing sessions and analytics for this book.`,
+      confirmLabel: "Delete",
+      onConfirm: async () => {
+        try {
+          setError(null);
+          setBusyAction("Deleting book…");
+          await api.deleteBook(Number(bookId));
+          const nextSelected = String(selectedBookId) === String(bookId) ? null : selectedBookId;
+          if (String(selectedBookId) === String(bookId)) {
+            setCurrentBook(null);
+            setActiveTab("library");
+          }
+          await refreshAll({ preferredBookId: nextSelected });
+        } catch (caught) {
+          setError(caught instanceof Error ? caught.message : "Failed to delete book.");
+        } finally {
+          setBusyAction(null);
+          setConfirmation(null);
+        }
+      },
+    });
   }
 
   async function handleExportDatabase() {
@@ -378,41 +402,49 @@ export default function App() {
   }
 
   async function handleClearSessionHistory() {
-    if (!window.confirm("Clear all typing session history while keeping the library intact?")) {
-      return;
-    }
-
-    try {
-      setError(null);
-      setBusyAction("Clearing session history…");
-      await api.clearSessionHistory();
-      await refreshAll({ preferredBookId: selectedBookId });
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Failed to clear session history.");
-    } finally {
-      setBusyAction(null);
-    }
+    setConfirmation({
+      title: "Clear History",
+      message: "Are you sure you want to clear all typing session history? This will keep your books but reset all your stats and levels.",
+      confirmLabel: "Clear Everything",
+      onConfirm: async () => {
+        try {
+          setError(null);
+          setBusyAction("Clearing session history…");
+          await api.clearSessionHistory();
+          await refreshAll({ preferredBookId: selectedBookId });
+        } catch (caught) {
+          setError(caught instanceof Error ? caught.message : "Failed to clear session history.");
+        } finally {
+          setBusyAction(null);
+          setConfirmation(null);
+        }
+      },
+    });
   }
 
   async function handleDeleteLibrary() {
-    if (!window.confirm("Delete the full library and all session history? This is destructive.")) {
-      return;
-    }
-
-    try {
-      setError(null);
-      setBusyAction("Deleting library…");
-      await api.deleteLibrary();
-      setCurrentBook(null);
-      setSelectedBookId(null);
-      setSelectedChapterIndex(0);
-      setActiveTab("library");
-      await refreshAll({ preferredBookId: null });
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Failed to delete the library.");
-    } finally {
-      setBusyAction(null);
-    }
+    setConfirmation({
+      title: "Delete Library",
+      message: "This will permanently remove all books, sessions, and analytics. This action cannot be undone.",
+      confirmLabel: "Delete Everything",
+      onConfirm: async () => {
+        try {
+          setError(null);
+          setBusyAction("Deleting library…");
+          await api.deleteLibrary();
+          setCurrentBook(null);
+          setSelectedBookId(null);
+          setSelectedChapterIndex(0);
+          setActiveTab("library");
+          await refreshAll({ preferredBookId: null });
+        } catch (caught) {
+          setError(caught instanceof Error ? caught.message : "Failed to delete the library.");
+        } finally {
+          setBusyAction(null);
+          setConfirmation(null);
+        }
+      },
+    });
   }
 
 
@@ -503,6 +535,7 @@ export default function App() {
               analytics={analytics}
               desktopReady={desktopReady}
               loadingBook={loadingBook}
+              chapterProgressMap={chapterProgressMap}
               onBackToLibrary={() => setActiveTab("library")}
               onChapterChange={setSelectedChapterIndex}
               onInteractionModeChange={setInteractionMode}
@@ -550,6 +583,17 @@ export default function App() {
           onClearSessionHistory={() => void handleClearSessionHistory()}
           onDeleteLibrary={() => void handleDeleteLibrary()}
           onRefresh={() => refreshAll()}
+        />
+      )}
+
+      {confirmation && (
+        <ConfirmationModal
+          title={confirmation.title}
+          message={confirmation.message}
+          confirmLabel={confirmation.confirmLabel}
+          onConfirm={confirmation.onConfirm}
+          onCancel={() => setConfirmation(null)}
+          isLoading={!!busyAction}
         />
       )}
     </div>
@@ -698,5 +742,39 @@ function MenuButton({ children, onClick }: { children: ReactNode; onClick: () =>
     >
       {children}
     </button>
+  );
+}
+
+function ConfirmationModal({
+  title,
+  message,
+  confirmLabel,
+  onConfirm,
+  onCancel,
+  isLoading,
+}: {
+  title: string;
+  message: string;
+  confirmLabel: string;
+  onConfirm: () => void | Promise<void>;
+  onCancel: () => void;
+  isLoading?: boolean;
+}) {
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 px-4 backdrop-blur-sm">
+      <button type="button" className="absolute inset-0 cursor-default" onClick={onCancel} />
+      <Card className="relative w-full max-w-md overflow-hidden rounded-[32px] p-8 shadow-2xl">
+        <h3 className="text-2xl font-semibold">{title}</h3>
+        <p className="mt-4 text-sm leading-relaxed text-[var(--text-muted)]">{message}</p>
+        <div className="mt-8 flex flex-col gap-3">
+          <Button variant="danger" onClick={onConfirm} className="w-full py-6 text-base" disabled={isLoading}>
+            {isLoading ? "Processing…" : confirmLabel}
+          </Button>
+          <Button variant="ghost" onClick={onCancel} className="w-full py-6 text-base" disabled={isLoading}>
+            Cancel
+          </Button>
+        </div>
+      </Card>
+    </div>
   );
 }

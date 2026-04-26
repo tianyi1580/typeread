@@ -10,6 +10,7 @@ import {
   createSnapshotFromWordStart,
   createTypingSnapshot,
   currentCursorIndex,
+  currentProgress,
   calculateActiveDuration,
   finalizeMetrics,
   normalizeTypingText,
@@ -58,6 +59,7 @@ interface ReaderViewProps {
   onReadProgress: (bookId: number, readIndex: number, readChapter: number) => Promise<void>;
   onProcessBatch: (payload: ProcessKeystrokeBatchInput) => Promise<ProcessKeystrokeBatchResult>;
   onError: (message: string) => void;
+  chapterProgressMap: Record<string, number>;
 }
 
 const EMPTY_METRICS: LiveMetrics = {
@@ -104,6 +106,7 @@ export function ReaderView({
   onReadProgress,
   onProcessBatch,
   onError,
+  chapterProgressMap,
 }: ReaderViewProps) {
   const chapter = book.chapters[chapterIndex];
   const normalizedText = useMemo(() => normalizeTypingText(chapter.text), [chapter.text]);
@@ -111,6 +114,13 @@ export function ReaderView({
   const ignoredCharacterSet = useMemo(() => parseIgnoredCharacterSet(settings.ignoredCharacters), [settings.ignoredCharacters]);
   const keyboardLayout = useMemo(() => resolveKeyboardLayout(settings), [settings]);
   const resumeCursorIndex = useMemo(() => {
+    // Check our per-chapter progress map first
+    const cached = chapterProgressMap[`${book.id}-${chapterIndex}`];
+    if (cached !== undefined) {
+      return cached;
+    }
+
+    // Fallback to book's global latest progress
     let targetChapter: number;
     let targetIndex: number;
 
@@ -127,11 +137,13 @@ export function ReaderView({
 
     return chapterIndex === targetChapter ? targetIndex : 0;
   }, [
+    book.id,
     book.currentChapter,
     book.currentIndex,
     book.readChapter,
     book.readIndex,
     chapterIndex,
+    chapterProgressMap,
   ]);
 
   const [snapshot, setSnapshot] = useState<TypingSnapshot>(() => createTypingSnapshot(tokens, resumeCursorIndex));
@@ -154,6 +166,7 @@ export function ReaderView({
   const lastInputRef = useRef<number | null>(lastInputAt);
   const botCursorRef = useRef(0);
   const botPausedRef = useRef(false);
+  const isAutoAdvancingRef = useRef(false);
   const chapterMenuRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [scrollReadIndex, setScrollReadIndex] = useState<number | null>(null);
@@ -246,21 +259,24 @@ export function ReaderView({
     const nextSnapshot = createTypingSnapshot(tokens, resumeCursorIndex);
     setSnapshot(nextSnapshot);
     snapshotRef.current = nextSnapshot;
-    setEvents([]);
-    eventsRef.current = [];
-    setMetrics(EMPTY_METRICS);
-    setSessionStartAt(null);
-    sessionStartRef.current = null;
-    setLastInputAt(null);
-    lastInputRef.current = null;
+
+    if (!isAutoAdvancingRef.current) {
+      setEvents([]);
+      eventsRef.current = [];
+      setMetrics(EMPTY_METRICS);
+      setSessionStartAt(null);
+      sessionStartRef.current = null;
+      setSummary(null);
+      setBotCursorIndex(0);
+      botCursorRef.current = 0;
+      transport.resetTransport();
+    }
+    isAutoAdvancingRef.current = false;
+
     const activePage = pageRanges.findIndex((range) => resumeCursorIndex >= range.start && resumeCursorIndex < range.end);
     setPageIndex(activePage >= 0 ? activePage - (activePage % 2) : 0);
     setScrollReadIndex(null);
-    setSummary(null);
-    setBotCursorIndex(0);
-    botCursorRef.current = 0;
-    transport.resetTransport();
-  }, [resumeCursorIndex, tokens]);
+  }, [tokens]); // Removed resumeCursorIndex from dependencies
 
   useEffect(() => {
     const interval = window.setInterval(() => setClock(Date.now()), 1000);
@@ -357,6 +373,16 @@ export function ReaderView({
         return;
       }
 
+      // If chapter is already finished, any character key press moves to the next chapter immediately.
+      if (currentProgress(snapshotRef.current, tokens) === 1 && event.key.length === 1 && !event.ctrlKey && !event.metaKey) {
+        if (chapterIndex < book.chapters.length - 1) {
+          event.preventDefault();
+          isAutoAdvancingRef.current = true;
+          onChapterChange(chapterIndex + 1);
+          return;
+        }
+      }
+
       if (
         event.altKey ||
         (isMac && event.metaKey && !isWordDeletion) ||
@@ -394,7 +420,7 @@ export function ReaderView({
         ...nextSnapshot.words[nextSnapshot.currentWordIndex],
       };
 
-      const result = applyTypingInput(nextSnapshot, tokens, { key: event.key, ctrlKey: isWordDeletion }, now, {
+      const result = applyTypingInput(nextSnapshot, tokens, { key: event.key, ctrlKey: isWordDeletion }, now, chapterIndex, {
         tabToSkip: settings.tabToSkip,
         ignoredCharacterSet,
         layoutId: keyboardLayout.id,
