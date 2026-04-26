@@ -11,14 +11,17 @@ interface ColorPickerProps {
 }
 
 const PRESET_COLORS = [
+  "#A6DA95", // Catppuccin Green
+  "#8BE9FD", // Dracula Cyan
+  "#B4BEFE", // Catppuccin Lavender
   "#ED8796", // Catppuccin Red
   "#FB4934", // Gruvbox Red
   "#AA3D2B", // Sepia Red
-  "#DC322F", // Solarized Red
   "#FF5555", // Dracula Red
   "#BF616A", // Nord Red
+  "#A3BE8C", // Nord Green
+  "#88C0D0", // Nord Blue
   "#F0ABFC", // Pink
-  "#FCA5A5", // Light Red
   "#FDBA74", // Orange
   "#FDE047", // Yellow
 ];

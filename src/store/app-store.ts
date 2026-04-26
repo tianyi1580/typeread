@@ -51,6 +51,7 @@ export const defaultSettings: AppSettings = {
   versusBotCpm: 300,
   practiceWordBankType: "easy",
   errorColor: "#ed8796",
+  successColor: "#a6da95",
 };
 
 function isOneOf<T extends string | number>(value: unknown, allowedValues: readonly T[]): value is T {
@@ -97,9 +98,13 @@ function normalizeAppSettings(settings: AppSettings): AppSettings {
     customKeyboardLayout: typeof s.customKeyboardLayout === "string" ? s.customKeyboardLayout : defaultSettings.customKeyboardLayout,
     ignoredCharacters: typeof s.ignoredCharacters === "string" ? s.ignoredCharacters : defaultSettings.ignoredCharacters,
     errorColor:
-      typeof s.errorColor === "string" && /^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/.test(s.errorColor)
+      typeof s.errorColor === "string" && /^#([0-9A-F]{3}|[0-9A-F]{6})$/i.test(s.errorColor)
         ? s.errorColor
         : defaultSettings.errorColor,
+    successColor:
+      typeof s.successColor === "string" && /^#([0-9A-F]{3}|[0-9A-F]{6})$/i.test(s.successColor)
+        ? s.successColor
+        : defaultSettings.successColor,
   };
 }
 

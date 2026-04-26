@@ -45,6 +45,7 @@ export function SettingsView({
     smoothCaret: false,
     premiumTypography: false,
     customErrorColors: false,
+    customSuccessColors: false,
   };
 
   useEffect(() => {
@@ -217,6 +218,29 @@ export function SettingsView({
                 </div>
                 {!unlocks.customErrorColors && (
                   <p className="text-sm text-[var(--text-muted)]">Unlocks at level 50.</p>
+                )}
+              </div>
+
+              <div className="space-y-4">
+                <div className="grid gap-6 md:grid-cols-2">
+                  <ColorPicker
+                    label="Correct Character Color"
+                    value={settings.successColor}
+                    disabled={!unlocks.customSuccessColors}
+                    levelLabel="Lvl 40"
+                    onChange={(color) => onChange({ ...settings, successColor: color })}
+                  />
+                  <div className="flex flex-col justify-end">
+                    <span className="mb-3 text-[10px] uppercase tracking-[0.28em] text-[var(--text-muted)]">Live Preview</span>
+                    <div className="flex h-12 items-center rounded-[18px] border border-[var(--border)] bg-[var(--panel-soft)] px-5">
+                      <p className="text-sm font-medium" style={{ fontFamily: `var(--font-main)` }}>
+                        Sphinx of <span style={{ color: settings.successColor }}>black quartz</span>, judge my vow.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                {!unlocks.customSuccessColors && (
+                  <p className="text-sm text-[var(--text-muted)]">Unlocks at level 40.</p>
                 )}
               </div>
             </div>

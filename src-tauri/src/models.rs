@@ -148,6 +148,7 @@ pub struct UnlockState {
     pub premium_typography: bool,
     pub ghost_pacer: bool,
     pub custom_error_colors: bool,
+    pub custom_success_colors: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -209,6 +210,7 @@ pub struct AppSettings {
     pub versus_bot_cpm: i64,
     pub practice_word_bank_type: String,
     pub error_color: String,
+    pub success_color: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

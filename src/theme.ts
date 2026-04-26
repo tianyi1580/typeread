@@ -122,7 +122,7 @@ export function applyTheme(settings: AppSettings) {
   root.style.setProperty("--text-muted", theme.textMuted);
   root.style.setProperty("--accent", theme.accent);
   root.style.setProperty("--accent-soft", theme.accentSoft);
-  root.style.setProperty("--success", theme.success);
+  root.style.setProperty("--success", settings.successColor || theme.success);
   root.style.setProperty("--danger", settings.errorColor || theme.danger);
   root.style.setProperty("--shadow", theme.shadow);
   root.style.setProperty("--font-size-base", `${settings.baseFontSize}px`);

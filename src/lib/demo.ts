@@ -19,6 +19,7 @@ export const demoSettings: AppSettings = {
   versusBotCpm: 300,
   practiceWordBankType: "easy",
   errorColor: "#aa3d2b",
+  successColor: "#a6da95",
 };
 
 const demoText = `Chapter One

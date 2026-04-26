@@ -182,7 +182,8 @@ impl Database {
                 type_test_duration INTEGER NOT NULL DEFAULT 60,
                 versus_bot_cpm INTEGER NOT NULL DEFAULT 300,
                 practice_word_bank_type TEXT NOT NULL DEFAULT 'easy',
-                error_color TEXT NOT NULL DEFAULT '#ed8796'
+                error_color TEXT NOT NULL DEFAULT '#ed8796',
+                success_color TEXT NOT NULL DEFAULT '#a6da95'
             );
             "#,
         )
@@ -211,7 +212,8 @@ impl Database {
                 type_test_duration,
                 versus_bot_cpm,
                 practice_word_bank_type,
-                error_color
+                error_color,
+                success_color
             )
             VALUES (
                 1,
@@ -231,7 +233,8 @@ impl Database {
                 60,
                 300,
                 'easy',
-                '#ed8796'
+                '#ed8796',
+                '#a6da95'
             )
             ON CONFLICT(id) DO NOTHING;
             "#,
@@ -347,6 +350,12 @@ impl Database {
             "settings",
             "error_color",
             "TEXT NOT NULL DEFAULT '#ed8796'",
+        )?;
+        ensure_column(
+            conn,
+            "settings",
+            "success_color",
+            "TEXT NOT NULL DEFAULT '#a6da95'",
         )?;
 
         // Migration: Rename enter_to_skip to tab_to_skip if it exists
@@ -1282,7 +1291,8 @@ impl Database {
                 type_test_duration,
                 versus_bot_cpm,
                 practice_word_bank_type,
-                error_color
+                error_color,
+                success_color
             FROM settings
             WHERE id = 1
             "#,
@@ -1306,6 +1316,7 @@ impl Database {
                     versus_bot_cpm: row.get(14)?,
                     practice_word_bank_type: row.get(15)?,
                     error_color: row.get(16)?,
+                    success_color: row.get(17)?,
                 })
             },
         )
@@ -1333,7 +1344,8 @@ impl Database {
                 type_test_duration = ?14,
                 versus_bot_cpm = ?15,
                 practice_word_bank_type = ?16,
-                error_color = ?17
+                error_color = ?17,
+                success_color = ?18
             WHERE id = 1
             "#,
             params![
@@ -1357,7 +1369,8 @@ impl Database {
                 settings.type_test_duration,
                 settings.versus_bot_cpm,
                 settings.practice_word_bank_type.clone(),
-                settings.error_color.clone()
+                settings.error_color.clone(),
+                settings.success_color.clone()
             ],
         )
         .context("failed to save settings")?;
@@ -1758,6 +1771,7 @@ fn unlocks_for_level(level: i64) -> UnlockState {
         smooth_caret: level >= 10,
         premium_typography: level >= 15,
         ghost_pacer: level >= 25,
+        custom_success_colors: level >= 40,
         custom_error_colors: level >= 50,
     }
 }
@@ -1768,6 +1782,7 @@ fn reward_messages(level_before: i64, level_after: i64) -> Vec<String> {
         (10, "Smooth caret unlocked"),
         (15, "Premium typography unlocked"),
         (25, "Ghost pacer unlocked"),
+        (40, "Custom correct colors unlocked"),
         (50, "Custom error colors unlocked"),
     ];
 

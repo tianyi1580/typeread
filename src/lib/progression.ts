@@ -4,6 +4,7 @@ export const LEVEL_REWARDS = [
   { level: 5, label: "Dracula and Nord themes unlocked" },
   { level: 10, label: "Smooth caret unlocked" },
   { level: 15, label: "Premium typography unlocked" },
+  { level: 40, label: "Custom correct colors unlocked" },
   { level: 50, label: "Custom error colors unlocked" },
 ] as const;
 
@@ -45,6 +46,7 @@ export function unlocksForLevel(level: number): UnlockState {
     nordTheme: level >= 5,
     smoothCaret: level >= 10,
     premiumTypography: level >= 15,
+    customSuccessColors: level >= 40,
     customErrorColors: level >= 50,
   };
 }

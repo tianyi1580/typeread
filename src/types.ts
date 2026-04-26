@@ -145,6 +145,7 @@ export interface AppSettings {
   versusBotCpm: number;
   practiceWordBankType: PracticeWordBankType;
   errorColor: string;
+  successColor: string;
 }
 
 export interface TokenizedWord {
@@ -240,6 +241,7 @@ export interface UnlockState {
   smoothCaret: boolean;
   premiumTypography: boolean;
   customErrorColors: boolean;
+  customSuccessColors: boolean;
 }
 
 export interface ProfileProgress {
