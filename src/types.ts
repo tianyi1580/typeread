@@ -109,7 +109,7 @@ export interface AppSettings {
   interactionMode: InteractionMode;
   baseFontSize: number;
   lineHeight: number;
-  enterToSkip: boolean;
+  tabToSkip: boolean;
   ignoreQuotationMarks: boolean;
   ignoredCharacters: string;
   focusMode: boolean;

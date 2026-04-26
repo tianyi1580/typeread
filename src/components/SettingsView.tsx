@@ -208,10 +208,10 @@ export function SettingsView({
               </div>
 
               <ToggleRow
-                label="Enable Enter-to-Skip"
-                description="Skipped words are still excluded from analytics. Turning this off makes Enter inert."
-                checked={settings.enterToSkip}
-                onChange={(checked) => onChange({ ...settings, enterToSkip: checked })}
+                label="Enable Tab-to-Skip"
+                description="Skipped words are still excluded from analytics. Turning this off makes Tab inert."
+                checked={settings.tabToSkip}
+                onChange={(checked) => onChange({ ...settings, tabToSkip: checked })}
               />
 
               <SelectField
@@ -256,42 +256,7 @@ export function SettingsView({
                 />
               </label>
 
-              <div className="grid gap-6 md:grid-cols-2">
-                <SelectField
-                  label="Default Type Test"
-                  value={String(settings.typeTestDuration)}
-                  options={[
-                    { value: "15", label: "15 seconds" },
-                    { value: "30", label: "30 seconds" },
-                    { value: "60", label: "60 seconds" },
-                    { value: "120", label: "120 seconds" },
-                  ]}
-                  onValueChange={(value) =>
-                    onChange({ ...settings, typeTestDuration: Number(value) as 15 | 30 | 60 | 120 })
-                  }
-                />
-                <SliderField
-                  label="Versus Bot CPM"
-                  value={settings.versusBotCpm}
-                  min={120}
-                  max={480}
-                  step={10}
-                  format={(value) => `${Math.round(value)} CPM`}
-                  onChange={(value) => onChange({ ...settings, versusBotCpm: Math.round(value) })}
-                />
-                <SliderField
-                  label="Word Bank Difficulty"
-                  value={settings.practiceWordBankType === "easy" ? 0 : settings.practiceWordBankType === "medium" ? 1 : 2}
-                  min={0}
-                  max={2}
-                  step={1}
-                  format={(value) => (value === 0 ? "Easy" : value === 1 ? "Medium" : "Hard")}
-                  onChange={(value) => {
-                    const type = value === 0 ? "easy" : value === 1 ? "medium" : "hard";
-                    onChange({ ...settings, practiceWordBankType: type });
-                  }}
-                />
-              </div>
+
             </div>
           )}
 

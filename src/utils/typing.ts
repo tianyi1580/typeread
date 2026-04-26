@@ -2,7 +2,7 @@ import type { KeystrokeEvent, LiveMetrics, TokenizedWord, TypingSnapshot, WordTy
 import { clamp } from "../lib/utils";
 
 interface TypingBehavior {
-  enterToSkip?: boolean;
+  tabToSkip?: boolean;
   ignoredCharacterSet?: ReadonlySet<string>;
   layoutId?: string;
 }
@@ -259,8 +259,8 @@ export function applyTypingInput(
     };
   }
 
-  if (input.key === "Enter") {
-    if (!options.enterToSkip) {
+  if (input.key === "Tab") {
+    if (!options.tabToSkip) {
       return { snapshot };
     }
 
@@ -274,7 +274,7 @@ export function applyTypingInput(
       snapshot,
       event: {
         at: timestamp,
-        type: "enter",
+        type: "meta",
         expected: currentExpectedCharacter(current, token),
         layout: options.layoutId,
         cursorIndex: token.start + current.typed.length,
@@ -283,12 +283,13 @@ export function applyTypingInput(
     };
   }
 
-  if (input.key.length === 1) {
+  const isEnter = input.key === "Enter";
+  if (isEnter || input.key.length === 1) {
     autoConsumeIgnoredCharacters(current, token, options.ignoredCharacterSet);
 
     const expected = currentExpectedCharacter(current, token);
     const cursorIndex = token.start + current.typed.length;
-    const inputChar = normalizeTypingChar(input.key);
+    const inputChar = isEnter ? "\n" : normalizeTypingChar(input.key);
     const isCorrect =
       normalizeForCompare(inputChar, options.ignoredCharacterSet) ===
       normalizeForCompare(expected ?? "", options.ignoredCharacterSet);
@@ -308,7 +309,7 @@ export function applyTypingInput(
         snapshot,
         event: {
           at: timestamp,
-          type: inputChar === " " ? "space" : "char",
+          type: isEnter ? "enter" : (inputChar === " " ? "space" : "char"),
           char: inputChar,
           expected,
           isCorrect,
@@ -325,7 +326,7 @@ export function applyTypingInput(
       snapshot,
       event: {
         at: timestamp,
-        type: inputChar === " " ? "space" : "char",
+        type: isEnter ? "enter" : (inputChar === " " ? "space" : "char"),
         char: inputChar,
         expected,
         isCorrect,

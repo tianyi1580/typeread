@@ -195,7 +195,7 @@ pub struct AppSettings {
     pub interaction_mode: String,
     pub base_font_size: i64,
     pub line_height: f64,
-    pub enter_to_skip: bool,
+    pub tab_to_skip: bool,
     pub ignore_quotation_marks: bool,
     pub ignored_characters: String,
     pub focus_mode: bool,

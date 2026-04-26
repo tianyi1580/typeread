@@ -328,7 +328,8 @@ export function ReaderView({
       const relevant =
         isWordDeletion ||
         event.key === "Backspace" ||
-        (settings.enterToSkip && event.key === "Enter") ||
+        (settings.tabToSkip && event.key === "Tab") ||
+        event.key === "Enter" ||
         event.key === " " ||
         (event.key.length === 1 && !event.key.match(/\s/) ? true : false);
 
@@ -353,7 +354,7 @@ export function ReaderView({
       };
 
       const result = applyTypingInput(nextSnapshot, tokens, { key: event.key, ctrlKey: isWordDeletion }, now, {
-        enterToSkip: settings.enterToSkip,
+        tabToSkip: settings.tabToSkip,
         ignoredCharacterSet,
         layoutId: keyboardLayout.id,
       });
@@ -375,7 +376,7 @@ export function ReaderView({
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [ignoredCharacterSet, interactionMode, keyboardLayout.id, settings.enterToSkip, tokens, transport]);
+  }, [ignoredCharacterSet, interactionMode, keyboardLayout.id, settings.tabToSkip, tokens, transport]);
 
   useEffect(() => {
     const handleNav = (event: KeyboardEvent) => {

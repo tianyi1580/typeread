@@ -31,7 +31,7 @@ export const defaultSettings: AppSettings = {
   interactionMode: "type",
   baseFontSize: 18,
   lineHeight: 1.7,
-  enterToSkip: true,
+  tabToSkip: true,
   ignoreQuotationMarks: false,
   ignoredCharacters: `"\"", "'", "“", "”", "‘", "’"`,
   focusMode: true,

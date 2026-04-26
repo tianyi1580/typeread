@@ -167,7 +167,7 @@ impl Database {
                 interaction_mode TEXT NOT NULL,
                 base_font_size INTEGER NOT NULL DEFAULT 18,
                 line_height REAL NOT NULL DEFAULT 1.7,
-                enter_to_skip INTEGER NOT NULL DEFAULT 1,
+                tab_to_skip INTEGER NOT NULL DEFAULT 1,
                 ignore_quotation_marks INTEGER NOT NULL DEFAULT 0,
                 ignored_characters TEXT NOT NULL DEFAULT '',
                 focus_mode INTEGER NOT NULL DEFAULT 1,
@@ -196,7 +196,7 @@ impl Database {
                 interaction_mode,
                 base_font_size,
                 line_height,
-                enter_to_skip,
+                tab_to_skip,
                 ignore_quotation_marks,
                 ignored_characters,
                 focus_mode,
@@ -255,7 +255,7 @@ impl Database {
         ensure_column(conn, "settings", "interaction_mode", "TEXT NOT NULL DEFAULT 'type'")?;
         ensure_column(conn, "settings", "base_font_size", "INTEGER NOT NULL DEFAULT 18")?;
         ensure_column(conn, "settings", "line_height", "REAL NOT NULL DEFAULT 1.7")?;
-        ensure_column(conn, "settings", "enter_to_skip", "INTEGER NOT NULL DEFAULT 1")?;
+        ensure_column(conn, "settings", "tab_to_skip", "INTEGER NOT NULL DEFAULT 1")?;
         ensure_column(conn, "settings", "ignore_quotation_marks", "INTEGER NOT NULL DEFAULT 0")?;
         ensure_column(conn, "settings", "ignored_characters", "TEXT NOT NULL DEFAULT ''")?;
         ensure_column(conn, "settings", "focus_mode", "INTEGER NOT NULL DEFAULT 1")?;
@@ -266,6 +266,29 @@ impl Database {
         ensure_column(conn, "settings", "versus_bot_cpm", "INTEGER NOT NULL DEFAULT 300")?;
         ensure_column(conn, "settings", "practice_word_bank_type", "TEXT NOT NULL DEFAULT 'easy'")?;
         ensure_column(conn, "settings", "error_color", "TEXT NOT NULL DEFAULT '#ed8796'")?;
+        
+        // Migration: Rename enter_to_skip to tab_to_skip if it exists
+        let has_enter_to_skip = {
+            let mut stmt = conn.prepare("PRAGMA table_info(settings)")?;
+            let mut rows = stmt.query([])?;
+            let mut found = false;
+            while let Some(row) = rows.next()? {
+                let name: String = row.get(1)?;
+                if name == "enter_to_skip" {
+                    found = true;
+                    break;
+                }
+            }
+            found
+        };
+        if has_enter_to_skip {
+            conn.execute_batch(
+                r#"
+                UPDATE settings SET tab_to_skip = enter_to_skip;
+                ALTER TABLE settings DROP COLUMN enter_to_skip;
+                "#,
+            )?;
+        }
 
         ensure_column(conn, "session_analytics", "keyboard_layout_id", "TEXT NOT NULL DEFAULT 'qwerty-us'")?;
         ensure_column(conn, "session_analytics", "keyboard_layout_name", "TEXT NOT NULL DEFAULT 'QWERTY (US)'")?;
@@ -928,7 +951,7 @@ impl Database {
                 interaction_mode,
                 base_font_size,
                 line_height,
-                enter_to_skip,
+                tab_to_skip,
                 ignore_quotation_marks,
                 ignored_characters,
                 focus_mode,
@@ -951,7 +974,7 @@ impl Database {
                     interaction_mode: row.get(3)?,
                     base_font_size: row.get(4)?,
                     line_height: row.get(5)?,
-                    enter_to_skip: row.get::<_, i64>(6)? == 1,
+                    tab_to_skip: row.get::<_, i64>(6)? == 1,
                     ignore_quotation_marks: row.get::<_, i64>(7)? == 1,
                     ignored_characters: row.get(8)?,
                     focus_mode: row.get::<_, i64>(9)? == 1,
@@ -979,7 +1002,7 @@ impl Database {
                 interaction_mode = ?4,
                 base_font_size = ?5,
                 line_height = ?6,
-                enter_to_skip = ?7,
+                tab_to_skip = ?7,
                 ignore_quotation_marks = ?8,
                 ignored_characters = ?9,
                 focus_mode = ?10,
@@ -999,7 +1022,7 @@ impl Database {
                 settings.interaction_mode,
                 settings.base_font_size,
                 settings.line_height,
-                if settings.enter_to_skip { 1 } else { 0 },
+                if settings.tab_to_skip { 1 } else { 0 },
                 if settings.ignore_quotation_marks { 1 } else { 0 },
                 settings.ignored_characters,
                 if settings.focus_mode { 1 } else { 0 },

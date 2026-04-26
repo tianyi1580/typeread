@@ -210,7 +210,8 @@ export function PracticeView({
       const relevant =
         isWordDeletion ||
         event.key === "Backspace" ||
-        (settings.enterToSkip && event.key === "Enter") ||
+        (settings.tabToSkip && event.key === "Tab") ||
+        event.key === "Enter" ||
         event.key === " " ||
         (event.key.length === 1 && !event.key.match(/\s/) ? true : false);
 
@@ -238,7 +239,7 @@ export function PracticeView({
       };
 
       const result = applyTypingInput(nextSnapshot, tokens, { key: event.key, ctrlKey: isWordDeletion }, now, {
-        enterToSkip: settings.enterToSkip,
+        tabToSkip: settings.tabToSkip,
         ignoredCharacterSet,
         layoutId: keyboardLayout.id,
       });
@@ -260,7 +261,7 @@ export function PracticeView({
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [ignoredCharacterSet, keyboardLayout.id, settings.enterToSkip, tokens, transport]);
+  }, [ignoredCharacterSet, keyboardLayout.id, settings.tabToSkip, tokens, transport]);
 
   async function flushSession(reason: "inactive" | "manual" | "timer") {
     const startAt = sessionStartRef.current;

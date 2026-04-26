@@ -8,7 +8,7 @@ export const demoSettings: AppSettings = {
   interactionMode: "type",
   baseFontSize: 19,
   lineHeight: 1.75,
-  enterToSkip: true,
+  tabToSkip: true,
   ignoreQuotationMarks: false,
   ignoredCharacters: `"\"", "'", "“", "”", "‘", "’"`,
   focusMode: true,
