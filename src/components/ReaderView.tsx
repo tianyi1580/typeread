@@ -960,7 +960,7 @@ export function ReaderView({
         </div>
 
         <AnimatePresence>
-          {headerVisible && (
+          {(headerVisible || interactionMode !== "read") && (
             <motion.div
               initial={{ y: 20, opacity: 0 }}
               animate={{ y: 0, z: 0, opacity: 1 }}
@@ -970,35 +970,38 @@ export function ReaderView({
             >
               {/* Stack the tracker above the chapter buttons on narrow widths so the floating chrome settles into the same layout it animates toward. */}
               <div className="mx-auto grid max-w-[1360px] grid-cols-2 items-center gap-3 sm:grid-cols-[auto_minmax(0,1fr)_auto] sm:gap-6">
-                <motion.div
-                  initial={false}
-                  animate={{ opacity: 1 }}
-                  transition={READER_CHROME_TRANSITION}
-                  className={cn(
-                    "pointer-events-auto relative col-span-2 justify-self-center overflow-hidden rounded-full px-5 py-2.5 text-sm font-medium text-[var(--text)] sm:col-span-1 sm:col-start-2 sm:row-start-1 sm:px-6",
-                    READER_CHROME_SURFACE_CLASS,
-                  )}
-                >
-                  <div className="truncate text-center">
-                    {Math.round(metrics.wpm)} WPM • {formatPercent(metrics.accuracy)} Acc
-                  </div>
-                  <div className="absolute inset-x-0 bottom-0 h-[2px] overflow-hidden rounded-b-full bg-white/5">
-                    <div
-                      className="h-full bg-[var(--accent)] transition-[width] duration-300"
-                      style={{ width: `${metrics.chapterProgress * 100}%` }}
-                    />
-                  </div>
-                </motion.div>
+                {interactionMode !== "read" && (
+                  <motion.div
+                    initial={false}
+                    animate={{ opacity: 1 }}
+                    transition={READER_CHROME_TRANSITION}
+                    className={cn(
+                      "pointer-events-auto relative col-span-2 justify-self-center overflow-hidden rounded-full px-5 py-2.5 text-sm font-medium text-[var(--text)] sm:col-span-1 sm:col-start-2 sm:row-start-1 sm:px-6",
+                      READER_CHROME_SURFACE_CLASS,
+                    )}
+                  >
+                    <div className="truncate text-center">
+                      {Math.round(metrics.wpm)} WPM • {formatPercent(metrics.accuracy)} Acc
+                    </div>
+                    <div className="absolute inset-x-0 bottom-0 h-[2px] overflow-hidden rounded-b-full bg-white/5">
+                      <div
+                        className="h-full bg-[var(--accent)] transition-[width] duration-300"
+                        style={{ width: `${metrics.chapterProgress * 100}%` }}
+                      />
+                    </div>
+                  </motion.div>
+                )}
 
                 <motion.button
                   type="button"
                   initial={false}
-                  animate={{ opacity: chapterIndex === 0 ? 0.5 : 1 }}
+                  animate={{ opacity: headerVisible ? (chapterIndex === 0 ? 0.5 : 1) : 0 }}
                   transition={READER_CHROME_TRANSITION}
                   className={cn(
                     "justify-self-start whitespace-nowrap px-5 py-2 text-sm sm:col-start-1 sm:row-start-1 sm:px-6",
                     READER_CHROME_SURFACE_CLASS,
                     READER_CHROME_BUTTON_CLASS,
+                    !headerVisible && "pointer-events-none"
                   )}
                   onClick={() => handleChapterJump(Math.max(chapterIndex - 1, 0))}
                   disabled={chapterIndex === 0}
@@ -1009,12 +1012,13 @@ export function ReaderView({
                 <motion.button
                   type="button"
                   initial={false}
-                  animate={{ opacity: chapterIndex >= book.chapters.length - 1 ? 0.5 : 1 }}
+                  animate={{ opacity: headerVisible ? (chapterIndex >= book.chapters.length - 1 ? 0.5 : 1) : 0 }}
                   transition={READER_CHROME_TRANSITION}
                   className={cn(
                     "justify-self-end whitespace-nowrap px-5 py-2 text-sm sm:col-start-3 sm:row-start-1 sm:px-6",
                     READER_CHROME_SURFACE_CLASS,
                     READER_CHROME_BUTTON_CLASS,
+                    !headerVisible && "pointer-events-none"
                   )}
                   onClick={() => handleChapterJump(Math.min(chapterIndex + 1, book.chapters.length - 1))}
                   disabled={chapterIndex >= book.chapters.length - 1}
