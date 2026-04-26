@@ -211,6 +211,7 @@ impl LiveSessionAnalytics {
 
 pub fn group_transition_stats(stats: &[TransitionStat]) -> TransitionGroups {
     let mut ranked = stats.to_vec();
+    ranked.retain(|item| !is_buggy_transition(&item.combo));
     ranked.sort_by(|left, right| left.combo.cmp(&right.combo));
 
     let mut fastest = ranked
@@ -502,7 +503,12 @@ fn median(values: &[f64]) -> f64 {
 }
 
 fn normalized_single_char(value: Option<&str>) -> Option<String> {
-    let raw = value?.trim();
+    let val = value?;
+    if val == " " {
+        return Some(" ".to_string());
+    }
+
+    let raw = val.trim();
     if raw.is_empty() {
         return None;
     }
@@ -527,4 +533,17 @@ fn is_transition_candidate(left: &str, right: &str) -> bool {
     };
 
     is_simple(left) && is_simple(right)
+}
+
+fn is_buggy_transition(combo: &str) -> bool {
+    let chars: Vec<char> = combo.chars().collect();
+    if chars.len() != 2 {
+        return false;
+    }
+    let c1 = chars[0];
+    let c2 = chars[1];
+
+    // BUGGY: Period/Comma/Excl/Quest/Colon/Semicolon followed by a letter (missing space)
+    // We exclude ' and " because they are often followed by letters in contractions/quotes
+    matches!(c1, '.' | ',' | '!' | '?' | ':' | ';') && c2.is_ascii_alphabetic()
 }

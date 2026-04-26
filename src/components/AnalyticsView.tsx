@@ -842,7 +842,7 @@ function TransitionTable({
           rows.map((row) => (
             <div key={row.combo} className="group flex items-center justify-between rounded-[20px] border border-[var(--border)] bg-black/10 px-5 py-4 transition-all hover:bg-white/5">
               <div>
-                <span className="text-xl font-bold tracking-tighter text-[var(--text)]">{row.combo}</span>
+                <span className="text-xl font-bold tracking-tighter text-[var(--text)]">{row.combo.replace(/ /g, "␣")}</span>
                 <p className="mt-1 text-[10px] font-bold uppercase tracking-widest text-[var(--text-muted)]">{row.samples} samples</p>
               </div>
               <div className="text-right">

@@ -136,7 +136,7 @@ export function SessionSummaryModal({ summary, onClose }: SessionSummaryModalPro
                     <div className="mt-4 space-y-2">
                       {summary.deepAnalytics.transitions.slowest.slice(0, 3).map((t) => (
                         <div key={t.combo} className="group flex items-center justify-between rounded-xl border border-white/5 bg-white/5 px-3 py-2.5 text-xs transition-colors hover:border-[var(--accent)]/30">
-                          <span className="font-bold tracking-tight">{t.combo}</span>
+                          <span className="font-bold tracking-tight">{t.combo.replace(/ /g, "␣")}</span>
                           <span className="text-[var(--text-muted)] tabular-nums">{t.averageMs.toFixed(0)}ms</span>
                         </div>
                       ))}
