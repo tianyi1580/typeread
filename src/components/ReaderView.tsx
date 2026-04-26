@@ -668,7 +668,7 @@ export function ReaderView({
               transition={READER_CHROME_TRANSITION}
               className={cn(
                 "fixed left-4 right-4 top-4 z-40 mx-auto flex max-w-[1360px] items-center justify-between gap-4 rounded-full px-4 py-3 md:left-6 md:right-6 pointer-events-auto",
-                READER_CHROME_SURFACE_CLASS,
+                "border border-[var(--border)] bg-[color-mix(in_srgb,var(--bg)_95%,transparent)] shadow-[0_8px_32px_rgba(0,0,0,0.3)] backdrop-blur-3xl transform-gpu",
               )}
             >
               <div className="flex flex-1 items-center justify-start gap-4">
@@ -721,7 +721,7 @@ export function ReaderView({
               {chapterMenuOpen && (
                 <div
                   ref={chapterMenuRef}
-                  className="no-scrollbar absolute left-1/2 top-full z-50 mt-4 max-h-[360px] w-[280px] -translate-x-1/2 overflow-y-auto rounded-[28px] border border-white/10 bg-white/[0.03] p-2 shadow-2xl backdrop-blur-3xl"
+                  className="no-scrollbar absolute left-1/2 top-full z-50 mt-4 max-h-[360px] w-[280px] -translate-x-1/2 overflow-y-auto rounded-[28px] border border-[var(--border)] bg-[color-mix(in_srgb,var(--bg)_95%,transparent)] p-2 shadow-2xl backdrop-blur-3xl transform-gpu"
                 >
                   <div className="px-3 py-2 text-[10px] font-bold uppercase tracking-[0.2em] text-[var(--text-muted)]">
                     Chapters
@@ -800,7 +800,7 @@ export function ReaderView({
                 {menuOpen && (
                   <div 
                     ref={menuRef}
-                    className="absolute right-0 top-12 z-50 min-w-[240px] rounded-[24px] border border-white/10 bg-white/[0.03] p-2 shadow-2xl backdrop-blur-3xl"
+                    className="absolute right-0 top-12 z-50 min-w-[240px] rounded-[24px] border border-[var(--border)] bg-[color-mix(in_srgb,var(--bg)_95%,transparent)] p-2 shadow-2xl backdrop-blur-3xl transform-gpu"
                   >
                     <MenuButton
                       onClick={() => {
