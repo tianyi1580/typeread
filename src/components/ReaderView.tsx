@@ -1,4 +1,5 @@
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { useBufferedKeystrokeTransport } from "../hooks/useBufferedKeystrokeTransport";
 import { resolveKeyboardLayout } from "../lib/keyboard-layouts";
 import { cn, formatPercent } from "../lib/utils";
@@ -69,6 +70,17 @@ const EMPTY_METRICS: LiveMetrics = {
   chapterProgress: 0,
 };
 
+const READER_CHROME_TRANSITION = {
+  duration: 0.4,
+  ease: [0.23, 1, 0.32, 1],
+} as const;
+
+const READER_CHROME_SURFACE_CLASS =
+  "border border-white/20 bg-gradient-to-b from-white/15 to-white/5 shadow-[0_8px_32px_rgba(0,0,0,0.15)] backdrop-blur-2xl transform-gpu";
+
+const READER_CHROME_BUTTON_CLASS =
+  "pointer-events-auto flex items-center justify-center rounded-full font-medium text-[var(--text)] transition-colors duration-300 hover:border-[var(--accent)] hover:from-white/20 hover:to-white/10 hover:text-[var(--accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] disabled:cursor-not-allowed";
+
 export function ReaderView({
   book,
   chapterIndex,
@@ -98,9 +110,20 @@ export function ReaderView({
   const ignoredCharacterSet = useMemo(() => parseIgnoredCharacterSet(settings.ignoredCharacters), [settings.ignoredCharacters]);
   const keyboardLayout = useMemo(() => resolveKeyboardLayout(settings), [settings]);
   const resumeCursorIndex = useMemo(() => {
-    const isReadMode = interactionMode === "read";
-    const targetChapter = isReadMode ? book.readChapter : book.currentChapter;
-    const targetIndex = isReadMode ? book.readIndex : book.currentIndex;
+    let targetChapter: number;
+    let targetIndex: number;
+
+    if (book.currentChapter > book.readChapter) {
+      targetChapter = book.currentChapter;
+      targetIndex = book.currentIndex;
+    } else if (book.readChapter > book.currentChapter) {
+      targetChapter = book.readChapter;
+      targetIndex = book.readIndex;
+    } else {
+      targetChapter = book.currentChapter;
+      targetIndex = Math.max(book.currentIndex, book.readIndex);
+    }
+
     return chapterIndex === targetChapter ? targetIndex : 0;
   }, [
     book.currentChapter,
@@ -108,7 +131,6 @@ export function ReaderView({
     book.readChapter,
     book.readIndex,
     chapterIndex,
-    interactionMode,
   ]);
 
   const [snapshot, setSnapshot] = useState<TypingSnapshot>(() => createTypingSnapshot(tokens, resumeCursorIndex));
@@ -629,7 +651,7 @@ export function ReaderView({
     <>
       <div
         className={cn(
-          "relative flex flex-col rounded-[34px] border border-[var(--border)] bg-[color-mix(in_srgb,var(--panel)_82%,transparent)] shadow-panel",
+          "relative flex flex-col rounded-[34px] border border-white/5 bg-[color-mix(in_srgb,var(--panel)_40%,transparent)] shadow-panel backdrop-blur-2xl",
           "h-screen overflow-hidden",
           readerFontClass,
         )}
@@ -637,48 +659,53 @@ export function ReaderView({
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.08),transparent_36%)]" />
 
 
-        <div
-          className={cn(
-            "fixed inset-x-0 top-0 z-40 px-4 pt-4 transition duration-300 md:px-6",
-            headerVisible ? "translate-y-0 opacity-100" : "-translate-y-20 opacity-0",
-          )}
-        >
-          <div className="mx-auto flex max-w-[1360px] items-center justify-between gap-4 rounded-full border border-[var(--border)] bg-[color-mix(in_srgb,var(--panel)_76%,transparent)] px-4 py-3 shadow-panel backdrop-blur-2xl">
-            <div className="flex flex-1 items-center justify-start gap-4">
-              <Button variant="ghost" className="rounded-full px-3 py-2" onClick={() => navigate(onBackToLibrary)}>
-                &lt; Library
-              </Button>
+        <AnimatePresence>
+          {headerVisible && (
+            <motion.div
+              initial={{ y: -20, opacity: 0 }}
+              animate={{ y: 0, z: 0, opacity: 1 }}
+              exit={{ y: -20, opacity: 0 }}
+              transition={READER_CHROME_TRANSITION}
+              className={cn(
+                "fixed left-4 right-4 top-4 z-40 mx-auto flex max-w-[1360px] items-center justify-between gap-4 rounded-full px-4 py-3 md:left-6 md:right-6 pointer-events-auto",
+                READER_CHROME_SURFACE_CLASS,
+              )}
+            >
+              <div className="flex flex-1 items-center justify-start gap-4">
+                <Button variant="ghost" className="rounded-full px-3 py-2" onClick={() => navigate(onBackToLibrary)}>
+                  &lt; Library
+                </Button>
 
-              <div className="inline-flex rounded-full border border-[var(--border)] bg-[var(--panel-soft)] p-1">
-                <ModePill active={interactionMode === "read"} onClick={() => onSettingsChange({ ...settings, interactionMode: "read" })}>
-                  Read
-                </ModePill>
-                <ModePill active={interactionMode !== "read"} onClick={() => onSettingsChange({ ...settings, interactionMode: "type" })}>
-                  Type
-                </ModePill>
+                <div className="inline-flex rounded-full border border-white/5 bg-white/[0.03] p-1">
+                  <ModePill active={interactionMode === "read"} onClick={() => onSettingsChange({ ...settings, interactionMode: "read" })}>
+                    Read
+                  </ModePill>
+                  <ModePill active={interactionMode !== "read"} onClick={() => onSettingsChange({ ...settings, interactionMode: "type" })}>
+                    Type
+                  </ModePill>
+                </div>
+
+                <button
+                  type="button"
+                  disabled={interactionMode === "read"}
+                  onClick={() => {
+                    if (interactionMode === "versus") {
+                      onSettingsChange({ ...settings, interactionMode: "type" });
+                    } else {
+                      setVersusConfigOpen(true);
+                    }
+                  }}
+                  className={cn(
+                    "rounded-full border border-[var(--border)] px-4 py-2 text-sm font-medium transition duration-300",
+                    interactionMode === "versus"
+                      ? "bg-[var(--accent)] text-black border-[var(--accent)] shadow-[0_0_15px_var(--accent-soft)]"
+                      : "bg-white/[0.03] text-[var(--text)] hover:border-[var(--accent)] hover:bg-white/[0.08]",
+                    interactionMode === "read" ? "opacity-30 cursor-not-allowed" : "cursor-pointer"
+                  )}
+                >
+                  Versus
+                </button>
               </div>
-
-              <button
-                type="button"
-                disabled={interactionMode === "read"}
-                onClick={() => {
-                  if (interactionMode === "versus") {
-                    onSettingsChange({ ...settings, interactionMode: "type" });
-                  } else {
-                    setVersusConfigOpen(true);
-                  }
-                }}
-                className={cn(
-                  "rounded-full border border-[var(--border)] px-4 py-2 text-sm font-medium transition duration-300",
-                  interactionMode === "versus"
-                    ? "bg-[var(--accent)] text-black border-[var(--accent)] shadow-[0_0_15px_var(--accent-soft)]"
-                    : "bg-[var(--panel-soft)] text-[var(--text)] hover:border-[var(--accent)]",
-                  interactionMode === "read" ? "opacity-30 cursor-not-allowed" : "cursor-pointer"
-                )}
-              >
-                Versus
-              </button>
-            </div>
 
             <div className="relative min-w-0 flex-1 text-center">
               <p className="truncate text-sm font-medium">{book.title}</p>
@@ -694,7 +721,7 @@ export function ReaderView({
               {chapterMenuOpen && (
                 <div
                   ref={chapterMenuRef}
-                  className="no-scrollbar absolute left-1/2 top-full z-50 mt-4 max-h-[360px] w-[280px] -translate-x-1/2 overflow-y-auto rounded-[28px] border border-[var(--border)] bg-[var(--panel)] p-2 shadow-panel backdrop-blur-2xl"
+                  className="no-scrollbar absolute left-1/2 top-full z-50 mt-4 max-h-[360px] w-[280px] -translate-x-1/2 overflow-y-auto rounded-[28px] border border-white/10 bg-white/[0.03] p-2 shadow-2xl backdrop-blur-3xl"
                 >
                   <div className="px-3 py-2 text-[10px] font-bold uppercase tracking-[0.2em] text-[var(--text-muted)]">
                     Chapters
@@ -758,7 +785,7 @@ export function ReaderView({
                 type="button"
                 onClick={() => void flushSession(true)}
                 disabled={!sessionStartAt}
-                className="rounded-full border border-[var(--border)] bg-[var(--panel-soft)] px-3 py-2 text-sm text-[var(--text)] transition hover:border-[var(--accent)] disabled:opacity-40"
+                className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-2 text-sm text-[var(--text)] transition duration-300 hover:border-[var(--accent)] hover:bg-white/[0.08] disabled:opacity-40"
               >
                 End Session
               </button>
@@ -773,7 +800,7 @@ export function ReaderView({
                 {menuOpen && (
                   <div 
                     ref={menuRef}
-                    className="absolute right-0 top-12 z-50 min-w-[240px] rounded-[24px] border border-[var(--border)] bg-[var(--panel)] p-2 shadow-panel backdrop-blur-xl"
+                    className="absolute right-0 top-12 z-50 min-w-[240px] rounded-[24px] border border-white/10 bg-white/[0.03] p-2 shadow-2xl backdrop-blur-3xl"
                   >
                     <MenuButton
                       onClick={() => {
@@ -814,40 +841,49 @@ export function ReaderView({
                 )}
               </div>
             </div>
-          </div>
-        </div>
+          </motion.div>
+        )}
+        </AnimatePresence>
 
-        <div
-          className={cn(
-            "fixed left-4 top-1/2 z-50 -translate-y-1/2 transition duration-500 md:left-8",
-            headerVisible && readerMode === "spread" ? "translate-x-0 opacity-100" : "-translate-x-8 pointer-events-none opacity-0",
-          )}
-        >
-          <button
-            type="button"
-            onClick={() => setPageIndex((current) => Math.max(0, current - 2))}
-            disabled={pageIndex === 0}
-            className="group flex h-14 w-14 items-center justify-center rounded-full border border-[var(--border)] bg-[color-mix(in_srgb,var(--panel)_76%,transparent)] text-[var(--text)] shadow-panel backdrop-blur-2xl transition hover:border-[var(--accent)] hover:text-[var(--accent)] disabled:opacity-30"
-          >
-            <span className="text-2xl transition group-hover:-translate-x-0.5">‹</span>
-          </button>
-        </div>
+        <AnimatePresence>
+          {headerVisible && readerMode === "spread" && (
+            <>
+              <motion.button
+                type="button"
+                initial={{ x: -20, y: "-50%", opacity: 0 }}
+                animate={{ x: 0, y: "-50%", z: 0, opacity: pageIndex === 0 ? 0.2 : 1 }}
+                exit={{ x: -20, y: "-50%", opacity: 0 }}
+                transition={READER_CHROME_TRANSITION}
+                onClick={() => setPageIndex((current) => Math.max(0, current - 2))}
+                disabled={pageIndex === 0}
+                className={cn(
+                  "fixed left-4 top-1/2 z-50 md:left-8 group h-14 w-14",
+                  READER_CHROME_SURFACE_CLASS,
+                  READER_CHROME_BUTTON_CLASS,
+                )}
+              >
+                <span className="text-2xl transition group-hover:-translate-x-0.5">‹</span>
+              </motion.button>
 
-        <div
-          className={cn(
-            "fixed right-4 top-1/2 z-50 -translate-y-1/2 transition duration-500 md:right-8",
-            headerVisible && readerMode === "spread" ? "translate-x-0 opacity-100" : "pointer-events-none translate-x-8 opacity-0",
+              <motion.button
+                type="button"
+                initial={{ x: 20, y: "-50%", opacity: 0 }}
+                animate={{ x: 0, y: "-50%", z: 0, opacity: pageIndex >= pages.length - 2 ? 0.2 : 1 }}
+                exit={{ x: 20, y: "-50%", opacity: 0 }}
+                transition={READER_CHROME_TRANSITION}
+                onClick={() => setPageIndex((current) => Math.min(Math.max(pages.length - 2, 0), current + 2))}
+                disabled={pageIndex >= pages.length - 2}
+                className={cn(
+                  "fixed right-4 top-1/2 z-50 md:right-8 group h-14 w-14",
+                  READER_CHROME_SURFACE_CLASS,
+                  READER_CHROME_BUTTON_CLASS,
+                )}
+              >
+                <span className="text-2xl transition group-hover:translate-x-0.5">›</span>
+              </motion.button>
+            </>
           )}
-        >
-          <button
-            type="button"
-            onClick={() => setPageIndex((current) => Math.min(Math.max(pages.length - 2, 0), current + 2))}
-            disabled={pageIndex >= pages.length - 2}
-            className="group flex h-14 w-14 items-center justify-center rounded-full border border-[var(--border)] bg-[color-mix(in_srgb,var(--panel)_76%,transparent)] text-[var(--text)] shadow-panel backdrop-blur-2xl transition hover:border-[var(--accent)] hover:text-[var(--accent)] disabled:opacity-30"
-          >
-            <span className="text-2xl transition group-hover:translate-x-0.5">›</span>
-          </button>
-        </div>
+        </AnimatePresence>
 
         <div
           ref={containerRef}
@@ -923,44 +959,72 @@ export function ReaderView({
           )}
         </div>
 
-        <div
-          className={cn(
-            "pointer-events-none fixed inset-x-0 bottom-6 z-40 flex items-end justify-between px-4 transition-opacity duration-300 md:px-10",
-            headerVisible ? "opacity-100" : "opacity-40",
+        <AnimatePresence>
+          {headerVisible && (
+            <motion.div
+              initial={{ y: 20, opacity: 0 }}
+              animate={{ y: 0, z: 0, opacity: 1 }}
+              exit={{ y: 20, opacity: 0 }}
+              transition={READER_CHROME_TRANSITION}
+              className="pointer-events-none fixed inset-x-0 bottom-6 z-40 px-4 md:px-10"
+            >
+              {/* Stack the tracker above the chapter buttons on narrow widths so the floating chrome settles into the same layout it animates toward. */}
+              <div className="mx-auto grid max-w-[1360px] grid-cols-2 items-center gap-3 sm:grid-cols-[auto_minmax(0,1fr)_auto] sm:gap-6">
+                <motion.div
+                  initial={false}
+                  animate={{ opacity: 1 }}
+                  transition={READER_CHROME_TRANSITION}
+                  className={cn(
+                    "pointer-events-auto relative col-span-2 justify-self-center overflow-hidden rounded-full px-5 py-2.5 text-sm font-medium text-[var(--text)] sm:col-span-1 sm:col-start-2 sm:row-start-1 sm:px-6",
+                    READER_CHROME_SURFACE_CLASS,
+                  )}
+                >
+                  <div className="truncate text-center">
+                    {Math.round(metrics.wpm)} WPM • {formatPercent(metrics.accuracy)} Acc
+                  </div>
+                  <div className="absolute inset-x-0 bottom-0 h-[2px] overflow-hidden rounded-b-full bg-white/5">
+                    <div
+                      className="h-full bg-[var(--accent)] transition-[width] duration-300"
+                      style={{ width: `${metrics.chapterProgress * 100}%` }}
+                    />
+                  </div>
+                </motion.div>
+
+                <motion.button
+                  type="button"
+                  initial={false}
+                  animate={{ opacity: chapterIndex === 0 ? 0.5 : 1 }}
+                  transition={READER_CHROME_TRANSITION}
+                  className={cn(
+                    "justify-self-start whitespace-nowrap px-5 py-2 text-sm sm:col-start-1 sm:row-start-1 sm:px-6",
+                    READER_CHROME_SURFACE_CLASS,
+                    READER_CHROME_BUTTON_CLASS,
+                  )}
+                  onClick={() => handleChapterJump(Math.max(chapterIndex - 1, 0))}
+                  disabled={chapterIndex === 0}
+                >
+                  Previous Chapter
+                </motion.button>
+
+                <motion.button
+                  type="button"
+                  initial={false}
+                  animate={{ opacity: chapterIndex >= book.chapters.length - 1 ? 0.5 : 1 }}
+                  transition={READER_CHROME_TRANSITION}
+                  className={cn(
+                    "justify-self-end whitespace-nowrap px-5 py-2 text-sm sm:col-start-3 sm:row-start-1 sm:px-6",
+                    READER_CHROME_SURFACE_CLASS,
+                    READER_CHROME_BUTTON_CLASS,
+                  )}
+                  onClick={() => handleChapterJump(Math.min(chapterIndex + 1, book.chapters.length - 1))}
+                  disabled={chapterIndex >= book.chapters.length - 1}
+                >
+                  Next Chapter
+                </motion.button>
+              </div>
+            </motion.div>
           )}
-        >
-          <div className="pointer-events-auto">
-            <Button
-              variant="ghost"
-              className="bg-[var(--panel)]/50 backdrop-blur-lg"
-              onClick={() => handleChapterJump(Math.max(chapterIndex - 1, 0))}
-              disabled={chapterIndex === 0}
-            >
-              Previous Chapter
-            </Button>
-          </div>
-
-          <div className="relative pointer-events-auto overflow-hidden rounded-full border border-[var(--border)] bg-[color-mix(in_srgb,var(--panel)_65%,transparent)] px-6 py-2.5 text-sm font-medium text-[var(--text)] shadow-panel backdrop-blur-xl">
-            {Math.round(metrics.wpm)} WPM • {formatPercent(metrics.accuracy)} Acc
-            <div className="absolute inset-x-0 bottom-0 h-[2px] bg-white/5">
-              <div
-                className="h-full bg-[var(--accent)] transition-[width] duration-300"
-                style={{ width: `${metrics.chapterProgress * 100}%` }}
-              />
-            </div>
-          </div>
-
-          <div className="pointer-events-auto">
-            <Button
-              variant="ghost"
-              className="bg-[var(--panel)]/50 backdrop-blur-lg"
-              onClick={() => handleChapterJump(Math.min(chapterIndex + 1, book.chapters.length - 1))}
-              disabled={chapterIndex >= book.chapters.length - 1}
-            >
-              Next Chapter
-            </Button>
-          </div>
-        </div>
+        </AnimatePresence>
       </div>
 
       <SessionSummaryModal

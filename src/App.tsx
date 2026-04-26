@@ -179,7 +179,7 @@ export default function App() {
       startTransition(() => {
         setCurrentBook(book as ParsedBook);
         setSelectedBookId(book.id);
-        const resumeChapter = interactionMode === "read" ? book.readChapter : book.currentChapter;
+        const resumeChapter = book.currentChapter >= book.readChapter ? book.currentChapter : book.readChapter;
         setSelectedChapterIndex(resumeChapter);
       });
     } catch (caught) {
