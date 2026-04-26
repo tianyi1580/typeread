@@ -305,7 +305,7 @@ function SaturationValuePicker({
           left: `${s}%`,
           bottom: `${v}%`,
         }}
-        transition={{ type: "spring", damping: 25, stiffness: 350, mass: 0.5 }}
+        transition={{ duration: 0 }}
       >
         <div className="h-full w-full rounded-full border border-black/10" />
       </motion.div>
@@ -360,7 +360,7 @@ function HueSlider({ h, onChange }: { h: number; onChange: (h: number) => void }
       <motion.div
         className="absolute top-1/2 h-8 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full border-[3px] border-white bg-white shadow-xl pointer-events-none"
         animate={{ left: `${((h - 1) / 359) * 100}%` }}
-        transition={{ type: "spring", damping: 25, stiffness: 350, mass: 0.5 }}
+        transition={{ duration: 0 }}
       >
         <div className="mx-auto mt-[6px] h-3 w-[2px] rounded-full bg-black/10" />
       </motion.div>
