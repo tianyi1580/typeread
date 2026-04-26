@@ -151,7 +151,7 @@ impl Database {
                 total_xp INTEGER NOT NULL DEFAULT 0,
                 streak_days INTEGER NOT NULL DEFAULT 0,
                 last_active_day TEXT,
-                rested_words_available INTEGER NOT NULL DEFAULT 500
+                rested_words_available INTEGER NOT NULL DEFAULT 100
             );
 
             CREATE TABLE IF NOT EXISTS achievements (
@@ -237,7 +237,7 @@ impl Database {
         conn.execute(
             r#"
             INSERT INTO profile_progress (id, total_xp, streak_days, last_active_day, rested_words_available)
-            VALUES (1, 0, 0, NULL, 500)
+            VALUES (1, 0, 0, NULL, 100)
             ON CONFLICT(id) DO NOTHING;
             "#,
             [],
@@ -377,7 +377,7 @@ impl Database {
         ensure_column(conn, "profile_progress", "total_xp", "INTEGER NOT NULL DEFAULT 0")?;
         ensure_column(conn, "profile_progress", "streak_days", "INTEGER NOT NULL DEFAULT 0")?;
         ensure_column(conn, "profile_progress", "last_active_day", "TEXT")?;
-        ensure_column(conn, "profile_progress", "rested_words_available", "INTEGER NOT NULL DEFAULT 500")?;
+        ensure_column(conn, "profile_progress", "rested_words_available", "INTEGER NOT NULL DEFAULT 100")?;
 
         Ok(())
     }
@@ -561,7 +561,7 @@ impl Database {
         conn.execute("DELETE FROM session_analytics", [])?;
         conn.execute("DELETE FROM typing_sessions", [])?;
         conn.execute(
-            "UPDATE profile_progress SET total_xp = 0, streak_days = 0, last_active_day = NULL, rested_words_available = 500 WHERE id = 1",
+            "UPDATE profile_progress SET total_xp = 0, streak_days = 0, last_active_day = NULL, rested_words_available = 100 WHERE id = 1",
             [],
         )?;
         conn.execute("DELETE FROM achievements", [])?;
@@ -575,7 +575,7 @@ impl Database {
         conn.execute("DELETE FROM typing_sessions", [])?;
         conn.execute("DELETE FROM books", [])?;
         conn.execute(
-            "UPDATE profile_progress SET total_xp = 0, streak_days = 0, last_active_day = NULL, rested_words_available = 500 WHERE id = 1",
+            "UPDATE profile_progress SET total_xp = 0, streak_days = 0, last_active_day = NULL, rested_words_available = 100 WHERE id = 1",
             [],
         )?;
         conn.execute("DELETE FROM achievements", [])?;
@@ -616,7 +616,7 @@ impl Database {
         let rested_words_available = if same_day {
             before.rested_words_available
         } else {
-            (streak_days.max(1) * 500).max(500)
+            100
         };
 
         let accuracy_multiplier = accuracy_multiplier(session.accuracy);

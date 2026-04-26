@@ -1,4 +1,4 @@
-import { type MouseEvent, type ReactNode, useState } from "react";
+import { type MouseEvent, type ReactNode, useEffect, useRef, useState } from "react";
 import { Button } from "./ui/button";
 import { Card } from "./ui/card";
 import { api } from "../lib/tauri";
@@ -37,6 +37,28 @@ export function LibraryView({
   const [menuBookId, setMenuBookId] = useState<number | null>(null);
   const [editingBook, setEditingBook] = useState<BookRecord | null>(null);
   const [draftTitle, setDraftTitle] = useState("");
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (menuBookId === null) {
+      return;
+    }
+
+    const handleClickOutside = (event: globalThis.MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setMenuBookId(null);
+      }
+    };
+
+    const timeout = setTimeout(() => {
+      document.addEventListener("click", handleClickOutside);
+    }, 0);
+
+    return () => {
+      clearTimeout(timeout);
+      document.removeEventListener("click", handleClickOutside);
+    };
+  }, [menuBookId]);
 
 
   const emptyState = books.length === 0 && !searchQuery;
@@ -138,17 +160,10 @@ export function LibraryView({
                         ...
                       </button>
                       {menuBookId === book.id && (
-                        <>
-                          <button
-                            type="button"
-                            aria-label="Close book actions"
-                            className="fixed inset-0"
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              setMenuBookId(null);
-                            }}
-                          />
-                          <div className="absolute right-0 top-12 z-20 min-w-[180px] rounded-[22px] border border-[var(--border)] bg-[var(--panel)] p-2 shadow-panel backdrop-blur-2xl">
+                        <div 
+                          ref={menuRef}
+                          className="absolute right-0 top-12 z-20 min-w-[180px] rounded-[22px] border border-[var(--border)] bg-[var(--panel)] p-2 shadow-panel backdrop-blur-2xl"
+                        >
                             <BookActionButton
                               onClick={async (event) => {
                                 event.stopPropagation();
@@ -179,8 +194,7 @@ export function LibraryView({
                               Delete
                             </BookActionButton>
                           </div>
-                        </>
-                      )}
+                        )}
                     </div>
                   </div>
 

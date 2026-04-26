@@ -1,4 +1,4 @@
-import { startTransition, type ReactNode, useEffect, useMemo, useState } from "react";
+import { startTransition, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { AchievementsView } from "./components/AchievementsView";
 import { AnalyticsView } from "./components/AnalyticsView";
@@ -546,6 +546,29 @@ function WindowShell({
   onOpenSettings,
   onBackToLibrary,
 }: WindowShellProps) {
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!menuOpen) {
+      return;
+    }
+
+    const handleClickOutside = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        onCloseMenu();
+      }
+    };
+
+    const timeout = setTimeout(() => {
+      document.addEventListener("click", handleClickOutside);
+    }, 0);
+
+    return () => {
+      clearTimeout(timeout);
+      document.removeEventListener("click", handleClickOutside);
+    };
+  }, [menuOpen, onCloseMenu]);
+
   const labelMap: Record<Exclude<ActiveTab, "library">, string> = {
     reader: "Reader",
     analytics: "Profile & Analytics",
@@ -595,16 +618,16 @@ function WindowShell({
             </button>
 
             {menuOpen && (
-              <>
-                <button type="button" aria-label="Close menu" className="fixed inset-0" onClick={onCloseMenu} />
-                <div className="absolute right-0 top-12 z-30 min-w-[240px] rounded-[24px] border border-[var(--border)] bg-[var(--panel)] p-2 shadow-panel backdrop-blur-xl">
-                  <MenuButton onClick={() => onOpenTab("library")}>Library</MenuButton>
-                  <MenuButton onClick={() => onOpenTab("analytics")}>Profile & Analytics</MenuButton>
-                  <MenuButton onClick={() => onOpenTab("achievements")}>Achievements</MenuButton>
-                  <MenuButton onClick={() => onOpenTab("type-test")}>Type Test</MenuButton>
-                  <MenuButton onClick={onOpenSettings}>Settings</MenuButton>
-                </div>
-              </>
+              <div 
+                ref={menuRef}
+                className="absolute right-0 top-12 z-30 min-w-[240px] rounded-[24px] border border-[var(--border)] bg-[var(--panel)] p-2 shadow-panel backdrop-blur-xl"
+              >
+                <MenuButton onClick={() => onOpenTab("library")}>Library</MenuButton>
+                <MenuButton onClick={() => onOpenTab("analytics")}>Profile & Analytics</MenuButton>
+                <MenuButton onClick={() => onOpenTab("achievements")}>Achievements</MenuButton>
+                <MenuButton onClick={() => onOpenTab("type-test")}>Type Test</MenuButton>
+                <MenuButton onClick={onOpenSettings}>Settings</MenuButton>
+              </div>
             )}
           </div>
         </div>

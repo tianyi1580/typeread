@@ -136,6 +136,7 @@ export function ReaderView({
   });
 
   const containerRef = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
   const [availableHeight, setAvailableHeight] = useState(0);
   const [availableWidth, setAvailableWidth] = useState(0);
 
@@ -420,6 +421,28 @@ export function ReaderView({
   }, [readerMode]);
 
   useEffect(() => {
+    if (!menuOpen) {
+      return;
+    }
+
+    const handleClickOutside = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        onCloseMenu();
+      }
+    };
+
+    // Use a small timeout to avoid immediate closure if the click that opened the menu bubbles up
+    const timeout = setTimeout(() => {
+      document.addEventListener("click", handleClickOutside);
+    }, 0);
+
+    return () => {
+      clearTimeout(timeout);
+      document.removeEventListener("click", handleClickOutside);
+    };
+  }, [menuOpen, onCloseMenu]);
+
+  useEffect(() => {
     // Only auto-snap the page if the user is in typing mode or versus mode.
     // In read mode, we let the user navigate freely with arrows/buttons.
     if (interactionMode === "read") {
@@ -587,54 +610,46 @@ export function ReaderView({
                   ≡
                 </button>
                 {menuOpen && (
-                  <>
-                    <button
-                      type="button"
-                      aria-label="Close menu"
-                      className="fixed inset-0 z-40 cursor-default"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onCloseMenu();
+                  <div 
+                    ref={menuRef}
+                    className="absolute right-0 top-12 z-50 min-w-[240px] rounded-[24px] border border-[var(--border)] bg-[var(--panel)] p-2 shadow-panel backdrop-blur-xl"
+                  >
+                    <MenuButton
+                      onClick={() => {
+                        onOpenTab("library");
                       }}
-                    />
-                    <div className="absolute right-0 top-12 z-50 min-w-[240px] rounded-[24px] border border-[var(--border)] bg-[var(--panel)] p-2 shadow-panel backdrop-blur-xl">
-                      <MenuButton
-                        onClick={() => {
-                          onOpenTab("library");
-                        }}
-                      >
-                        Library
-                      </MenuButton>
-                      <MenuButton
-                        onClick={() => {
-                          onOpenTab("analytics");
-                        }}
-                      >
-                        Profile & Analytics
-                      </MenuButton>
-                      <MenuButton
-                        onClick={() => {
-                          onOpenTab("achievements");
-                        }}
-                      >
-                        Achievements
-                      </MenuButton>
-                      <MenuButton
-                        onClick={() => {
-                          onOpenTab("type-test");
-                        }}
-                      >
-                        Type Test
-                      </MenuButton>
-                      <MenuButton
-                        onClick={() => {
-                          onOpenSettings();
-                        }}
-                      >
-                        Settings
-                      </MenuButton>
-                    </div>
-                  </>
+                    >
+                      Library
+                    </MenuButton>
+                    <MenuButton
+                      onClick={() => {
+                        onOpenTab("analytics");
+                      }}
+                    >
+                      Profile & Analytics
+                    </MenuButton>
+                    <MenuButton
+                      onClick={() => {
+                        onOpenTab("achievements");
+                      }}
+                    >
+                      Achievements
+                    </MenuButton>
+                    <MenuButton
+                      onClick={() => {
+                        onOpenTab("type-test");
+                      }}
+                    >
+                      Type Test
+                    </MenuButton>
+                    <MenuButton
+                      onClick={() => {
+                        onOpenSettings();
+                      }}
+                    >
+                      Settings
+                    </MenuButton>
+                  </div>
                 )}
               </div>
             </div>
