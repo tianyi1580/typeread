@@ -15,7 +15,13 @@ interface TypingInput {
 export const DEFAULT_IGNORED_CHARACTERS = `"\"", "'", "“", "”", "‘", "’"`;
 
 export function normalizeTypingChar(input: string) {
-  return input.replace(/[“”]/g, "\"").replace(/[‘’]/g, "'").replace(/—/g, "--").replace(/\u00a0/g, " ");
+  return input
+    .replace(/[“”]/g, "\"")
+    .replace(/[‘’]/g, "'")
+    .replace(/—/g, "--")
+    .replace(/–/g, "-")
+    .replace(/…/g, "...")
+    .replace(/\u00a0/g, " ");
 }
 
 export function parseIgnoredCharacterSet(spec: string) {
@@ -75,7 +81,7 @@ function charIsIgnored(char: string, set?: ReadonlySet<string>) {
 }
 
 export function tokenizeText(text: string): TokenizedWord[] {
-  const normalizedText = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+  const normalizedText = normalizeTypingChar(text.replace(/\r\n/g, "\n").replace(/\r/g, "\n")).normalize("NFKC");
   const tokens: TokenizedWord[] = [];
   const regex = /(\S+)(\s*)/g;
   let match: RegExpExecArray | null;

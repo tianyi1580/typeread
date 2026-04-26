@@ -1,3 +1,3 @@
-settings
-typing in settings doesnt work if on a typing mode
 test out level gated things
+untypeable characters
+what constitutes a session
