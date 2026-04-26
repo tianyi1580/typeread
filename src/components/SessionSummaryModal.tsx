@@ -72,7 +72,7 @@ export function SessionSummaryModal({ summary, onClose }: SessionSummaryModalPro
             </h2>
           </div>
 
-          <div className={cn("grid gap-4", isTypeTest ? "md:grid-cols-3" : "md:grid-cols-4 lg:grid-cols-6")}>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3">
             <SummaryMetric label="Speed" value={`${(summary.sessionPoint?.wpm || 0).toFixed(1)} WPM`} />
             <SummaryMetric label="Accuracy" value={formatPercent(summary.sessionPoint?.accuracy || 0)} />
             <SummaryMetric label="Words" value={(summary.sessionPoint?.wordsTyped || 0).toLocaleString()} />
@@ -216,7 +216,7 @@ function SummaryMetric({
     <InfoTooltip content={description} trigger="hover" maxWidth="240px" className="w-full">
       <div className="group relative w-full cursor-help overflow-hidden rounded-[24px] border border-[var(--border)] bg-white/5 px-6 py-6 transition-all hover:border-[var(--accent)] hover:bg-white/10">
         <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-[var(--text-muted)] group-hover:text-[var(--accent)] transition-colors">{label}</p>
-        <p className="mt-3 text-2xl font-bold tracking-tight truncate">{value}</p>
+        <p className="mt-3 text-2xl font-bold tracking-tight">{value}</p>
       </div>
     </InfoTooltip>
   );
