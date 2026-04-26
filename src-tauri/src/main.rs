@@ -3,13 +3,13 @@ mod db;
 mod models;
 mod parser;
 
+use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
-use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
-use anyhow::{Context, Result};
 use analytics::{FinalizedAnalytics, LiveSessionAnalytics};
+use anyhow::{Context, Result};
 use db::Database;
 use models::{
     AnalyticsSummary, AppSettings, DeepAnalytics, KeyboardLayoutDefinition, ParsedBook,
@@ -37,7 +37,10 @@ fn import_books(state: tauri::State<'_, AppState>) -> Result<Vec<models::BookRec
 }
 
 #[tauri::command]
-fn import_book_paths(paths: Vec<String>, state: tauri::State<'_, AppState>) -> Result<Vec<models::BookRecord>, String> {
+fn import_book_paths(
+    paths: Vec<String>,
+    state: tauri::State<'_, AppState>,
+) -> Result<Vec<models::BookRecord>, String> {
     let resolved = paths.into_iter().map(PathBuf::from).collect::<Vec<_>>();
     import_book_files(resolved, &state)
 }
@@ -54,7 +57,8 @@ fn load_book(book_id: i64, state: tauri::State<'_, AppState>) -> Result<ParsedBo
         .get_book(book_id)
         .map_err(to_message)?
         .ok_or_else(|| "Book not found.".to_string())?;
-    let parsed = parse_file(std::path::Path::new(&record.path), &state.covers_dir).map_err(to_message)?;
+    let parsed =
+        parse_file(std::path::Path::new(&record.path), &state.covers_dir).map_err(to_message)?;
     Ok(ParsedBook {
         record,
         chapters: parsed.chapters,
@@ -62,7 +66,12 @@ fn load_book(book_id: i64, state: tauri::State<'_, AppState>) -> Result<ParsedBo
 }
 
 #[tauri::command]
-fn update_progress(book_id: i64, current_index: i64, current_chapter: i64, state: tauri::State<'_, AppState>) -> Result<(), String> {
+fn update_progress(
+    book_id: i64,
+    current_index: i64,
+    current_chapter: i64,
+    state: tauri::State<'_, AppState>,
+) -> Result<(), String> {
     state
         .db
         .update_progress(book_id, current_index, current_chapter)
@@ -70,7 +79,12 @@ fn update_progress(book_id: i64, current_index: i64, current_chapter: i64, state
 }
 
 #[tauri::command]
-fn update_read_progress(book_id: i64, read_index: i64, read_chapter: i64, state: tauri::State<'_, AppState>) -> Result<(), String> {
+fn update_read_progress(
+    book_id: i64,
+    read_index: i64,
+    read_chapter: i64,
+    state: tauri::State<'_, AppState>,
+) -> Result<(), String> {
     state
         .db
         .update_read_progress(book_id, read_index, read_chapter)
@@ -78,7 +92,11 @@ fn update_read_progress(book_id: i64, read_index: i64, read_chapter: i64, state:
 }
 
 #[tauri::command]
-fn rename_book(book_id: i64, title: String, state: tauri::State<'_, AppState>) -> Result<(), String> {
+fn rename_book(
+    book_id: i64,
+    title: String,
+    state: tauri::State<'_, AppState>,
+) -> Result<(), String> {
     if title.trim().is_empty() {
         return Err("Book title cannot be empty.".to_string());
     }
@@ -86,8 +104,15 @@ fn rename_book(book_id: i64, title: String, state: tauri::State<'_, AppState>) -
 }
 
 #[tauri::command]
-fn set_book_pinned(book_id: i64, pinned: bool, state: tauri::State<'_, AppState>) -> Result<(), String> {
-    state.db.set_book_pinned(book_id, pinned).map_err(to_message)
+fn set_book_pinned(
+    book_id: i64,
+    pinned: bool,
+    state: tauri::State<'_, AppState>,
+) -> Result<(), String> {
+    state
+        .db
+        .set_book_pinned(book_id, pinned)
+        .map_err(to_message)
 }
 
 #[tauri::command]
@@ -96,7 +121,10 @@ fn delete_book(book_id: i64, state: tauri::State<'_, AppState>) -> Result<(), St
 }
 
 #[tauri::command]
-fn save_session(session: TypingSessionInput, state: tauri::State<'_, AppState>) -> Result<(), String> {
+fn save_session(
+    session: TypingSessionInput,
+    state: tauri::State<'_, AppState>,
+) -> Result<(), String> {
     let fallback_context = SessionContext {
         book_id: session.book_id,
         source: session.source.clone(),
@@ -144,35 +172,7 @@ fn process_keystroke_batch(
     payload: ProcessKeystrokeBatchInput,
     state: tauri::State<'_, AppState>,
 ) -> Result<ProcessKeystrokeBatchResult, String> {
-    let mut sessions = state
-        .live_sessions
-        .lock()
-        .map_err(|_| "failed to lock live analytics sessions".to_string())?;
-
-    let mut live = sessions
-        .remove(&payload.session_key)
-        .unwrap_or_else(|| LiveSessionAnalytics::new(payload.context.clone()));
-
-    let buffered_events = live.push_events(&payload.events);
-
-    if let Some(finalize_session) = payload.finalize_session {
-        drop(sessions);
-        let finalized = live.finalize(&finalize_session);
-        let saved = state
-            .db
-            .finalize_session(&finalize_session, &payload.context, &finalized)
-            .map_err(to_message)?;
-        return Ok(ProcessKeystrokeBatchResult {
-            buffered_events,
-            saved_session: Some(saved),
-        });
-    }
-
-    sessions.insert(payload.session_key, live);
-    Ok(ProcessKeystrokeBatchResult {
-        buffered_events,
-        saved_session: None,
-    })
+    process_keystroke_batch_inner(&state.live_sessions, &state.db, payload)
 }
 
 #[tauri::command]
@@ -181,7 +181,10 @@ fn get_settings(state: tauri::State<'_, AppState>) -> Result<AppSettings, String
 }
 
 #[tauri::command]
-fn save_settings(settings: AppSettings, state: tauri::State<'_, AppState>) -> Result<AppSettings, String> {
+fn save_settings(
+    settings: AppSettings,
+    state: tauri::State<'_, AppState>,
+) -> Result<AppSettings, String> {
     state.db.save_settings(&settings).map_err(to_message)
 }
 
@@ -253,14 +256,23 @@ fn to_message(error: anyhow::Error) -> String {
     message
 }
 
-fn import_book_files(paths: Vec<PathBuf>, state: &AppState) -> Result<Vec<models::BookRecord>, String> {
+fn import_book_files(
+    paths: Vec<PathBuf>,
+    state: &AppState,
+) -> Result<Vec<models::BookRecord>, String> {
     let existing = state.db.list_books().map_err(to_message)?;
     if existing.len() >= 10 {
-        return Err("The library is capped at 10 active books. Remove something before importing more.".to_string());
+        return Err(
+            "The library is capped at 10 active books. Remove something before importing more."
+                .to_string(),
+        );
     }
 
     let mut imported = Vec::new();
-    for path in paths.into_iter().take(10usize.saturating_sub(existing.len())) {
+    for path in paths
+        .into_iter()
+        .take(10usize.saturating_sub(existing.len()))
+    {
         let parsed = parse_file(&path, &state.covers_dir).map_err(to_message)?;
         let record = state
             .db
@@ -277,6 +289,50 @@ fn import_book_files(paths: Vec<PathBuf>, state: &AppState) -> Result<Vec<models
     }
 
     Ok(imported)
+}
+
+fn process_keystroke_batch_inner(
+    live_sessions: &Mutex<HashMap<String, LiveSessionAnalytics>>,
+    db: &Database,
+    payload: ProcessKeystrokeBatchInput,
+) -> Result<ProcessKeystrokeBatchResult, String> {
+    let mut sessions = live_sessions
+        .lock()
+        .map_err(|_| "failed to lock live analytics sessions".to_string())?;
+
+    let mut live = sessions
+        .remove(&payload.session_key)
+        .unwrap_or_else(|| LiveSessionAnalytics::new(payload.context.clone()));
+
+    let buffered_events = live.push_events(&payload.events);
+
+    if let Some(finalize_session) = payload.finalize_session {
+        drop(sessions);
+        // Keep the session in memory on failure so buffered analytics are not
+        // discarded by a transient database error during finalization.
+        let finalized = live.clone().finalize(&finalize_session);
+        let saved = match db.finalize_session(&finalize_session, &payload.context, &finalized) {
+            Ok(saved) => saved,
+            Err(error) => {
+                let mut sessions = live_sessions
+                    .lock()
+                    .map_err(|_| "failed to lock live analytics sessions".to_string())?;
+                sessions.insert(payload.session_key, live);
+                return Err(to_message(error));
+            }
+        };
+
+        return Ok(ProcessKeystrokeBatchResult {
+            buffered_events,
+            saved_session: Some(saved),
+        });
+    }
+
+    sessions.insert(payload.session_key, live);
+    Ok(ProcessKeystrokeBatchResult {
+        buffered_events,
+        saved_session: None,
+    })
 }
 
 fn main() {
@@ -309,4 +365,97 @@ fn main() {
         ])
         .run(tauri::generate_context!())
         .expect("failed to run application");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use anyhow::Context;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    fn test_db_path(label: &str) -> Result<PathBuf> {
+        let timestamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .context("system clock is before unix epoch")?
+            .as_nanos();
+        let dir = std::env::temp_dir().join(format!("typeread-main-{label}-{timestamp}"));
+        fs::create_dir_all(&dir).with_context(|| format!("failed to create {}", dir.display()))?;
+        Ok(dir.join("typeread.sqlite"))
+    }
+
+    fn test_context() -> SessionContext {
+        SessionContext {
+            book_id: Some(1),
+            source: "book".to_string(),
+            source_label: "Test Book".to_string(),
+            keyboard_layout: KeyboardLayoutDefinition {
+                id: "qwerty-us".to_string(),
+                name: "QWERTY (US)".to_string(),
+                rows: vec![
+                    "1234567890-=".to_string(),
+                    "qwertyuiop[]\\".to_string(),
+                    "asdfghjkl;'".to_string(),
+                    "zxcvbnm,./".to_string(),
+                ],
+            },
+        }
+    }
+
+    fn test_payload() -> ProcessKeystrokeBatchInput {
+        ProcessKeystrokeBatchInput {
+            session_key: "session-key".to_string(),
+            context: test_context(),
+            events: vec![models::KeystrokeEvent {
+                at: 1_000,
+                r#type: "char".to_string(),
+                char: Some("a".to_string()),
+                expected: Some("a".to_string()),
+                is_correct: Some(true),
+                layout: Some("qwerty-us".to_string()),
+                cursor_index: Some(0),
+                skipped_word: Some(false),
+                correct_chars: Some(1),
+                typed_chars: Some(1),
+                errors: Some(0),
+            }],
+            finalize_session: Some(TypingSessionInput {
+                book_id: Some(1),
+                source: "book".to_string(),
+                source_label: "Test Book".to_string(),
+                start_time: "2026-04-26T12:00:00Z".to_string(),
+                end_time: "2026-04-26T12:00:10Z".to_string(),
+                words_typed: 10,
+                chars_typed: 50,
+                errors: 0,
+                wpm: 60.0,
+                accuracy: 100.0,
+                duration_seconds: 10,
+            }),
+        }
+    }
+
+    #[test]
+    fn failed_session_finalization_keeps_live_session_state() -> Result<()> {
+        let db_path = test_db_path("finalize-failure")?;
+        let db = Database::new(&db_path)?;
+        let conn = db.connection()?;
+        conn.execute("DROP TABLE profile_progress", [])
+            .context("failed to break database for test")?;
+
+        let live_sessions = Mutex::new(HashMap::new());
+        let result = process_keystroke_batch_inner(&live_sessions, &db, test_payload());
+        assert!(result.is_err());
+        assert!(live_sessions
+            .lock()
+            .expect("live sessions lock")
+            .contains_key("session-key"));
+
+        let _ = fs::remove_file(&db_path);
+        let _ = fs::remove_dir_all(
+            db_path
+                .parent()
+                .unwrap_or_else(|| std::path::Path::new(".")),
+        );
+        Ok(())
+    }
 }

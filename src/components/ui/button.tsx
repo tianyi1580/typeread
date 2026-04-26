@@ -5,9 +5,10 @@ export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElemen
   variant?: "primary" | "secondary" | "ghost" | "danger";
 }
 
-export function Button({ className, variant = "primary", ...props }: ButtonProps) {
+export function Button({ className, type = "button", variant = "primary", ...props }: ButtonProps) {
   return (
     <button
+      type={type}
       className={cn(
         "inline-flex items-center justify-center rounded-full px-4 py-2 text-sm font-medium transition duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-50",
         variant === "primary" && "bg-[var(--accent)] text-black shadow-[0_14px_40px_var(--shadow)] hover:brightness-105",

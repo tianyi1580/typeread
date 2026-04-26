@@ -71,6 +71,7 @@ export function PracticeView({
   const botPausedRef = useRef(false);
   const botCursorRef = useRef(botCursorIndex);
   const statusRef = useRef(status);
+  const runVersionRef = useRef(0);
 
   snapshotRef.current = snapshot;
   eventsRef.current = events;
@@ -81,6 +82,7 @@ export function PracticeView({
 
   const ignoredCharacterSet = useMemo(() => parseIgnoredCharacterSet(settings.ignoredCharacters), [settings.ignoredCharacters]);
   const keyboardLayout = useMemo(() => resolveKeyboardLayout(settings), [settings]);
+  const compareOptions = useMemo(() => ({ ignoredCharacters: ignoredCharacterSet }), [ignoredCharacterSet]);
   const label =
     mode === "type-test" ? `Type Test · ${settings.typeTestDuration}s` : `Versus · ${settings.versusBotCpm} CPM`;
 
@@ -97,6 +99,8 @@ export function PracticeView({
   });
 
   useEffect(() => {
+    // Invalidate any in-flight flush so an old session cannot write stale summary state after a restart.
+    runVersionRef.current += 1;
     const nextSnapshot = createTypingSnapshot(tokens, 0);
     setSnapshot(nextSnapshot);
     setEvents([]);
@@ -110,12 +114,16 @@ export function PracticeView({
     setShowSummary(false);
     setStatus("idle");
     transport.resetTransport();
-  }, [tokens]);
+  }, [tokens, transport]);
 
   useEffect(() => {
+    if (status !== "active") {
+      return;
+    }
+
     const interval = window.setInterval(() => setClock(Date.now()), 100);
     return () => window.clearInterval(interval);
-  }, []);
+  }, [status]);
 
   const liveMetrics = useMemo(() => {
     if (!sessionStartAt) return EMPTY_METRICS;
@@ -183,6 +191,17 @@ export function PracticeView({
     frame = window.requestAnimationFrame(tick);
     return () => window.cancelAnimationFrame(frame);
   }, [mode, practiceText.length, status, sessionStartAt, settings.versusBotCpm, tokens]);
+
+  useEffect(() => {
+    if (status !== "active") {
+      return;
+    }
+
+    const lastWord = snapshot.words[tokens.length - 1];
+    if (lastWord?.completed || (mode === "versus" && botCursorIndex >= practiceText.length)) {
+      void flushSession();
+    }
+  }, [botCursorIndex, mode, practiceText.length, snapshot.words, status, tokens.length]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -307,6 +326,7 @@ export function PracticeView({
     }
 
     try {
+      const flushRunVersion = runVersionRef.current;
       const saved = await transport.flushPending({
         bookId: null,
         source: mode,
@@ -321,7 +341,7 @@ export function PracticeView({
         durationSeconds: result.durationSeconds,
       });
 
-      if (saved) {
+      if (saved && flushRunVersion === runVersionRef.current) {
         setSummary(saved);
       }
     } catch (err) {
@@ -330,6 +350,7 @@ export function PracticeView({
   }
 
   function restart() {
+    runVersionRef.current += 1;
     setSeed(Date.now());
   }
 
@@ -410,6 +431,7 @@ export function PracticeView({
                       onSettingsChange({ ...settings, practiceWordBankType: type });
                     }}
                     disabled={status !== "idle"}
+                    aria-label="Word bank difficulty"
                     className="h-1.5 w-32 cursor-pointer appearance-none rounded-full bg-white/10 accent-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-50"
                   />
                   <span className="text-[10px] text-[var(--text-muted)]">Hard</span>
@@ -427,7 +449,7 @@ export function PracticeView({
               interactionMode="type"
               smoothCaret={settings.smoothCaret && analytics?.profile.unlocks.smoothCaret}
               botCursorIndex={mode === "versus" ? botCursorIndex : null}
-              compareOptions={{ ignoredCharacters: ignoredCharacterSet }}
+              compareOptions={compareOptions}
             />
 
             {mode === "versus" && (

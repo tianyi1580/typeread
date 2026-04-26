@@ -12,7 +12,7 @@ const METRIC_DESCRIPTIONS: Record<string, string> = {
   "Words": "Total words completed in this session.",
   "Rhythm": "Consistency of your inter-character timing. Higher is better.",
   "Focus": "Ability to maintain speed without sudden pauses or long hesitations.",
-  "Cadence CV": "Coefficient of Variation for rhythm. Lower values mean more stable typing.",
+  "Consistency": "Coefficient of Variation for rhythm. Lower values mean more stable typing.",
 };
 
 interface SessionSummaryModalProps {

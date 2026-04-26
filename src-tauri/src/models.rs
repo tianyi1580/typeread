@@ -70,6 +70,7 @@ pub struct DailyMetric {
     pub wpm: f64,
     pub accuracy: f64,
     pub sessions: i64,
+    pub words_typed: i64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

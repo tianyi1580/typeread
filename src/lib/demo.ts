@@ -77,13 +77,13 @@ export const demoAnalytics: AnalyticsSummary = {
   averageAccuracy: 96.3,
   sessions: 42,
   history: [
-    { day: "2026-04-18", wpm: 54, accuracy: 93.9, sessions: 4 },
-    { day: "2026-04-19", wpm: 57.2, accuracy: 95.1, sessions: 5 },
-    { day: "2026-04-20", wpm: 59.6, accuracy: 95.7, sessions: 6 },
-    { day: "2026-04-21", wpm: 61.3, accuracy: 96.1, sessions: 7 },
-    { day: "2026-04-22", wpm: 63.9, accuracy: 96.5, sessions: 8 },
-    { day: "2026-04-23", wpm: 64.5, accuracy: 97.2, sessions: 6 },
-    { day: "2026-04-24", wpm: 66.1, accuracy: 96.8, sessions: 6 },
+    { day: "2026-04-18", wpm: 54, accuracy: 93.9, sessions: 4, wordsTyped: 860 },
+    { day: "2026-04-19", wpm: 57.2, accuracy: 95.1, sessions: 5, wordsTyped: 1045 },
+    { day: "2026-04-20", wpm: 59.6, accuracy: 95.7, sessions: 6, wordsTyped: 1180 },
+    { day: "2026-04-21", wpm: 61.3, accuracy: 96.1, sessions: 7, wordsTyped: 1290 },
+    { day: "2026-04-22", wpm: 63.9, accuracy: 96.5, sessions: 8, wordsTyped: 1415 },
+    { day: "2026-04-23", wpm: 64.5, accuracy: 97.2, sessions: 6, wordsTyped: 1322 },
+    { day: "2026-04-24", wpm: 66.1, accuracy: 96.8, sessions: 6, wordsTyped: 1840 },
   ],
   sessionPoints: [
     {

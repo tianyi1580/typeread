@@ -38,6 +38,7 @@ export function LibraryView({
   const [editingBook, setEditingBook] = useState<BookRecord | null>(null);
   const [draftTitle, setDraftTitle] = useState("");
   const menuRef = useRef<HTMLDivElement>(null);
+  const normalizedSearchQuery = searchQuery.trim();
 
   useEffect(() => {
     if (menuBookId === null) {
@@ -50,18 +51,25 @@ export function LibraryView({
       }
     };
 
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setMenuBookId(null);
+      }
+    };
+
     const timeout = setTimeout(() => {
       document.addEventListener("click", handleClickOutside);
+      document.addEventListener("keydown", handleKeyDown);
     }, 0);
 
     return () => {
       clearTimeout(timeout);
       document.removeEventListener("click", handleClickOutside);
+      document.removeEventListener("keydown", handleKeyDown);
     };
   }, [menuBookId]);
 
-
-  const emptyState = books.length === 0 && !searchQuery;
+  const emptyState = books.length === 0 && normalizedSearchQuery.length === 0;
 
   async function submitRename() {
     if (!editingBook) {
@@ -74,8 +82,12 @@ export function LibraryView({
       return;
     }
 
-    await onRenameBook(editingBook.id, nextTitle);
-    setEditingBook(null);
+    try {
+      await onRenameBook(editingBook.id, nextTitle);
+      setEditingBook(null);
+    } catch {
+      // App already surfaces the failure; keep the modal open so the user can retry.
+    }
   }
 
   return (
@@ -113,8 +125,8 @@ export function LibraryView({
       <div className="mt-5">
         {emptyState ? (
           <EmptyLibraryState draggingFiles={draggingFiles} desktopReady={desktopReady} onImportBooks={onImportBooks} />
-        ) : books.length === 0 && searchQuery ? (
-          <EmptySearchState query={searchQuery} />
+        ) : books.length === 0 && normalizedSearchQuery ? (
+          <EmptySearchState query={normalizedSearchQuery} />
         ) : (
           <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
             {books.map((book) => {
@@ -123,107 +135,66 @@ export function LibraryView({
               const assetUrl = api.assetUrl(book.coverPath);
 
               return (
-                <button
+                <article
                   key={book.id}
-                  type="button"
-                  onClick={() => onOpenBook(book.id)}
-                  className="group relative overflow-hidden rounded-[30px] border border-[var(--border)] bg-[color-mix(in_srgb,var(--panel)_92%,transparent)] text-left shadow-panel transition duration-200 hover:-translate-y-1 hover:border-[var(--accent)]"
+                  className="group relative overflow-hidden rounded-[30px] border border-[var(--border)] bg-[color-mix(in_srgb,var(--panel)_92%,transparent)] text-left shadow-panel transition duration-200 hover:-translate-y-1 hover:border-[var(--accent)] focus-within:border-[var(--accent)] focus-within:ring-2 focus-within:ring-[var(--accent)] focus-within:ring-offset-2 focus-within:ring-offset-[var(--bg)]"
                 >
-                  <div className="relative h-[240px] overflow-hidden">
-                    {assetUrl ? (
-                      <img src={assetUrl} alt="" className="h-full w-full object-cover" />
-                    ) : (
-                      <div
-                        className="h-full w-full"
-                        style={{
-                          background: `linear-gradient(145deg, ${theme.accentSoft}, ${theme.panelSoft})`,
-                        }}
-                      />
-                    )}
-                    <div className="absolute inset-0 bg-[linear-gradient(180deg,transparent,rgba(0,0,0,0.38))]" />
-                    <div className="absolute left-4 top-4 flex gap-2">
-                      {book.pinned && (
-                        <span className="rounded-full border border-[var(--border)] bg-[var(--panel)] px-3 py-1 text-[10px] uppercase tracking-[0.24em] text-[var(--text)]">
-                          Pinned
-                        </span>
+                  {/* Keep the primary open action separate from the action menu to avoid nested buttons. */}
+                  <button
+                    type="button"
+                    aria-label={`Open ${book.title}`}
+                    onClick={() => onOpenBook(book.id)}
+                    className="absolute inset-0 z-0 rounded-[30px] focus-visible:outline-none"
+                  />
+
+                  <div className="pointer-events-none relative z-10">
+                    <div className="relative h-[240px] overflow-hidden">
+                      {assetUrl ? (
+                        <img src={assetUrl} alt="" className="h-full w-full object-cover" />
+                      ) : (
+                        <div
+                          className="h-full w-full"
+                          style={{
+                            background: `linear-gradient(145deg, ${theme.accentSoft}, ${theme.panelSoft})`,
+                          }}
+                        />
                       )}
-                    </div>
-                    <div className="absolute right-4 top-4">
-                      <button
-                        type="button"
-                        aria-label="Book actions"
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          setMenuBookId((current) => (current === book.id ? null : book.id));
-                        }}
-                        className="opacity-0 transition group-hover:opacity-100 rounded-full border border-[var(--border)] bg-[var(--panel)]/90 px-3 py-2 text-sm text-[var(--text)] backdrop-blur-lg"
-                      >
-                        ...
-                      </button>
-                      {menuBookId === book.id && (
-                        <div 
-                          ref={menuRef}
-                          className="absolute right-0 top-12 z-20 min-w-[180px] rounded-[22px] border border-[var(--border)] bg-[var(--panel)] p-2 shadow-panel backdrop-blur-2xl"
-                        >
-                            <BookActionButton
-                              onClick={async (event) => {
-                                event.stopPropagation();
-                                setMenuBookId(null);
-                                await onTogglePinned(book.id, !book.pinned);
-                              }}
-                            >
-                              {book.pinned ? "Unpin" : "Pin"}
-                            </BookActionButton>
-                            <BookActionButton
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                setDraftTitle(book.title);
-                                setEditingBook(book);
-                                setMenuBookId(null);
-                              }}
-                            >
-                              Edit Name
-                            </BookActionButton>
-                            <BookActionButton
-                              danger
-                              onClick={async (event) => {
-                                event.stopPropagation();
-                                setMenuBookId(null);
-                                await onDeleteBook(book.id);
-                              }}
-                            >
-                              Delete
-                            </BookActionButton>
-                          </div>
-                        )}
-                    </div>
-                  </div>
-
-                  <div className="space-y-4 px-5 py-5">
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="min-w-0">
-                        <p className="truncate text-xl font-semibold">{book.title}</p>
-                        <p className="mt-1 truncate text-sm text-[var(--text-muted)]">{book.author ?? fileNameFromPath(book.path)}</p>
-                      </div>
-                      <div className="rounded-full bg-[var(--accent-soft)] px-3 py-1 text-xs font-medium text-[var(--text)]">
-                        {book.averageWpm > 0 ? `${Math.round(book.averageWpm)} WPM` : "No WPM"}
-                      </div>
-                    </div>
-
-                    <div className="flex items-center justify-between text-xs uppercase tracking-[0.22em] text-[var(--text-muted)]">
-                      <span>{book.format}</span>
-                      <div className="flex gap-2">
-                        <span title="Typing Progress">{Math.round(typeProgress * 100)}%</span>
-                        {readProgress > typeProgress && (
-                          <span title="Reading Progress" className="text-[var(--accent)]">
-                            (R: {Math.round(readProgress * 100)}%)
+                      <div className="absolute inset-0 bg-[linear-gradient(180deg,transparent,rgba(0,0,0,0.38))]" />
+                      <div className="absolute left-4 top-4 flex gap-2">
+                        {book.pinned && (
+                          <span className="rounded-full border border-[var(--border)] bg-[var(--panel)] px-3 py-1 text-[10px] uppercase tracking-[0.24em] text-[var(--text)]">
+                            Pinned
                           </span>
                         )}
                       </div>
                     </div>
+
+                    <div className="space-y-4 px-5 py-5">
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="min-w-0">
+                          <p className="truncate text-xl font-semibold">{book.title}</p>
+                          <p className="mt-1 truncate text-sm text-[var(--text-muted)]">{book.author ?? fileNameFromPath(book.path)}</p>
+                        </div>
+                        <div className="rounded-full bg-[var(--accent-soft)] px-3 py-1 text-xs font-medium text-[var(--text)]">
+                          {book.averageWpm > 0 ? `${Math.round(book.averageWpm)} WPM` : "No WPM"}
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between text-xs uppercase tracking-[0.22em] text-[var(--text-muted)]">
+                        <span>{book.format}</span>
+                        <div className="flex gap-2">
+                          <span title="Typing Progress">{Math.round(typeProgress * 100)}%</span>
+                          {readProgress > typeProgress && (
+                            <span title="Reading Progress" className="text-[var(--accent)]">
+                              (R: {Math.round(readProgress * 100)}%)
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
                   </div>
 
-                  <div className="absolute inset-x-0 bottom-0 h-[2.5px] bg-white/10">
+                  <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-[2.5px] bg-white/10">
                     <div
                       className="absolute inset-y-0 left-0 bg-[var(--accent)] opacity-30 transition-all duration-500"
                       style={{ width: `${readProgress * 100}%` }}
@@ -233,7 +204,59 @@ export function LibraryView({
                       style={{ width: `${typeProgress * 100}%` }}
                     />
                   </div>
-                </button>
+
+                  <div className="absolute right-4 top-4 z-20">
+                    <button
+                      type="button"
+                      aria-label="Book actions"
+                      aria-expanded={menuBookId === book.id}
+                      aria-haspopup="menu"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        setMenuBookId((current) => (current === book.id ? null : book.id));
+                      }}
+                      className="rounded-full border border-[var(--border)] bg-[var(--panel)]/90 px-3 py-2 text-sm text-[var(--text)] opacity-0 transition group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100 backdrop-blur-lg"
+                    >
+                      ...
+                    </button>
+                    {menuBookId === book.id && (
+                      <div
+                        ref={menuRef}
+                        className="absolute right-0 top-12 z-20 min-w-[180px] rounded-[22px] border border-[var(--border)] bg-[var(--panel)] p-2 shadow-panel backdrop-blur-2xl"
+                      >
+                        <BookActionButton
+                          onClick={async (event) => {
+                            event.stopPropagation();
+                            setMenuBookId(null);
+                            await onTogglePinned(book.id, !book.pinned);
+                          }}
+                        >
+                          {book.pinned ? "Unpin" : "Pin"}
+                        </BookActionButton>
+                        <BookActionButton
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            setDraftTitle(book.title);
+                            setEditingBook(book);
+                            setMenuBookId(null);
+                          }}
+                        >
+                          Edit Name
+                        </BookActionButton>
+                        <BookActionButton
+                          danger
+                          onClick={async (event) => {
+                            event.stopPropagation();
+                            setMenuBookId(null);
+                            await onDeleteBook(book.id);
+                          }}
+                        >
+                          Delete
+                        </BookActionButton>
+                      </div>
+                    )}
+                  </div>
+                </article>
               );
             })}
           </div>
@@ -245,7 +268,14 @@ export function LibraryView({
       </div>
 
       {editingBook && (
-        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/45 px-4">
+        <div 
+          className="fixed inset-0 z-40 flex items-center justify-center bg-black/45 px-4"
+          onClick={(event) => {
+            if (event.target === event.currentTarget) {
+              setEditingBook(null);
+            }
+          }}
+        >
           <div className="w-full max-w-md rounded-[30px] border border-[var(--border)] bg-[var(--panel)] p-6 shadow-panel backdrop-blur-2xl">
             <p className="text-xs uppercase tracking-[0.28em] text-[var(--text-muted)]">Rename Book</p>
             <h2 className="mt-4 text-2xl font-semibold">{editingBook.title}</h2>
@@ -256,6 +286,8 @@ export function LibraryView({
               onKeyDown={(event) => {
                 if (event.key === "Enter") {
                   void submitRename();
+                } else if (event.key === "Escape") {
+                  setEditingBook(null);
                 }
               }}
               className="mt-5 w-full rounded-[20px] border border-[var(--border)] bg-[var(--panel-soft)] px-4 py-3 outline-none focus:border-[var(--accent)]"

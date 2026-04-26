@@ -6,7 +6,7 @@ use std::{
 
 use anyhow::{Context, Result};
 use chrono::{NaiveDate, Utc};
-use rusqlite::{params, Connection, OptionalExtension};
+use rusqlite::{params, Connection, OpenFlags, OptionalExtension};
 
 use crate::analytics::{group_transition_stats, FinalizedAnalytics};
 use crate::models::{
@@ -55,7 +55,8 @@ impl TransitionAggregate {
         let combined_count = self.count + stat.samples;
         let delta = stat.average_ms - self.mean;
         self.mean += delta * stat.samples as f64 / combined_count as f64;
-        self.m2 += stat_m2 + delta * delta * self.count as f64 * stat.samples as f64 / combined_count as f64;
+        self.m2 += stat_m2
+            + delta * delta * self.count as f64 * stat.samples as f64 / combined_count as f64;
         self.error_count += (stat.error_rate * stat.samples as f64).round() as i64;
         self.count = combined_count;
     }
@@ -91,11 +92,12 @@ impl Database {
     }
 
     pub fn connection(&self) -> Result<Connection> {
-        Connection::open(&self.path).with_context(|| format!("failed to open database at {}", self.path.display()))
+        Connection::open(&self.path)
+            .with_context(|| format!("failed to open database at {}", self.path.display()))
     }
 
     fn init(&self) -> Result<()> {
-        let conn = self.connection()?;
+        let mut conn = self.connection()?;
         conn.execute_batch(
             r#"
             PRAGMA journal_mode = WAL;
@@ -140,6 +142,7 @@ impl Database {
                 keyboard_layout_name TEXT NOT NULL DEFAULT 'QWERTY (US)',
                 keyboard_layout_rows_json TEXT NOT NULL DEFAULT '[]',
                 macro_wpm_json TEXT NOT NULL DEFAULT '[]',
+                macro_accuracy_json TEXT NOT NULL DEFAULT '[]',
                 recent_wpm_json TEXT NOT NULL DEFAULT '[]',
                 confusion_json TEXT NOT NULL DEFAULT '[]',
                 transition_stats_json TEXT NOT NULL DEFAULT '[]',
@@ -186,7 +189,7 @@ impl Database {
         .context("failed to initialize database schema")?;
 
         self.ensure_columns(&conn)?;
-        self.cleanup_corrupted_data(&conn)?;
+        self.cleanup_corrupted_data(&mut conn)?;
 
         conn.execute(
             r#"
@@ -253,24 +256,99 @@ impl Database {
         ensure_column(conn, "books", "pinned", "INTEGER NOT NULL DEFAULT 0")?;
         ensure_column(conn, "books", "read_index", "INTEGER NOT NULL DEFAULT 0")?;
         ensure_column(conn, "books", "read_chapter", "INTEGER NOT NULL DEFAULT 0")?;
-        ensure_column(conn, "settings", "theme", "TEXT NOT NULL DEFAULT 'catppuccin-macchiato'")?;
-        ensure_column(conn, "settings", "type_font", "TEXT NOT NULL DEFAULT 'jetbrains-mono'")?;
-        ensure_column(conn, "settings", "reader_mode", "TEXT NOT NULL DEFAULT 'scroll'")?;
-        ensure_column(conn, "settings", "interaction_mode", "TEXT NOT NULL DEFAULT 'type'")?;
-        ensure_column(conn, "settings", "base_font_size", "INTEGER NOT NULL DEFAULT 18")?;
+        ensure_column(
+            conn,
+            "settings",
+            "theme",
+            "TEXT NOT NULL DEFAULT 'catppuccin-macchiato'",
+        )?;
+        ensure_column(
+            conn,
+            "settings",
+            "type_font",
+            "TEXT NOT NULL DEFAULT 'jetbrains-mono'",
+        )?;
+        ensure_column(
+            conn,
+            "settings",
+            "reader_mode",
+            "TEXT NOT NULL DEFAULT 'scroll'",
+        )?;
+        ensure_column(
+            conn,
+            "settings",
+            "interaction_mode",
+            "TEXT NOT NULL DEFAULT 'type'",
+        )?;
+        ensure_column(
+            conn,
+            "settings",
+            "base_font_size",
+            "INTEGER NOT NULL DEFAULT 18",
+        )?;
         ensure_column(conn, "settings", "line_height", "REAL NOT NULL DEFAULT 1.7")?;
-        ensure_column(conn, "settings", "tab_to_skip", "INTEGER NOT NULL DEFAULT 1")?;
-        ensure_column(conn, "settings", "ignore_quotation_marks", "INTEGER NOT NULL DEFAULT 0")?;
-        ensure_column(conn, "settings", "ignored_characters", "TEXT NOT NULL DEFAULT ''")?;
+        ensure_column(
+            conn,
+            "settings",
+            "tab_to_skip",
+            "INTEGER NOT NULL DEFAULT 1",
+        )?;
+        ensure_column(
+            conn,
+            "settings",
+            "ignore_quotation_marks",
+            "INTEGER NOT NULL DEFAULT 0",
+        )?;
+        ensure_column(
+            conn,
+            "settings",
+            "ignored_characters",
+            "TEXT NOT NULL DEFAULT ''",
+        )?;
         ensure_column(conn, "settings", "focus_mode", "INTEGER NOT NULL DEFAULT 1")?;
-        ensure_column(conn, "settings", "keyboard_layout", "TEXT NOT NULL DEFAULT 'qwerty-us'")?;
-        ensure_column(conn, "settings", "custom_keyboard_layout", "TEXT NOT NULL DEFAULT ''")?;
-        ensure_column(conn, "settings", "smooth_caret", "INTEGER NOT NULL DEFAULT 0")?;
-        ensure_column(conn, "settings", "type_test_duration", "INTEGER NOT NULL DEFAULT 60")?;
-        ensure_column(conn, "settings", "versus_bot_cpm", "INTEGER NOT NULL DEFAULT 300")?;
-        ensure_column(conn, "settings", "practice_word_bank_type", "TEXT NOT NULL DEFAULT 'easy'")?;
-        ensure_column(conn, "settings", "error_color", "TEXT NOT NULL DEFAULT '#ed8796'")?;
-        
+        ensure_column(
+            conn,
+            "settings",
+            "keyboard_layout",
+            "TEXT NOT NULL DEFAULT 'qwerty-us'",
+        )?;
+        ensure_column(
+            conn,
+            "settings",
+            "custom_keyboard_layout",
+            "TEXT NOT NULL DEFAULT ''",
+        )?;
+        ensure_column(
+            conn,
+            "settings",
+            "smooth_caret",
+            "INTEGER NOT NULL DEFAULT 0",
+        )?;
+        ensure_column(
+            conn,
+            "settings",
+            "type_test_duration",
+            "INTEGER NOT NULL DEFAULT 60",
+        )?;
+        ensure_column(
+            conn,
+            "settings",
+            "versus_bot_cpm",
+            "INTEGER NOT NULL DEFAULT 300",
+        )?;
+        ensure_column(
+            conn,
+            "settings",
+            "practice_word_bank_type",
+            "TEXT NOT NULL DEFAULT 'easy'",
+        )?;
+        ensure_column(
+            conn,
+            "settings",
+            "error_color",
+            "TEXT NOT NULL DEFAULT '#ed8796'",
+        )?;
+
         // Migration: Rename enter_to_skip to tab_to_skip if it exists
         let has_enter_to_skip = {
             let mut stmt = conn.prepare("PRAGMA table_info(settings)")?;
@@ -294,16 +372,66 @@ impl Database {
             )?;
         }
 
-        ensure_column(conn, "session_analytics", "keyboard_layout_id", "TEXT NOT NULL DEFAULT 'qwerty-us'")?;
-        ensure_column(conn, "session_analytics", "keyboard_layout_name", "TEXT NOT NULL DEFAULT 'QWERTY (US)'")?;
-        ensure_column(conn, "session_analytics", "keyboard_layout_rows_json", "TEXT NOT NULL DEFAULT '[]'")?;
-        ensure_column(conn, "session_analytics", "macro_wpm_json", "TEXT NOT NULL DEFAULT '[]'")?;
-        ensure_column(conn, "session_analytics", "macro_accuracy_json", "TEXT NOT NULL DEFAULT '[]'")?;
-        ensure_column(conn, "session_analytics", "recent_wpm_json", "TEXT NOT NULL DEFAULT '[]'")?;
-        ensure_column(conn, "session_analytics", "confusion_json", "TEXT NOT NULL DEFAULT '[]'")?;
-        ensure_column(conn, "session_analytics", "transition_stats_json", "TEXT NOT NULL DEFAULT '[]'")?;
-        ensure_column(conn, "session_analytics", "cadence_cv", "REAL NOT NULL DEFAULT 0")?;
-        ensure_column(conn, "session_analytics", "active_typing_seconds", "INTEGER NOT NULL DEFAULT 0")?;
+        ensure_column(
+            conn,
+            "session_analytics",
+            "keyboard_layout_id",
+            "TEXT NOT NULL DEFAULT 'qwerty-us'",
+        )?;
+        ensure_column(
+            conn,
+            "session_analytics",
+            "keyboard_layout_name",
+            "TEXT NOT NULL DEFAULT 'QWERTY (US)'",
+        )?;
+        ensure_column(
+            conn,
+            "session_analytics",
+            "keyboard_layout_rows_json",
+            "TEXT NOT NULL DEFAULT '[]'",
+        )?;
+        ensure_column(
+            conn,
+            "session_analytics",
+            "macro_wpm_json",
+            "TEXT NOT NULL DEFAULT '[]'",
+        )?;
+        ensure_column(
+            conn,
+            "session_analytics",
+            "macro_accuracy_json",
+            "TEXT NOT NULL DEFAULT '[]'",
+        )?;
+        ensure_column(
+            conn,
+            "session_analytics",
+            "recent_wpm_json",
+            "TEXT NOT NULL DEFAULT '[]'",
+        )?;
+        ensure_column(
+            conn,
+            "session_analytics",
+            "confusion_json",
+            "TEXT NOT NULL DEFAULT '[]'",
+        )?;
+        ensure_column(
+            conn,
+            "session_analytics",
+            "transition_stats_json",
+            "TEXT NOT NULL DEFAULT '[]'",
+        )?;
+        ensure_column(
+            conn,
+            "session_analytics",
+            "cadence_cv",
+            "REAL NOT NULL DEFAULT 0",
+        )?;
+        ensure_column(
+            conn,
+            "session_analytics",
+            "active_typing_seconds",
+            "INTEGER NOT NULL DEFAULT 0",
+        )?;
 
         // Drop legacy column that causes panics if it exists (NOT NULL without default)
         let has_read_font = {
@@ -323,19 +451,79 @@ impl Database {
             conn.execute_batch("ALTER TABLE settings DROP COLUMN read_font")?;
         }
 
-        ensure_column(conn, "typing_sessions", "source", "TEXT NOT NULL DEFAULT 'book'")?;
-        ensure_column(conn, "typing_sessions", "source_label", "TEXT NOT NULL DEFAULT ''")?;
-        ensure_column(conn, "typing_sessions", "start_time", "TEXT NOT NULL DEFAULT ''")?;
-        ensure_column(conn, "typing_sessions", "end_time", "TEXT NOT NULL DEFAULT ''")?;
-        ensure_column(conn, "typing_sessions", "words_typed", "INTEGER NOT NULL DEFAULT 0")?;
-        ensure_column(conn, "typing_sessions", "chars_typed", "INTEGER NOT NULL DEFAULT 0")?;
-        ensure_column(conn, "typing_sessions", "errors", "INTEGER NOT NULL DEFAULT 0")?;
+        ensure_column(
+            conn,
+            "typing_sessions",
+            "source",
+            "TEXT NOT NULL DEFAULT 'book'",
+        )?;
+        ensure_column(
+            conn,
+            "typing_sessions",
+            "source_label",
+            "TEXT NOT NULL DEFAULT ''",
+        )?;
+        ensure_column(
+            conn,
+            "typing_sessions",
+            "start_time",
+            "TEXT NOT NULL DEFAULT ''",
+        )?;
+        ensure_column(
+            conn,
+            "typing_sessions",
+            "end_time",
+            "TEXT NOT NULL DEFAULT ''",
+        )?;
+        ensure_column(
+            conn,
+            "typing_sessions",
+            "words_typed",
+            "INTEGER NOT NULL DEFAULT 0",
+        )?;
+        ensure_column(
+            conn,
+            "typing_sessions",
+            "chars_typed",
+            "INTEGER NOT NULL DEFAULT 0",
+        )?;
+        ensure_column(
+            conn,
+            "typing_sessions",
+            "errors",
+            "INTEGER NOT NULL DEFAULT 0",
+        )?;
         ensure_column(conn, "typing_sessions", "wpm", "REAL NOT NULL DEFAULT 0")?;
-        ensure_column(conn, "typing_sessions", "accuracy", "REAL NOT NULL DEFAULT 0")?;
-        ensure_column(conn, "typing_sessions", "duration_seconds", "INTEGER NOT NULL DEFAULT 0")?;
-        ensure_column(conn, "typing_sessions", "xp_gained", "INTEGER NOT NULL DEFAULT 0")?;
-        ensure_column(conn, "typing_sessions", "rhythm_score", "REAL NOT NULL DEFAULT 0")?;
-        ensure_column(conn, "typing_sessions", "focus_score", "REAL NOT NULL DEFAULT 0")?;
+        ensure_column(
+            conn,
+            "typing_sessions",
+            "accuracy",
+            "REAL NOT NULL DEFAULT 0",
+        )?;
+        ensure_column(
+            conn,
+            "typing_sessions",
+            "duration_seconds",
+            "INTEGER NOT NULL DEFAULT 0",
+        )?;
+        ensure_column(
+            conn,
+            "typing_sessions",
+            "xp_gained",
+            "INTEGER NOT NULL DEFAULT 0",
+        )?;
+        ensure_column(
+            conn,
+            "typing_sessions",
+            "rhythm_score",
+            "REAL NOT NULL DEFAULT 0",
+        )?;
+        ensure_column(
+            conn,
+            "typing_sessions",
+            "focus_score",
+            "REAL NOT NULL DEFAULT 0",
+        )?;
 
         // Migration: Make book_id nullable and remove FK constraint if it exists
         let is_book_id_nullable = {
@@ -401,30 +589,58 @@ impl Database {
             conn.execute("PRAGMA user_version = 2", [])?;
         }
 
-        ensure_column(conn, "profile_progress", "total_xp", "INTEGER NOT NULL DEFAULT 0")?;
-        ensure_column(conn, "profile_progress", "streak_days", "INTEGER NOT NULL DEFAULT 0")?;
+        ensure_column(
+            conn,
+            "profile_progress",
+            "total_xp",
+            "INTEGER NOT NULL DEFAULT 0",
+        )?;
+        ensure_column(
+            conn,
+            "profile_progress",
+            "streak_days",
+            "INTEGER NOT NULL DEFAULT 0",
+        )?;
         ensure_column(conn, "profile_progress", "last_active_day", "TEXT")?;
-        ensure_column(conn, "profile_progress", "rested_words_available", "INTEGER NOT NULL DEFAULT 100")?;
+        ensure_column(
+            conn,
+            "profile_progress",
+            "rested_words_available",
+            "INTEGER NOT NULL DEFAULT 100",
+        )?;
 
         Ok(())
     }
 
-    fn cleanup_corrupted_data(&self, conn: &Connection) -> Result<()> {
+    fn cleanup_corrupted_data(&self, conn: &mut Connection) -> Result<()> {
         // Fix for "shifted columns" bug where timestamps leaked into source/label columns
-        // and numbers leaked into start_time. We identify these by checking the length 
+        // and numbers leaked into start_time. We identify these by checking the length
         // of start_time (ISO strings are ~24 chars, corrupted ones are small integers).
         let count: i64 = conn.query_row(
             "SELECT COUNT(*) FROM typing_sessions WHERE length(start_time) < 10",
             [],
-            |r| r.get(0)
+            |r| r.get(0),
         )?;
 
         if count > 0 {
             println!("Cleaning up {} corrupted typing sessions...", count);
-            conn.execute(
-                "DELETE FROM typing_sessions WHERE length(start_time) < 10",
-                []
+            let tx = conn.transaction()?;
+            // Historical connections did not enforce the FK, so cleanup must
+            // explicitly remove dependent analytics rows before the sessions.
+            tx.execute(
+                r#"
+                DELETE FROM session_analytics
+                WHERE session_id IN (
+                    SELECT id FROM typing_sessions WHERE length(start_time) < 10
+                )
+                "#,
+                [],
             )?;
+            tx.execute(
+                "DELETE FROM typing_sessions WHERE length(start_time) < 10",
+                [],
+            )?;
+            tx.commit()?;
         }
 
         Ok(())
@@ -532,7 +748,12 @@ impl Database {
         }
     }
 
-    pub fn update_progress(&self, book_id: i64, current_index: i64, current_chapter: i64) -> Result<()> {
+    pub fn update_progress(
+        &self,
+        book_id: i64,
+        current_index: i64,
+        current_chapter: i64,
+    ) -> Result<()> {
         let conn = self.connection()?;
         conn.execute(
             "UPDATE books SET current_index = ?2, current_chapter = ?3 WHERE id = ?1",
@@ -542,7 +763,12 @@ impl Database {
         Ok(())
     }
 
-    pub fn update_read_progress(&self, book_id: i64, read_index: i64, read_chapter: i64) -> Result<()> {
+    pub fn update_read_progress(
+        &self,
+        book_id: i64,
+        read_index: i64,
+        read_chapter: i64,
+    ) -> Result<()> {
         let conn = self.connection()?;
         conn.execute(
             "UPDATE books SET read_index = ?2, read_chapter = ?3 WHERE id = ?1",
@@ -554,7 +780,10 @@ impl Database {
 
     pub fn rename_book(&self, book_id: i64, title: &str) -> Result<()> {
         let conn = self.connection()?;
-        conn.execute("UPDATE books SET title = ?2 WHERE id = ?1", params![book_id, title.trim()])?;
+        conn.execute(
+            "UPDATE books SET title = ?2 WHERE id = ?1",
+            params![book_id, title.trim()],
+        )?;
         Ok(())
     }
 
@@ -568,24 +797,33 @@ impl Database {
     }
 
     pub fn delete_book(&self, book_id: i64) -> Result<()> {
-        let conn = self.connection()?;
-        let cover_path: Option<String> = conn
-            .query_row("SELECT cover_path FROM books WHERE id = ?1", params![book_id], |row| row.get(0))
+        let mut conn = self.connection()?;
+        let tx = conn.transaction()?;
+        let cover_path: Option<String> = tx
+            .query_row(
+                "SELECT cover_path FROM books WHERE id = ?1",
+                params![book_id],
+                |row| row.get(0),
+            )
             .optional()
             .context("failed to read book cover before deletion")?
             .flatten();
 
-        let mut session_stmt = conn.prepare("SELECT id FROM typing_sessions WHERE book_id = ?1")?;
-        let session_ids = session_stmt
-            .query_map(params![book_id], |row| row.get::<_, i64>(0))?
-            .collect::<std::result::Result<Vec<_>, _>>()?;
-
-        for session_id in session_ids {
-            conn.execute("DELETE FROM session_analytics WHERE session_id = ?1", params![session_id])?;
-        }
-
-        conn.execute("DELETE FROM typing_sessions WHERE book_id = ?1", params![book_id])?;
-        conn.execute("DELETE FROM books WHERE id = ?1", params![book_id])?;
+        tx.execute(
+            r#"
+            DELETE FROM session_analytics
+            WHERE session_id IN (
+                SELECT id FROM typing_sessions WHERE book_id = ?1
+            )
+            "#,
+            params![book_id],
+        )?;
+        tx.execute(
+            "DELETE FROM typing_sessions WHERE book_id = ?1",
+            params![book_id],
+        )?;
+        tx.execute("DELETE FROM books WHERE id = ?1", params![book_id])?;
+        tx.commit()?;
 
         if let Some(path) = cover_path {
             let cover = PathBuf::from(path);
@@ -598,14 +836,16 @@ impl Database {
     }
 
     pub fn clear_session_history(&self) -> Result<()> {
-        let conn = self.connection()?;
-        conn.execute("DELETE FROM session_analytics", [])?;
-        conn.execute("DELETE FROM typing_sessions", [])?;
-        conn.execute(
+        let mut conn = self.connection()?;
+        let tx = conn.transaction()?;
+        tx.execute("DELETE FROM session_analytics", [])?;
+        tx.execute("DELETE FROM typing_sessions", [])?;
+        tx.execute(
             "UPDATE profile_progress SET total_xp = 0, streak_days = 0, last_active_day = NULL, rested_words_available = 100 WHERE id = 1",
             [],
         )?;
-        conn.execute("DELETE FROM achievements", [])?;
+        tx.execute("DELETE FROM achievements", [])?;
+        tx.commit()?;
         Ok(())
     }
 
@@ -616,7 +856,7 @@ impl Database {
             [],
             |row| row.get(0),
         )?;
-        
+
         let current_level = level_from_xp(current_xp).max(1);
         let next_level = current_level + 1;
         let next_xp = xp_threshold_for_level(next_level);
@@ -629,23 +869,29 @@ impl Database {
     }
 
     pub fn delete_library(&self) -> Result<()> {
-        let books = self.list_books()?;
-        let conn = self.connection()?;
-        conn.execute("DELETE FROM session_analytics", [])?;
-        conn.execute("DELETE FROM typing_sessions", [])?;
-        conn.execute("DELETE FROM books", [])?;
-        conn.execute(
+        let mut conn = self.connection()?;
+        let tx = conn.transaction()?;
+        let mut cover_stmt =
+            tx.prepare("SELECT cover_path FROM books WHERE cover_path IS NOT NULL")?;
+        let cover_paths = cover_stmt
+            .query_map([], |row| row.get::<_, String>(0))?
+            .collect::<std::result::Result<Vec<_>, _>>()?;
+        drop(cover_stmt);
+
+        tx.execute("DELETE FROM session_analytics", [])?;
+        tx.execute("DELETE FROM typing_sessions", [])?;
+        tx.execute("DELETE FROM books", [])?;
+        tx.execute(
             "UPDATE profile_progress SET total_xp = 0, streak_days = 0, last_active_day = NULL, rested_words_available = 100 WHERE id = 1",
             [],
         )?;
-        conn.execute("DELETE FROM achievements", [])?;
+        tx.execute("DELETE FROM achievements", [])?;
+        tx.commit()?;
 
-        for book in books {
-            if let Some(path) = book.cover_path {
-                let cover = PathBuf::from(path);
-                if cover.exists() {
-                    let _ = fs::remove_file(cover);
-                }
+        for path in cover_paths {
+            let cover = PathBuf::from(path);
+            if cover.exists() {
+                let _ = fs::remove_file(cover);
             }
         }
 
@@ -661,12 +907,9 @@ impl Database {
         let mut conn = self.connection()?;
         let tx = conn.transaction()?;
 
-        let before = load_profile(&tx).context("failed to load profile during session finalization")?;
-        let day = session
-            .end_time
-            .get(..10)
-            .unwrap_or("")
-            .to_string();
+        let before =
+            load_profile(&tx).context("failed to load profile during session finalization")?;
+        let day = session.end_time.get(..10).unwrap_or("").to_string();
         let same_day = before.last_active_day.as_deref() == Some(day.as_str());
         let streak_days = if same_day {
             before.streak_days.max(1)
@@ -680,17 +923,38 @@ impl Database {
         };
 
         let accuracy_multiplier = accuracy_multiplier(session.accuracy);
-        let cadence_multiplier = if finalized.deep_analytics.rhythm_score >= 90.0 { 1.15 } else { 1.0 };
+        let cadence_multiplier = if finalized.deep_analytics.rhythm_score >= 90.0 {
+            1.15
+        } else {
+            1.0
+        };
         let endurance_multiplier = 1.0 + finalized.endurance_segments as f64 * 0.05;
-        let base_xp = (session.words_typed as f64 * accuracy_multiplier * cadence_multiplier * endurance_multiplier).round() as i64;
+        let base_xp = (session.words_typed as f64
+            * accuracy_multiplier
+            * cadence_multiplier
+            * endurance_multiplier)
+            .round() as i64;
         let rested_words_consumed = rested_words_available.min(session.words_typed.max(0));
-        let rested_bonus_xp = (rested_words_consumed as f64 * accuracy_multiplier * cadence_multiplier * endurance_multiplier).round() as i64;
-        let is_practice_session = session.source == "test" || session.source == "practice" || session.book_id.is_none();
-        let xp_gained = if is_practice_session { 0 } else { base_xp + rested_bonus_xp };
+        let rested_bonus_xp = (rested_words_consumed as f64
+            * accuracy_multiplier
+            * cadence_multiplier
+            * endurance_multiplier)
+            .round() as i64;
+        let is_practice_session =
+            session.source == "test" || session.source == "practice" || session.book_id.is_none();
+        let xp_gained = if is_practice_session {
+            0
+        } else {
+            base_xp + rested_bonus_xp
+        };
         let total_xp = before.total_xp + xp_gained;
         let level_before = level_from_xp(before.total_xp);
         let level_after = level_from_xp(total_xp);
-        let remaining_rested_words = if is_practice_session { rested_words_available } else { (rested_words_available - rested_words_consumed).max(0) };
+        let remaining_rested_words = if is_practice_session {
+            rested_words_available
+        } else {
+            (rested_words_available - rested_words_consumed).max(0)
+        };
 
         tx.execute(
             r#"
@@ -726,7 +990,11 @@ impl Database {
             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)
             "#,
             params![
-                if is_practice_session { None } else { session.book_id },
+                if is_practice_session {
+                    None
+                } else {
+                    session.book_id
+                },
                 session.source,
                 session.source_label,
                 session.start_time,
@@ -745,12 +1013,18 @@ impl Database {
         .context("failed to persist typing session")?;
         let session_id = tx.last_insert_rowid();
 
-        let layout_rows_json = serde_json::to_string(&context.keyboard_layout.rows).context("failed to serialize layout rows")?;
-        let macro_wpm_json = serde_json::to_string(&finalized.deep_analytics.macro_wpm).context("failed to serialize macro wpm")?;
-        let macro_accuracy_json = serde_json::to_string(&finalized.deep_analytics.macro_accuracy).context("failed to serialize macro accuracy")?;
-        let recent_wpm_json = serde_json::to_string(&finalized.deep_analytics.recent_wpm).context("failed to serialize recent wpm")?;
-        let confusion_json = serde_json::to_string(&finalized.deep_analytics.confusion_pairs).context("failed to serialize confusion pairs")?;
-        let transition_stats_json = serde_json::to_string(&finalized.transition_stats).context("failed to serialize transition stats")?;
+        let layout_rows_json = serde_json::to_string(&context.keyboard_layout.rows)
+            .context("failed to serialize layout rows")?;
+        let macro_wpm_json = serde_json::to_string(&finalized.deep_analytics.macro_wpm)
+            .context("failed to serialize macro wpm")?;
+        let macro_accuracy_json = serde_json::to_string(&finalized.deep_analytics.macro_accuracy)
+            .context("failed to serialize macro accuracy")?;
+        let recent_wpm_json = serde_json::to_string(&finalized.deep_analytics.recent_wpm)
+            .context("failed to serialize recent wpm")?;
+        let confusion_json = serde_json::to_string(&finalized.deep_analytics.confusion_pairs)
+            .context("failed to serialize confusion pairs")?;
+        let transition_stats_json = serde_json::to_string(&finalized.transition_stats)
+            .context("failed to serialize transition stats")?;
 
         tx.execute(
             r#"
@@ -783,7 +1057,8 @@ impl Database {
                 finalized.deep_analytics.cadence_cv,
                 finalized.deep_analytics.active_typing_seconds
             ],
-        ).context("failed to persist session analytics")?;
+        )
+        .context("failed to persist session analytics")?;
 
         let total_words_after: i64 = tx.query_row(
             "SELECT CAST(COALESCE(SUM(words_typed), 0) AS INTEGER) FROM typing_sessions",
@@ -841,7 +1116,14 @@ impl Database {
 
     pub fn analytics(&self) -> Result<AnalyticsSummary> {
         let conn = self.connection()?;
-        let (total_words_typed, total_chars_typed, total_time_seconds, average_wpm, average_accuracy, sessions) = conn.query_row(
+        let (
+            total_words_typed,
+            total_chars_typed,
+            total_time_seconds,
+            average_wpm,
+            average_accuracy,
+            sessions,
+        ) = conn.query_row(
             r#"
             SELECT 
                 CAST(COALESCE(SUM(words_typed), 0) AS INTEGER), 
@@ -872,7 +1154,8 @@ impl Database {
                 substr(start_time, 1, 10) AS day,
                 AVG(wpm),
                 AVG(accuracy),
-                COUNT(*)
+                COUNT(*),
+                CAST(COALESCE(SUM(words_typed), 0) AS INTEGER)
             FROM typing_sessions
             WHERE words_typed >= 5 AND source NOT IN ('read', 'reader')
             GROUP BY substr(start_time, 1, 10)
@@ -886,6 +1169,7 @@ impl Database {
                     wpm: row.get(1)?,
                     accuracy: row.get(2)?,
                     sessions: row.get(3)?,
+                    words_typed: row.get(4)?,
                 })
             })?
             .collect::<std::result::Result<Vec<_>, _>>()?;
@@ -1060,7 +1344,11 @@ impl Database {
                 settings.base_font_size,
                 settings.line_height,
                 if settings.tab_to_skip { 1 } else { 0 },
-                if settings.ignore_quotation_marks { 1 } else { 0 },
+                if settings.ignore_quotation_marks {
+                    1
+                } else {
+                    0
+                },
                 settings.ignored_characters,
                 if settings.focus_mode { 1 } else { 0 },
                 settings.keyboard_layout,
@@ -1094,17 +1382,41 @@ impl Database {
             anyhow::bail!("database import source does not exist");
         }
 
-        let wal_path = self.path.with_extension("sqlite-wal");
-        let shm_path = self.path.with_extension("sqlite-shm");
-        let _ = fs::remove_file(&wal_path);
-        let _ = fs::remove_file(&shm_path);
-        if self.path.exists() {
-            fs::remove_file(&self.path)
-                .with_context(|| format!("failed to replace {}", self.path.display()))?;
+        validate_database_file(source)?;
+
+        let backup_path = sibling_path_with_suffix(&self.path, ".import-backup");
+        let had_existing_database = self.path.exists();
+        if had_existing_database {
+            self.export_to(&backup_path)
+                .context("failed to back up current database before import")?;
         }
-        fs::copy(source, &self.path)
-            .with_context(|| format!("failed to import database from {}", source.display()))?;
-        self.init()?;
+
+        let import_result = (|| -> Result<()> {
+            remove_database_sidecars(&self.path);
+            if self.path.exists() {
+                fs::remove_file(&self.path)
+                    .with_context(|| format!("failed to replace {}", self.path.display()))?;
+            }
+            fs::copy(source, &self.path)
+                .with_context(|| format!("failed to import database from {}", source.display()))?;
+            self.init()
+        })();
+
+        if let Err(import_error) = import_result {
+            if had_existing_database {
+                restore_database_from_backup(&self.path, &backup_path).with_context(|| {
+                    format!(
+                        "database import failed and backup restore also failed after: {import_error:#}"
+                    )
+                })?;
+                self.init()
+                    .context("failed to restore the database after an import failure")?;
+            }
+            let _ = fs::remove_file(&backup_path);
+            return Err(import_error);
+        }
+
+        let _ = fs::remove_file(&backup_path);
         Ok(())
     }
 
@@ -1167,16 +1479,25 @@ impl Database {
                 [],
                 |row| {
                     Ok(DeepAnalytics {
-                        macro_wpm: serde_json::from_str::<Vec<crate::models::WpmSample>>(&row.get::<_, String>(0)?)
-                            .unwrap_or_default(),
-                        macro_accuracy: serde_json::from_str::<Vec<crate::models::WpmSample>>(&row.get::<_, String>(1)?)
-                            .unwrap_or_default(),
-                        recent_wpm: serde_json::from_str::<Vec<crate::models::WpmSample>>(&row.get::<_, String>(2)?)
-                            .unwrap_or_default(),
-                        confusion_pairs: serde_json::from_str::<Vec<ConfusionPair>>(&row.get::<_, String>(3)?)
-                            .unwrap_or_default(),
+                        macro_wpm: serde_json::from_str::<Vec<crate::models::WpmSample>>(
+                            &row.get::<_, String>(0)?,
+                        )
+                        .unwrap_or_default(),
+                        macro_accuracy: serde_json::from_str::<Vec<crate::models::WpmSample>>(
+                            &row.get::<_, String>(1)?,
+                        )
+                        .unwrap_or_default(),
+                        recent_wpm: serde_json::from_str::<Vec<crate::models::WpmSample>>(
+                            &row.get::<_, String>(2)?,
+                        )
+                        .unwrap_or_default(),
+                        confusion_pairs: serde_json::from_str::<Vec<ConfusionPair>>(
+                            &row.get::<_, String>(3)?,
+                        )
+                        .unwrap_or_default(),
                         transitions: group_transition_stats(
-                            &serde_json::from_str::<Vec<TransitionStat>>(&row.get::<_, String>(4)?).unwrap_or_default(),
+                            &serde_json::from_str::<Vec<TransitionStat>>(&row.get::<_, String>(4)?)
+                                .unwrap_or_default(),
                         ),
                         rhythm_score: row.get(5)?,
                         cadence_cv: row.get(6)?,
@@ -1189,10 +1510,12 @@ impl Database {
         Ok(row)
     }
 
-    fn aggregate_deep_analytics(&self, conn: &Connection) -> Result<(Vec<ConfusionPair>, crate::models::TransitionGroups)> {
-        let mut stmt = conn.prepare(
-            "SELECT confusion_json, transition_stats_json FROM session_analytics",
-        )?;
+    fn aggregate_deep_analytics(
+        &self,
+        conn: &Connection,
+    ) -> Result<(Vec<ConfusionPair>, crate::models::TransitionGroups)> {
+        let mut stmt =
+            conn.prepare("SELECT confusion_json, transition_stats_json FROM session_analytics")?;
         let rows = stmt.query_map([], |row| {
             Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
         })?;
@@ -1202,12 +1525,16 @@ impl Database {
 
         for row in rows {
             let (confusion_json, transition_json) = row?;
-            for pair in serde_json::from_str::<Vec<ConfusionPair>>(&confusion_json).unwrap_or_default() {
+            for pair in
+                serde_json::from_str::<Vec<ConfusionPair>>(&confusion_json).unwrap_or_default()
+            {
                 *confusion_map
                     .entry((pair.expected.clone(), pair.typed.clone()))
                     .or_default() += pair.count;
             }
-            for stat in serde_json::from_str::<Vec<TransitionStat>>(&transition_json).unwrap_or_default() {
+            for stat in
+                serde_json::from_str::<Vec<TransitionStat>>(&transition_json).unwrap_or_default()
+            {
                 transition_map
                     .entry(stat.combo.clone())
                     .or_default()
@@ -1217,7 +1544,11 @@ impl Database {
 
         let mut confusions = confusion_map
             .into_iter()
-            .map(|((expected, typed), count)| ConfusionPair { expected, typed, count })
+            .map(|((expected, typed), count)| ConfusionPair {
+                expected,
+                typed,
+                count,
+            })
             .collect::<Vec<_>>();
         confusions.sort_by(|left, right| right.count.cmp(&left.count));
         confusions.truncate(96);
@@ -1241,8 +1572,10 @@ fn ensure_column(conn: &Connection, table: &str, column: &str, definition: &str)
         return Ok(());
     }
 
-    conn.execute_batch(&format!("ALTER TABLE {table} ADD COLUMN {column} {definition}"))
-        .with_context(|| format!("failed to add {column} to {table}"))?;
+    conn.execute_batch(&format!(
+        "ALTER TABLE {table} ADD COLUMN {column} {definition}"
+    ))
+    .with_context(|| format!("failed to add {column} to {table}"))?;
     Ok(())
 }
 
@@ -1362,7 +1695,11 @@ fn accuracy_multiplier(accuracy: f64) -> f64 {
     }
 }
 
-fn build_profile_progress(total_xp: i64, streak_days: i64, rested_words_available: i64) -> ProfileProgress {
+fn build_profile_progress(
+    total_xp: i64,
+    streak_days: i64,
+    rested_words_available: i64,
+) -> ProfileProgress {
     let level = level_from_xp(total_xp);
     let current_level_xp = xp_threshold_for_level(level);
     let next_level_xp = xp_threshold_for_level(level + 1);
@@ -1375,7 +1712,8 @@ fn build_profile_progress(total_xp: i64, streak_days: i64, rested_words_availabl
         progress_to_next_level: if next_level_xp <= current_level_xp {
             1.0
         } else {
-            ((total_xp - current_level_xp) as f64 / (next_level_xp - current_level_xp) as f64).clamp(0.0, 1.0)
+            ((total_xp - current_level_xp) as f64 / (next_level_xp - current_level_xp) as f64)
+                .clamp(0.0, 1.0)
         },
         streak_days,
         rested_words_available,
@@ -1438,4 +1776,190 @@ fn reward_messages(level_before: i64, level_after: i64) -> Vec<String> {
         .filter(|(level, _)| *level > level_before && *level <= level_after)
         .map(|(_, label)| label.to_string())
         .collect()
+}
+
+fn validate_database_file(path: &Path) -> Result<()> {
+    let conn = Connection::open_with_flags(path, OpenFlags::SQLITE_OPEN_READ_ONLY)
+        .with_context(|| format!("failed to open database at {}", path.display()))?;
+    conn.query_row("PRAGMA schema_version", [], |row| row.get::<_, i64>(0))
+        .with_context(|| format!("failed to validate database at {}", path.display()))?;
+    Ok(())
+}
+
+fn restore_database_from_backup(target: &Path, backup: &Path) -> Result<()> {
+    remove_database_sidecars(target);
+    if target.exists() {
+        fs::remove_file(target)
+            .with_context(|| format!("failed to replace {}", target.display()))?;
+    }
+    fs::copy(backup, target)
+        .with_context(|| format!("failed to restore database from {}", backup.display()))?;
+    Ok(())
+}
+
+fn remove_database_sidecars(path: &Path) {
+    let _ = fs::remove_file(sibling_path_with_suffix(path, "-wal"));
+    let _ = fs::remove_file(sibling_path_with_suffix(path, "-shm"));
+}
+
+fn sibling_path_with_suffix(path: &Path, suffix: &str) -> PathBuf {
+    let file_name = path
+        .file_name()
+        .map(|name| {
+            let mut name = name.to_os_string();
+            name.push(suffix);
+            name
+        })
+        .unwrap_or_default();
+    path.with_file_name(file_name)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::sync::atomic::{AtomicU64, Ordering};
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    struct TestDir {
+        path: PathBuf,
+    }
+
+    impl TestDir {
+        fn new(label: &str) -> Result<Self> {
+            static COUNTER: AtomicU64 = AtomicU64::new(0);
+
+            let unique_id = COUNTER.fetch_add(1, Ordering::Relaxed);
+            let timestamp = SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .context("system clock is before unix epoch")?
+                .as_nanos();
+            let path =
+                std::env::temp_dir().join(format!("typeread-{label}-{timestamp}-{unique_id}"));
+            fs::create_dir_all(&path)
+                .with_context(|| format!("failed to create test directory {}", path.display()))?;
+            Ok(Self { path })
+        }
+
+        fn db_path(&self, file_name: &str) -> PathBuf {
+            self.path.join(file_name)
+        }
+    }
+
+    impl Drop for TestDir {
+        fn drop(&mut self) {
+            let _ = fs::remove_dir_all(&self.path);
+        }
+    }
+
+    #[test]
+    fn cleanup_corrupted_data_removes_related_analytics() -> Result<()> {
+        let temp = TestDir::new("cleanup-corruption")?;
+        let db = Database::new(temp.db_path("typeread.sqlite"))?;
+        let mut conn = db.connection()?;
+
+        conn.execute(
+            r#"
+            INSERT INTO typing_sessions (
+                book_id, source, source_label, start_time, end_time, words_typed, chars_typed,
+                errors, wpm, accuracy, duration_seconds, xp_gained, rhythm_score, focus_score
+            )
+            VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)
+            "#,
+            params![
+                Option::<i64>::None,
+                "type-test",
+                "Broken Session",
+                "7",
+                "2026-04-26T12:00:00Z",
+                20_i64,
+                100_i64,
+                0_i64,
+                60.0_f64,
+                98.0_f64,
+                60_i64,
+                0_i64,
+                0.0_f64,
+                100.0_f64
+            ],
+        )?;
+        let session_id = conn.last_insert_rowid();
+        conn.execute(
+            "INSERT INTO session_analytics (session_id) VALUES (?1)",
+            params![session_id],
+        )?;
+
+        db.cleanup_corrupted_data(&mut conn)?;
+
+        let remaining_sessions: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM typing_sessions WHERE id = ?1",
+            params![session_id],
+            |row| row.get(0),
+        )?;
+        let remaining_analytics: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM session_analytics WHERE session_id = ?1",
+            params![session_id],
+            |row| row.get(0),
+        )?;
+
+        assert_eq!(remaining_sessions, 0);
+        assert_eq!(remaining_analytics, 0);
+        Ok(())
+    }
+
+    #[test]
+    fn import_from_preserves_existing_database_when_source_is_invalid() -> Result<()> {
+        let temp = TestDir::new("invalid-import")?;
+        let db = Database::new(temp.db_path("typeread.sqlite"))?;
+        db.upsert_book(
+            "Original Book",
+            Some("Author"),
+            "/tmp/original.epub",
+            "epub",
+            None,
+            123,
+        )?;
+
+        let invalid_source = temp.db_path("invalid.sqlite");
+        fs::write(&invalid_source, "this is not a sqlite database")
+            .with_context(|| format!("failed to write {}", invalid_source.display()))?;
+
+        let import_error = db
+            .import_from(&invalid_source)
+            .expect_err("invalid import should fail");
+        assert!(import_error
+            .to_string()
+            .contains("failed to validate database"));
+
+        let books = db.list_books()?;
+        assert_eq!(books.len(), 1);
+        assert_eq!(books[0].title, "Original Book");
+        Ok(())
+    }
+
+    #[test]
+    fn import_from_replaces_database_with_valid_backup() -> Result<()> {
+        let source_temp = TestDir::new("source-db")?;
+        let source_db = Database::new(source_temp.db_path("source.sqlite"))?;
+        source_db.upsert_book(
+            "Imported Book",
+            None,
+            "/tmp/imported.epub",
+            "epub",
+            None,
+            456,
+        )?;
+        let backup_path = source_temp.db_path("backup.sqlite");
+        source_db.export_to(&backup_path)?;
+
+        let target_temp = TestDir::new("target-db")?;
+        let target_db = Database::new(target_temp.db_path("target.sqlite"))?;
+        target_db.upsert_book("Current Book", None, "/tmp/current.epub", "epub", None, 111)?;
+
+        target_db.import_from(&backup_path)?;
+
+        let books = target_db.list_books()?;
+        assert_eq!(books.len(), 1);
+        assert_eq!(books[0].title, "Imported Book");
+        Ok(())
+    }
 }

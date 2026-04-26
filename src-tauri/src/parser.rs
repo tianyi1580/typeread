@@ -2,7 +2,7 @@ use std::{
     collections::HashMap,
     fs,
     io::Read,
-    path::{Path, PathBuf},
+    path::{Component, Path, PathBuf},
     sync::OnceLock,
 };
 
@@ -33,7 +33,8 @@ pub fn parse_file(path: &Path, covers_dir: &Path) -> Result<ParsedImport> {
 }
 
 fn parse_txt(path: &Path) -> Result<ParsedImport> {
-    let source = fs::read_to_string(path).with_context(|| format!("failed to read {}", path.display()))?;
+    let source =
+        fs::read_to_string(path).with_context(|| format!("failed to read {}", path.display()))?;
     let title = fallback_title(path);
     let chapters = chapters_from_text(&source, &title);
     Ok(ParsedImport {
@@ -41,20 +42,28 @@ fn parse_txt(path: &Path) -> Result<ParsedImport> {
         author: None,
         format: "txt".to_string(),
         cover_path: None,
-        total_chars: chapters.iter().map(|chapter| chapter.text.len() as i64).sum(),
+        total_chars: chapters
+            .iter()
+            .map(|chapter| chapter.text.len() as i64)
+            .sum(),
         chapters,
     })
 }
 
 fn parse_markdown(path: &Path) -> Result<ParsedImport> {
-    let source = fs::read_to_string(path).with_context(|| format!("failed to read {}", path.display()))?;
+    let source =
+        fs::read_to_string(path).with_context(|| format!("failed to read {}", path.display()))?;
     let fallback = fallback_title(path);
     let mut sections: Vec<(String, String)> = Vec::new();
     let mut current_title = fallback.clone();
     let mut current_body = String::new();
 
     for line in source.lines() {
-        if let Some(title) = line.strip_prefix("# ").or_else(|| line.strip_prefix("## ")).or_else(|| line.strip_prefix("### ")) {
+        if let Some(title) = line
+            .strip_prefix("# ")
+            .or_else(|| line.strip_prefix("## "))
+            .or_else(|| line.strip_prefix("### "))
+        {
             if !current_body.trim().is_empty() {
                 sections.push((current_title.clone(), current_body.trim().to_string()));
                 current_body.clear();
@@ -98,14 +107,18 @@ fn parse_markdown(path: &Path) -> Result<ParsedImport> {
         author: None,
         format: "md".to_string(),
         cover_path: None,
-        total_chars: chapters.iter().map(|chapter| chapter.text.len() as i64).sum(),
+        total_chars: chapters
+            .iter()
+            .map(|chapter| chapter.text.len() as i64)
+            .sum(),
         chapters,
     })
 }
 
 fn parse_epub(path: &Path, covers_dir: &Path) -> Result<ParsedImport> {
     // EPUB ingestion is intentionally explicit here so we control sanitization instead of trusting embedded styles.
-    let file = fs::File::open(path).with_context(|| format!("failed to open {}", path.display()))?;
+    let file =
+        fs::File::open(path).with_context(|| format!("failed to open {}", path.display()))?;
     let mut archive = ZipArchive::new(file).context("failed to open epub archive")?;
     let container_xml = read_zip_string(&mut archive, "META-INF/container.xml")?;
     let container = Document::parse(&container_xml).context("failed to parse container.xml")?;
@@ -140,8 +153,15 @@ fn parse_epub(path: &Path, covers_dir: &Path) -> Result<ParsedImport> {
         .map(str::to_string);
 
     let mut manifest: HashMap<String, (String, String, Option<String>)> = HashMap::new();
-    for item in opf.descendants().filter(|node| node.tag_name().name() == "item") {
-        if let (Some(id), Some(href), Some(media_type)) = (item.attribute("id"), item.attribute("href"), item.attribute("media-type")) {
+    for item in opf
+        .descendants()
+        .filter(|node| node.tag_name().name() == "item")
+    {
+        if let (Some(id), Some(href), Some(media_type)) = (
+            item.attribute("id"),
+            item.attribute("href"),
+            item.attribute("media-type"),
+        ) {
             manifest.insert(
                 id.to_string(),
                 (
@@ -161,22 +181,29 @@ fn parse_epub(path: &Path, covers_dir: &Path) -> Result<ParsedImport> {
         .enumerate()
         .filter_map(|(index, idref)| manifest.get(idref).map(|entry| (index, entry)))
         .filter(|(_, (_, media_type, _))| media_type.contains("html"))
-        .filter_map(|(index, (href, _, _))| match read_zip_string(&mut archive, href) {
-            Ok(html) => {
-                let (detected_title, text) = html_to_text(&html);
-                if text.trim().is_empty() {
-                    None
-                } else {
-                    let chapter_title = detected_title.unwrap_or_else(|| chapter_title_from_path(index, href));
-                    Some((index, chapter_title, text))
+        .filter_map(
+            |(index, (href, _, _))| match read_zip_string(&mut archive, href) {
+                Ok(html) => {
+                    let (detected_title, text) = html_to_text(&html);
+                    if text.trim().is_empty() {
+                        None
+                    } else {
+                        let chapter_title =
+                            detected_title.unwrap_or_else(|| chapter_title_from_path(index, href));
+                        Some((index, chapter_title, text))
+                    }
                 }
-            }
-            Err(_) => None,
-        })
+                Err(_) => None,
+            },
+        )
         .collect::<Vec<_>>();
 
     let chapters = if explicit_sections.is_empty() {
-        vec![build_chapter(0, &title, "This EPUB did not expose readable XHTML content.")]
+        vec![build_chapter(
+            0,
+            &title,
+            "This EPUB did not expose readable XHTML content.",
+        )]
     } else {
         let full_text = explicit_sections
             .iter()
@@ -203,7 +230,10 @@ fn parse_epub(path: &Path, covers_dir: &Path) -> Result<ParsedImport> {
         author,
         format: "epub".to_string(),
         cover_path,
-        total_chars: chapters.iter().map(|chapter| chapter.text.len() as i64).sum(),
+        total_chars: chapters
+            .iter()
+            .map(|chapter| chapter.text.len() as i64)
+            .sum(),
         chapters,
     })
 }
@@ -350,13 +380,15 @@ fn split_text_on_sentence_boundaries(source: &str, target: usize) -> Vec<String>
         Regex::new(r#"(?s).*?[.!?](?:["')\]]+)?(?:\s+|$)"#).expect("valid sentence regex")
     });
 
-    let mut sentences = sentence_regex
-        .find_iter(&normalized)
-        .map(|sentence| sentence.as_str().trim().to_string())
-        .filter(|sentence| !sentence.is_empty())
-        .collect::<Vec<_>>();
-
-    let matched_len = sentence_regex.find_iter(&normalized).last().map(|sentence| sentence.end()).unwrap_or(0);
+    let mut sentences = Vec::new();
+    let mut matched_len = 0;
+    for sentence in sentence_regex.find_iter(&normalized) {
+        let trimmed = sentence.as_str().trim();
+        if !trimmed.is_empty() {
+            sentences.push(trimmed.to_string());
+        }
+        matched_len = sentence.end();
+    }
     let tail = normalized[matched_len..].trim();
     if !tail.is_empty() {
         sentences.push(tail.to_string());
@@ -454,7 +486,9 @@ fn markdown_to_text(source: &str) -> String {
         let mut text = String::new();
         for event in Parser::new(block) {
             match event {
-                Event::Text(value) | Event::Code(value) | Event::Html(value) => text.push_str(&value),
+                Event::Text(value) | Event::Code(value) | Event::Html(value) => {
+                    text.push_str(&value)
+                }
                 Event::SoftBreak | Event::HardBreak => text.push('\n'),
                 _ => {}
             }
@@ -485,25 +519,23 @@ fn html_to_text(source: &str) -> (Option<String>, String) {
     }
 
     static IMG_REGEX: OnceLock<Regex> = OnceLock::new();
-    let img_pattern = IMG_REGEX.get_or_init(|| {
-        Regex::new(r"(?is)<img[^>]*>").expect("valid img sanitizing regex")
-    });
+    let img_pattern = IMG_REGEX
+        .get_or_init(|| Regex::new(r"(?is)<img[^>]*>").expect("valid img sanitizing regex"));
     let stripped = img_pattern.replace_all(&sanitized, "");
     let document = Html::parse_document(&stripped);
     let title_selector = Selector::parse("h1, h2, h3, title").expect("valid title selector");
-    let block_selector = Selector::parse("h1, h2, h3, h4, h5, h6, p, li, blockquote, pre").expect("valid block selector");
+    let block_selector = Selector::parse("h1, h2, h3, h4, h5, h6, p, li, blockquote, pre")
+        .expect("valid block selector");
 
-    let title = document
-        .select(&title_selector)
-        .find_map(|node| {
-            let value = node.text().collect::<Vec<_>>().join(" ");
-            let normalized = normalize_text(&value);
-            if normalized.is_empty() {
-                None
-            } else {
-                Some(normalized)
-            }
-        });
+    let title = document.select(&title_selector).find_map(|node| {
+        let value = node.text().collect::<Vec<_>>().join(" ");
+        let normalized = normalize_text(&value);
+        if normalized.is_empty() {
+            None
+        } else {
+            Some(normalized)
+        }
+    });
 
     let mut blocks = Vec::new();
     for node in document.select(&block_selector) {
@@ -524,7 +556,11 @@ fn extract_cover(
     title: &str,
 ) -> Result<Option<String>> {
     let cover_item = manifest.values().find(|(_, media_type, properties)| {
-        media_type.starts_with("image/") && properties.as_deref().map(|value| value.contains("cover-image")).unwrap_or(false)
+        media_type.starts_with("image/")
+            && properties
+                .as_deref()
+                .map(|value| value.contains("cover-image"))
+                .unwrap_or(false)
     });
 
     let Some((href, media_type, _)) = cover_item else {
@@ -534,11 +570,18 @@ fn extract_cover(
     let extension = media_type.rsplit('/').next().unwrap_or("png");
     let safe_title = title
         .chars()
-        .map(|character| if character.is_ascii_alphanumeric() { character } else { '-' })
+        .map(|character| {
+            if character.is_ascii_alphanumeric() {
+                character
+            } else {
+                '-'
+            }
+        })
         .collect::<String>();
     let destination = covers_dir.join(format!("{safe_title}.{extension}"));
     let bytes = read_zip_bytes(archive, href)?;
-    fs::write(&destination, bytes).with_context(|| format!("failed to write {}", destination.display()))?;
+    fs::write(&destination, bytes)
+        .with_context(|| format!("failed to write {}", destination.display()))?;
     Ok(Some(destination.to_string_lossy().to_string()))
 }
 
@@ -563,10 +606,18 @@ fn read_zip_bytes(archive: &mut ZipArchive<fs::File>, name: &str) -> Result<Vec<
 }
 
 fn normalize_zip_path(path: &Path) -> String {
-    path.iter()
-        .map(|component| component.to_string_lossy().to_string())
-        .collect::<Vec<_>>()
-        .join("/")
+    let mut components = Vec::new();
+    for component in path.components() {
+        match component {
+            Component::Normal(value) => components.push(value.to_string_lossy().to_string()),
+            Component::ParentDir => {
+                components.pop();
+            }
+            Component::CurDir | Component::RootDir | Component::Prefix(_) => {}
+        }
+    }
+
+    components.join("/")
 }
 
 fn chapter_title_from_path(index: usize, href: &str) -> String {
@@ -634,14 +685,18 @@ mod tests {
 
     #[test]
     fn chunks_are_emitted_for_large_text() {
-        let text = (0..200).map(|_| "Long paragraph").collect::<Vec<_>>().join("\n\n");
+        let text = (0..200)
+            .map(|_| "Long paragraph")
+            .collect::<Vec<_>>()
+            .join("\n\n");
         let chunks = chunk_text(&text);
         assert!(chunks.len() > 1);
     }
 
     #[test]
     fn chapter_headings_in_text_override_single_blob_parsing() {
-        let text = "Front matter\n\nChapter 1\n\nFirst chapter body.\n\nChapter 2\n\nSecond chapter body.";
+        let text =
+            "Front matter\n\nChapter 1\n\nFirst chapter body.\n\nChapter 2\n\nSecond chapter body.";
         let chapters = chapters_from_text(text, "Fallback");
         assert_eq!(chapters.len(), 2);
         assert_eq!(chapters[0].title, "Chapter 1");
@@ -665,7 +720,8 @@ mod tests {
         let mut zip = zip::ZipWriter::new(file);
         let options: FileOptions<'_, ()> = FileOptions::default();
 
-        zip.start_file("META-INF/container.xml", options).expect("container entry");
+        zip.start_file("META-INF/container.xml", options)
+            .expect("container entry");
         zip.write_all(
             br#"<?xml version="1.0"?>
             <container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container">
@@ -676,7 +732,8 @@ mod tests {
         )
         .expect("write container");
 
-        zip.start_file("OEBPS/content.opf", options).expect("opf entry");
+        zip.start_file("OEBPS/content.opf", options)
+            .expect("opf entry");
         zip.write_all(
             br#"<?xml version="1.0" encoding="UTF-8"?>
             <package version="3.0" xmlns="http://www.idpf.org/2007/opf">
@@ -694,7 +751,8 @@ mod tests {
         )
         .expect("write opf");
 
-        zip.start_file("OEBPS/chapter1.xhtml", options).expect("chapter entry");
+        zip.start_file("OEBPS/chapter1.xhtml", options)
+            .expect("chapter entry");
         zip.write_all(
             br#"<?xml version="1.0" encoding="UTF-8"?>
             <html xmlns="http://www.w3.org/1999/xhtml">
@@ -715,6 +773,73 @@ mod tests {
         assert_eq!(parsed.chapters.len(), 1);
         assert!(parsed.chapters[0].text.contains("Hello world."));
         assert!(!parsed.chapters[0].text.contains("should disappear"));
+    }
+
+    #[test]
+    fn epub_parser_resolves_parent_relative_manifest_paths() {
+        let base = unique_test_path("epub-relative");
+        let epub_path = base.join("relative.epub");
+        let covers_dir = base.join("covers");
+        fs::create_dir_all(&covers_dir).expect("create covers dir");
+
+        let file = fs::File::create(&epub_path).expect("create epub");
+        let mut zip = zip::ZipWriter::new(file);
+        let options: FileOptions<'_, ()> = FileOptions::default();
+
+        zip.start_file("META-INF/container.xml", options)
+            .expect("container entry");
+        zip.write_all(
+            br#"<?xml version="1.0"?>
+            <container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container">
+              <rootfiles>
+                <rootfile full-path="OPS/content.opf" media-type="application/oebps-package+xml"/>
+              </rootfiles>
+            </container>"#,
+        )
+        .expect("write container");
+
+        zip.start_file("OPS/content.opf", options)
+            .expect("opf entry");
+        zip.write_all(
+            br#"<?xml version="1.0" encoding="UTF-8"?>
+            <package version="3.0" xmlns="http://www.idpf.org/2007/opf">
+              <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
+                <dc:title>Relative EPUB</dc:title>
+              </metadata>
+              <manifest>
+                <item id="chapter1" href="../Text/chapter1.xhtml" media-type="application/xhtml+xml"/>
+              </manifest>
+              <spine>
+                <itemref idref="chapter1"/>
+              </spine>
+            </package>"#,
+        )
+        .expect("write opf");
+
+        zip.start_file("Text/chapter1.xhtml", options)
+            .expect("chapter entry");
+        zip.write_all(
+            br#"<?xml version="1.0" encoding="UTF-8"?>
+            <html xmlns="http://www.w3.org/1999/xhtml">
+              <body>
+                <h1>Chapter Beta</h1>
+                <p>Resolved through a parent directory hop.</p>
+              </body>
+            </html>"#,
+        )
+        .expect("write chapter");
+        zip.finish().expect("finish epub");
+
+        let parsed = parse_file(&epub_path, &covers_dir).expect("parse epub");
+        assert_eq!(parsed.title, "Relative EPUB");
+        assert_eq!(parsed.chapters.len(), 1);
+        assert!(parsed.chapters[0]
+            .text
+            .contains("Resolved through a parent directory hop."));
+        assert_ne!(
+            parsed.chapters[0].text,
+            "This EPUB did not expose readable XHTML content."
+        );
     }
 
     fn unique_test_path(label: &str) -> PathBuf {

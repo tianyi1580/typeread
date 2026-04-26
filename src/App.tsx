@@ -13,7 +13,31 @@ import { api } from "./lib/tauri";
 import { cn } from "./lib/utils";
 import { applyTheme, themeMap } from "./theme";
 import { useAppStore } from "./store/app-store";
-import type { ActiveTab, AppSettings, ParsedBook, ProcessKeystrokeBatchInput, ProcessKeystrokeBatchResult } from "./types";
+import type { ActiveTab, AppSettings, BookRecord, ParsedBook, ProcessKeystrokeBatchInput, ProcessKeystrokeBatchResult } from "./types";
+
+function resolveBookToLoad(
+  bookList: BookRecord[],
+  selectedBookId: number | null,
+  preferredBookId: number | null | undefined,
+) {
+  const fallbackBookId = bookList.find((book) => book.id > 0)?.id ?? null;
+  const hasBook = (bookId: number) => bookList.some((book) => book.id === bookId);
+
+  // `null` is an explicit "clear selection" signal; `undefined` means "keep the current selection if it still exists."
+  if (preferredBookId === null) {
+    return null;
+  }
+
+  if (typeof preferredBookId === "number") {
+    return preferredBookId > 0 && hasBook(preferredBookId) ? preferredBookId : fallbackBookId;
+  }
+
+  if (selectedBookId !== null && selectedBookId > 0 && hasBook(selectedBookId)) {
+    return selectedBookId;
+  }
+
+  return fallbackBookId;
+}
 
 export default function App() {
   const activeTab = useAppStore((state) => state.activeTab);
@@ -131,7 +155,7 @@ export default function App() {
     );
   }, [books, searchQuery]);
 
-  async function refreshAll(preferredBookId?: number | null) {
+  async function refreshAll({ preferredBookId }: { preferredBookId?: number | null } = {}) {
     try {
       setError(null);
       const [bookList, nextSettings, nextAnalytics] = await Promise.all([
@@ -146,12 +170,14 @@ export default function App() {
         setAnalytics(nextAnalytics);
       });
 
-      const bookToLoad = preferredBookId ?? selectedBookId ?? bookList.find(b => b.id > 0)?.id ?? null;
-      if (bookToLoad && bookToLoad > 0) {
+      const bookToLoad = resolveBookToLoad(bookList, selectedBookId, preferredBookId);
+
+      if (bookToLoad !== null) {
         await loadBook(bookToLoad, false);
       } else {
         setCurrentBook(null);
         setSelectedBookId(null);
+        setSelectedChapterIndex(0);
       }
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Failed to load application state.");
@@ -289,7 +315,7 @@ export default function App() {
     try {
       setError(null);
       await api.renameBook(bookId, title);
-      await refreshAll(bookId);
+      await refreshAll({ preferredBookId: bookId });
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Failed to rename book.");
     }
@@ -299,7 +325,7 @@ export default function App() {
     try {
       setError(null);
       await api.setBookPinned(bookId, pinned);
-      await refreshAll(bookId);
+      await refreshAll({ preferredBookId: bookId });
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Failed to update pinned state.");
     }
@@ -319,7 +345,7 @@ export default function App() {
         setCurrentBook(null);
         setActiveTab("library");
       }
-      await refreshAll(nextSelected);
+      await refreshAll({ preferredBookId: nextSelected });
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Failed to delete book.");
     }
@@ -360,7 +386,7 @@ export default function App() {
       setError(null);
       setBusyAction("Clearing session history…");
       await api.clearSessionHistory();
-      await refreshAll(selectedBookId);
+      await refreshAll({ preferredBookId: selectedBookId });
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Failed to clear session history.");
     } finally {
@@ -381,7 +407,7 @@ export default function App() {
       setSelectedBookId(null);
       setSelectedChapterIndex(0);
       setActiveTab("library");
-      await refreshAll(null);
+      await refreshAll({ preferredBookId: null });
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Failed to delete the library.");
     } finally {
@@ -523,7 +549,7 @@ export default function App() {
           onImportDatabase={() => void handleImportDatabase()}
           onClearSessionHistory={() => void handleClearSessionHistory()}
           onDeleteLibrary={() => void handleDeleteLibrary()}
-          onRefresh={refreshAll}
+          onRefresh={() => refreshAll()}
         />
       )}
     </div>
@@ -570,13 +596,21 @@ function WindowShell({
       }
     };
 
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        onCloseMenu();
+      }
+    };
+
     const timeout = setTimeout(() => {
       document.addEventListener("click", handleClickOutside);
+      document.addEventListener("keydown", handleKeyDown);
     }, 0);
 
     return () => {
       clearTimeout(timeout);
       document.removeEventListener("click", handleClickOutside);
+      document.removeEventListener("keydown", handleKeyDown);
     };
   }, [menuOpen, onCloseMenu]);
 
@@ -623,6 +657,8 @@ function WindowShell({
             <button
               type="button"
               onClick={onToggleMenu}
+              aria-label="Open navigation menu"
+              aria-expanded={menuOpen}
               className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[var(--border)] bg-[color-mix(in_srgb,var(--panel-soft)_80%,transparent)] text-lg text-[var(--text)] transition hover:border-[var(--accent)]"
             >
               ≡

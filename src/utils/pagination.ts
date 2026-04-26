@@ -5,6 +5,24 @@ export interface PageRange {
   end: number;
 }
 
+function resolveWrappedLineState(charsInLine: number, charsPerLine: number) {
+  if (charsInLine <= charsPerLine) {
+    return {
+      additionalLines: 0,
+      charsOnLastLine: charsInLine,
+    };
+  }
+
+  const totalLines = Math.ceil(charsInLine / charsPerLine);
+  const remainder = charsInLine % charsPerLine;
+
+  return {
+    additionalLines: totalLines - 1,
+    // Preserve an exact-fit line as "full" so the next appended chars still force a wrap.
+    charsOnLastLine: remainder === 0 ? charsPerLine : remainder,
+  };
+}
+
 /**
  * Splits text into pages based on the available vertical space (maxLines).
  * It simulates word-wrapping to estimate how many lines each token will occupy.
@@ -56,9 +74,9 @@ export function paginateText(
 
       // Handle words longer than a single line (rare but possible)
       if (currentLineChars > safeCharsPerLine) {
-        const extraLines = Math.floor(currentLineChars / safeCharsPerLine);
-        linesUsed += extraLines;
-        currentLineChars = currentLineChars % safeCharsPerLine;
+        const overflow = resolveWrappedLineState(currentLineChars, safeCharsPerLine);
+        linesUsed += overflow.additionalLines;
+        currentLineChars = overflow.charsOnLastLine;
       }
 
       // 2. Check if we've exceeded the page capacity BEFORE adding the separator
@@ -77,8 +95,9 @@ export function paginateText(
       } else {
         currentLineChars += token.separator.length;
         if (currentLineChars > safeCharsPerLine) {
-          linesUsed++;
-          currentLineChars = currentLineChars % safeCharsPerLine;
+          const overflow = resolveWrappedLineState(currentLineChars, safeCharsPerLine);
+          linesUsed += overflow.additionalLines;
+          currentLineChars = overflow.charsOnLastLine;
         }
       }
 

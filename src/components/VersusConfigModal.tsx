@@ -1,6 +1,14 @@
 import { useEffect, useState } from "react";
+import { clamp } from "../lib/utils";
 import { Button } from "./ui/button";
 import { Card } from "./ui/card";
+
+const MIN_BOT_CPM = 50;
+const MAX_BOT_CPM = 1000;
+
+function clampBotCpm(value: number) {
+  return clamp(Math.round(value), MIN_BOT_CPM, MAX_BOT_CPM);
+}
 
 interface VersusConfigModalProps {
   isOpen: boolean;
@@ -17,14 +25,30 @@ export function VersusConfigModal({
   currentCpm,
   averageWpm,
 }: VersusConfigModalProps) {
-  const [cpm, setCpm] = useState(currentCpm);
-  const averageCpm = Math.round(averageWpm * 5);
+  const [cpm, setCpm] = useState(() => clampBotCpm(currentCpm));
+  const averageCpm = clampBotCpm(averageWpm * 5);
 
   useEffect(() => {
     if (isOpen) {
-      setCpm(currentCpm);
+      setCpm(clampBotCpm(currentCpm));
     }
   }, [currentCpm, isOpen]);
+
+  useEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        onClose();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen, onClose]);
 
   if (!isOpen) return null;
 
@@ -35,11 +59,16 @@ export function VersusConfigModal({
         onClick={onClose} 
       />
       
-      <Card className="relative w-full max-w-md overflow-hidden rounded-[32px] border border-white/10 bg-[var(--panel)] p-8 shadow-2xl animate-in zoom-in-95 duration-300">
+      <Card
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="versus-config-title"
+        className="relative w-full max-w-md overflow-hidden rounded-[32px] border border-white/10 bg-[var(--panel)] p-8 shadow-2xl animate-in zoom-in-95 duration-300"
+      >
         <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[var(--accent)] to-transparent opacity-50" />
         
         <div className="text-center">
-          <h2 className="text-2xl font-bold tracking-tight">Configure Versus Bot</h2>
+          <h2 id="versus-config-title" className="text-2xl font-bold tracking-tight">Configure Versus Bot</h2>
           <p className="mt-2 text-sm text-[var(--text-muted)]">
             Set the speed of the bot you'll be racing against.
           </p>
@@ -54,17 +83,18 @@ export function VersusConfigModal({
             
             <input
               type="range"
-              min="50"
-              max="1000"
+              min={MIN_BOT_CPM.toString()}
+              max={MAX_BOT_CPM.toString()}
               step="10"
               value={cpm}
-              onChange={(e) => setCpm(parseInt(e.target.value))}
+              onChange={(e) => setCpm(clampBotCpm(Number(e.target.value)))}
+              aria-label="Bot CPM speed"
               className="h-1.5 w-full cursor-pointer appearance-none rounded-full bg-white/10 accent-[var(--accent)]"
             />
             
             <div className="flex justify-between text-[10px] uppercase tracking-widest text-[var(--text-muted)]">
-              <span>50 CPM</span>
-              <span>1000 CPM</span>
+              <span>{MIN_BOT_CPM} CPM</span>
+              <span>{MAX_BOT_CPM} CPM</span>
             </div>
           </div>
 
@@ -92,7 +122,7 @@ export function VersusConfigModal({
           </Button>
           <Button 
             className="flex-1 rounded-2xl bg-[var(--accent)] py-6 font-bold text-black hover:opacity-90"
-            onClick={() => onStart(cpm)}
+            onClick={() => onStart(clampBotCpm(cpm))}
           >
             Start Race
           </Button>

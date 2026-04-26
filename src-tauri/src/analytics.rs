@@ -1,5 +1,5 @@
 use std::cmp::Ordering;
-use std::collections::{HashMap, VecDeque};
+use std::collections::{HashMap, HashSet, VecDeque};
 
 use crate::models::{
     ConfusionPair, DeepAnalytics, KeystrokeEvent, SessionContext, TransitionGroups, TransitionStat,
@@ -8,16 +8,13 @@ use crate::models::{
 
 #[derive(Clone)]
 pub struct LiveSessionAnalytics {
-    #[allow(dead_code)]
-    context: SessionContext,
     typing_timestamps: Vec<i64>,
     correct_char_samples: Vec<(i64, String)>,
     confusions: HashMap<(String, String), i64>,
     transitions: HashMap<String, TransitionAccumulator>,
     last_correct_char: Option<(String, i64)>,
     total_events: usize,
-    total_keystrokes: i64,
-    correct_keystrokes: i64,
+    seen_accuracy_indices: HashSet<i64>,
     accuracy_samples: Vec<(i64, bool)>,
 }
 
@@ -37,6 +34,10 @@ struct TransitionAccumulator {
 }
 
 impl TransitionAccumulator {
+    fn total_attempts(&self) -> i64 {
+        self.count + self.error_count
+    }
+
     fn record_sample(&mut self, delta_ms: f64) {
         self.count += 1;
         let delta = delta_ms - self.mean;
@@ -61,27 +62,25 @@ impl TransitionAccumulator {
             samples: self.count,
             average_ms: self.mean,
             deviation_ms: variance.max(0.0).sqrt(),
-            error_rate: if self.count <= 0 {
+            error_rate: if self.total_attempts() <= 0 {
                 0.0
             } else {
-                self.error_count as f64 / self.count as f64
+                self.error_count as f64 / self.total_attempts() as f64
             },
         }
     }
 }
 
 impl LiveSessionAnalytics {
-    pub fn new(context: SessionContext) -> Self {
+    pub fn new(_context: SessionContext) -> Self {
         Self {
-            context,
             typing_timestamps: Vec::new(),
             correct_char_samples: Vec::new(),
             confusions: HashMap::new(),
             transitions: HashMap::new(),
             last_correct_char: None,
             total_events: 0,
-            total_keystrokes: 0,
-            correct_keystrokes: 0,
+            seen_accuracy_indices: HashSet::new(),
             accuracy_samples: Vec::new(),
         }
     }
@@ -95,24 +94,25 @@ impl LiveSessionAnalytics {
 
     pub fn finalize(self, session: &TypingSessionInput) -> FinalizedAnalytics {
         let duration_ms = session.duration_seconds.max(1) * 1000;
-        let end_time_ms = self
-            .typing_timestamps
-            .last()
-            .copied()
-            .unwrap_or_else(|| self.typing_timestamps.first().copied().unwrap_or(0) + duration_ms);
+        let end_time_ms =
+            self.typing_timestamps.last().copied().unwrap_or_else(|| {
+                self.typing_timestamps.first().copied().unwrap_or(0) + duration_ms
+            });
 
         let intervals = build_intervals(&self.typing_timestamps);
         let (filtered_intervals, inactive_ms) = filter_inactive_intervals(&intervals);
-        let active_typing_seconds = ((duration_ms - inactive_ms).max(0) as f64 / 1000.0).round() as i64;
+        let active_typing_seconds =
+            ((duration_ms - inactive_ms).max(0) as f64 / 1000.0).round() as i64;
         let cadence_cv = coefficient_of_variation(&filtered_intervals);
         let rhythm_score = rhythm_score_from_cv(cadence_cv);
-        
+
         let focus_score = if duration_ms <= 0 {
             0.0
         } else {
-            (active_typing_seconds as f64 * 100.0 / session.duration_seconds.max(1) as f64).clamp(0.0, 100.0)
+            (active_typing_seconds as f64 * 100.0 / session.duration_seconds.max(1) as f64)
+                .clamp(0.0, 100.0)
         };
-        
+
         let endurance_segments = continuous_endurance_segments(&intervals);
         let wpm_points = rolling_wpm_points(&self.correct_char_samples, 60_000);
         let accuracy_points = compute_rolling_accuracy(&self.accuracy_samples, 10_000);
@@ -150,19 +150,23 @@ impl LiveSessionAnalytics {
 
         let expected = normalized_single_char(event.expected.as_deref());
         let typed = normalized_single_char(event.char.as_deref());
-        let is_typed_event = matches!(event.r#type.as_str(), "char" | "space");
+        let is_typed_event = matches!(event.r#type.as_str(), "char" | "space" | "enter");
+        let is_correct = event
+            .is_correct
+            .unwrap_or_else(|| typed.as_deref() == expected.as_deref());
 
         if is_typed_event {
-            self.total_keystrokes += 1;
-            let is_correct = event.is_correct.unwrap_or(false);
-            if is_correct {
-                self.correct_keystrokes += 1;
+            if let Some(cursor_index) = event.cursor_index {
+                if self.seen_accuracy_indices.insert(cursor_index) {
+                    self.accuracy_samples.push((event.at, is_correct));
+                }
+            } else {
+                self.accuracy_samples.push((event.at, is_correct));
             }
-            self.accuracy_samples.push((event.at, is_correct));
         }
 
         if !is_typed_event {
-            if matches!(event.r#type.as_str(), "enter" | "meta") {
+            if event.r#type.as_str() == "meta" {
                 self.last_correct_char = None;
             }
             return;
@@ -172,9 +176,9 @@ impl LiveSessionAnalytics {
             return;
         };
 
-        let is_correct = event.is_correct.unwrap_or_else(|| typed.as_deref() == Some(expected_char.as_str()));
         if is_correct {
-            self.correct_char_samples.push((event.at, expected_char.clone()));
+            self.correct_char_samples
+                .push((event.at, expected_char.clone()));
             if let Some((previous_char, previous_at)) = &self.last_correct_char {
                 if is_transition_candidate(previous_char, &expected_char) {
                     let delta_ms = (event.at - *previous_at) as f64;
@@ -192,7 +196,10 @@ impl LiveSessionAnalytics {
 
         if let Some(typed_char) = typed {
             if is_transition_candidate(&expected_char, &typed_char) && typed_char != expected_char {
-                *self.confusions.entry((expected_char.clone(), typed_char)).or_default() += 1;
+                *self
+                    .confusions
+                    .entry((expected_char.clone(), typed_char))
+                    .or_default() += 1;
             }
         }
 
@@ -271,7 +278,12 @@ fn summarize_confusions(confusions: &HashMap<(String, String), i64>) -> Vec<Conf
             count: *count,
         })
         .collect::<Vec<_>>();
-    pairs.sort_by(|left, right| right.count.cmp(&left.count).then_with(|| left.expected.cmp(&right.expected)));
+    pairs.sort_by(|left, right| {
+        right
+            .count
+            .cmp(&left.count)
+            .then_with(|| left.expected.cmp(&right.expected))
+    });
     pairs.truncate(96);
     pairs
 }
@@ -423,7 +435,10 @@ fn compute_rolling_accuracy(samples: &[(i64, bool)], window_ms: i64) -> Vec<WpmS
             (correct_count as f64 * 100.0) / total_count as f64
         };
 
-        points.push(WpmSample { at: *at, value: accuracy });
+        points.push(WpmSample {
+            at: *at,
+            value: accuracy,
+        });
     }
 
     points
@@ -440,7 +455,11 @@ fn downsample_wpm_points(points: &[WpmSample], max_points: usize) -> Vec<WpmSamp
     }
 
     let step = (reduced.len() as f64 / max_points as f64).ceil() as usize;
-    reduced.into_iter().step_by(step.max(1)).take(max_points).collect()
+    reduced
+        .into_iter()
+        .step_by(step.max(1))
+        .take(max_points)
+        .collect()
 }
 
 fn rdp(points: &[WpmSample], epsilon: f64) -> Vec<WpmSample> {
@@ -507,6 +526,9 @@ fn normalized_single_char(value: Option<&str>) -> Option<String> {
     if val == " " {
         return Some(" ".to_string());
     }
+    if val == "\n" {
+        return Some("\n".to_string());
+    }
 
     let raw = val.trim();
     if raw.is_empty() {
@@ -546,4 +568,111 @@ fn is_buggy_transition(combo: &str) -> bool {
     // BUGGY: Period/Comma/Excl/Quest/Colon/Semicolon followed by a letter (missing space)
     // We exclude ' and " because they are often followed by letters in contractions/quotes
     matches!(c1, '.' | ',' | '!' | '?' | ':' | ';') && c2.is_ascii_alphabetic()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{LiveSessionAnalytics, TransitionAccumulator};
+    use crate::models::{
+        KeyboardLayoutDefinition, KeystrokeEvent, SessionContext, TypingSessionInput,
+    };
+
+    #[test]
+    fn rolling_accuracy_tracks_first_attempts_only() {
+        let mut analytics = LiveSessionAnalytics::new(sample_context());
+        analytics.push_events(&[
+            typed_event(1_000, "char", "x", "a", false, 0),
+            KeystrokeEvent {
+                at: 1_200,
+                r#type: "backspace".to_string(),
+                char: None,
+                expected: Some("a".to_string()),
+                is_correct: None,
+                layout: None,
+                cursor_index: Some(0),
+                skipped_word: None,
+                correct_chars: None,
+                typed_chars: None,
+                errors: None,
+            },
+            typed_event(1_400, "char", "a", "a", true, 0),
+            typed_event(1_600, "char", "b", "b", true, 1),
+        ]);
+
+        let finalized = analytics.finalize(&sample_session(2, 50.0));
+        let accuracy_points = finalized.deep_analytics.macro_accuracy;
+
+        assert_eq!(accuracy_points.len(), 2);
+        assert_eq!(accuracy_points.last().map(|point| point.value), Some(50.0));
+    }
+
+    #[test]
+    fn transition_error_rate_uses_total_attempts() {
+        let stat = TransitionAccumulator {
+            count: 1,
+            mean: 120.0,
+            m2: 0.0,
+            error_count: 1,
+        }
+        .to_stat("ab".to_string());
+
+        assert!((stat.error_rate - 0.5).abs() < f64::EPSILON);
+    }
+
+    fn typed_event(
+        at: i64,
+        event_type: &str,
+        typed: &str,
+        expected: &str,
+        is_correct: bool,
+        cursor_index: i64,
+    ) -> KeystrokeEvent {
+        KeystrokeEvent {
+            at,
+            r#type: event_type.to_string(),
+            char: Some(typed.to_string()),
+            expected: Some(expected.to_string()),
+            is_correct: Some(is_correct),
+            layout: None,
+            cursor_index: Some(cursor_index),
+            skipped_word: None,
+            correct_chars: None,
+            typed_chars: None,
+            errors: None,
+        }
+    }
+
+    fn sample_context() -> SessionContext {
+        SessionContext {
+            book_id: None,
+            source: "book".to_string(),
+            source_label: "Fixture".to_string(),
+            keyboard_layout: KeyboardLayoutDefinition {
+                id: "qwerty-us".to_string(),
+                name: "QWERTY (US)".to_string(),
+                rows: vec![
+                    "1234567890-=".to_string(),
+                    "qwertyuiop[]\\".to_string(),
+                    "asdfghjkl;'".to_string(),
+                    "zxcvbnm,./".to_string(),
+                ],
+            },
+        }
+    }
+
+    fn sample_session(duration_seconds: i64, accuracy: f64) -> TypingSessionInput {
+        TypingSessionInput {
+            book_id: None,
+            source: "book".to_string(),
+            source_label: "Fixture".to_string(),
+            start_time: "2026-01-01T00:00:00Z".to_string(),
+            end_time: "2026-01-01T00:00:02Z".to_string(),
+            words_typed: 0,
+            chars_typed: 0,
+            errors: 0,
+            wpm: 0.0,
+            accuracy,
+            duration_seconds,
+        }
+    }
 }

@@ -1,17 +1,39 @@
-export type BookFormat = "epub" | "md" | "txt";
-export type ReaderMode = "scroll" | "spread";
-export type InteractionMode = "type" | "read" | "versus";
-export type SessionSource = "book" | "type-test" | "versus";
-export type ActiveTab = "library" | "reader" | "analytics" | "achievements" | "type-test";
-export type KeyboardLayoutId = "qwerty-us" | "colemak" | "dvorak" | "custom";
-export type ThemeName =
-  | "catppuccin-macchiato"
-  | "gruvbox-dark"
-  | "sepia"
-  | "solarized-light"
-  | "dracula"
-  | "nord";
-export type AppFont = "jetbrains-mono" | "fira-code" | "geist-mono";
+export const BOOK_FORMATS = ["epub", "md", "txt"] as const;
+export type BookFormat = (typeof BOOK_FORMATS)[number];
+
+export const READER_MODES = ["scroll", "spread"] as const;
+export type ReaderMode = (typeof READER_MODES)[number];
+
+export const INTERACTION_MODES = ["type", "read", "versus"] as const;
+export type InteractionMode = (typeof INTERACTION_MODES)[number];
+
+export const SESSION_SOURCES = ["book", "type-test", "versus"] as const;
+export type SessionSource = (typeof SESSION_SOURCES)[number];
+
+export const ACTIVE_TABS = ["library", "reader", "analytics", "achievements", "type-test"] as const;
+export type ActiveTab = (typeof ACTIVE_TABS)[number];
+
+export const KEYBOARD_LAYOUT_IDS = ["qwerty-us", "colemak", "dvorak", "custom"] as const;
+export type KeyboardLayoutId = (typeof KEYBOARD_LAYOUT_IDS)[number];
+
+export const THEME_NAMES = [
+  "catppuccin-macchiato",
+  "gruvbox-dark",
+  "sepia",
+  "solarized-light",
+  "dracula",
+  "nord",
+] as const;
+export type ThemeName = (typeof THEME_NAMES)[number];
+
+export const APP_FONTS = ["jetbrains-mono", "fira-code", "geist-mono"] as const;
+export type AppFont = (typeof APP_FONTS)[number];
+
+export const TYPE_TEST_DURATIONS = [15, 30, 60, 120] as const;
+export type TypeTestDuration = (typeof TYPE_TEST_DURATIONS)[number];
+
+export const PRACTICE_WORD_BANK_TYPES = ["easy", "medium", "hard"] as const;
+export type PracticeWordBankType = (typeof PRACTICE_WORD_BANK_TYPES)[number];
 
 export interface BookRecord {
   id: number;
@@ -69,6 +91,7 @@ export interface DailyMetric {
   wpm: number;
   accuracy: number;
   sessions: number;
+  wordsTyped: number;
 }
 
 export interface SessionPoint {
@@ -118,9 +141,9 @@ export interface AppSettings {
   keyboardLayout: KeyboardLayoutId;
   customKeyboardLayout: string;
   smoothCaret: boolean;
-  typeTestDuration: 15 | 30 | 60 | 120;
+  typeTestDuration: TypeTestDuration;
   versusBotCpm: number;
-  practiceWordBankType: "easy" | "medium" | "hard";
+  practiceWordBankType: PracticeWordBankType;
   errorColor: string;
 }
 

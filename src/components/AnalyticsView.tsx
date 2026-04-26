@@ -8,7 +8,7 @@ import { InfoTooltip, InfoIcon } from "./ui/InfoTooltip";
 const SECTION_DESCRIPTIONS = {
   profile: "Overview of your current rank, level, and XP progression. Reflects your overall journey and dedication.",
   graph: "Visualizes your speed evolution over time. It uses a rolling average to smooth out session-to-session volatility, showing your true growth curve.",
-  quality: "Measures the 'health' of your typing session. High scores indicate consistent rhythm and focus, while Cadence CV measures variation in your stroke timing.",
+  quality: "Measures the 'health' of your typing session. High scores indicate consistent rhythm and focus, while Consistency measures variation in your stroke timing.",
   heatmap: "Identifies which keys you tend to drift from. The lines show 'directional drift'—where your fingers are landing vs. where they should be.",
   lifetime: "Aggregated statistics across all your typing history, including total volume, accuracy, and time spent practicing.",
   transitions: "Granular breakdown of your fastest and slowest character pairings. The Drill List highlights combinations with high error rates that need focused practice.",
@@ -27,7 +27,7 @@ const METRIC_DESCRIPTIONS: Record<string, string> = {
   "Sessions": "Total number of individual typing sessions completed.",
   "Rhythm Score": "A measure of how consistent your inter-character timing is. High scores mean steady, predictable typing.",
   "Focus Score": "Measures your ability to maintain speed without sudden pauses or corrections.",
-  "Cadence CV": "Coefficient of Variation for your typing rhythm. Lower values mean more stable and professional typing cadence.",
+  "Consistency": "Coefficient of Variation for your typing rhythm. Lower values mean more stable and professional typing cadence.",
   "Active Typing": "The actual time spent with fingers on keys, excluding pauses and navigation.",
   "Average WPM": "Your mean Words Per Minute across all recorded sessions.",
   "Average Accuracy": "Percentage of characters typed correctly on the first attempt across your lifetime.",
@@ -41,6 +41,12 @@ const SOURCE_LABELS: Record<string, string> = {
   versus: "Versus Race",
   reader: "Library",
   read: "Library",
+};
+
+const FALLBACK_KEYBOARD_LAYOUT: KeyboardLayoutDefinition = {
+  id: "qwerty-us",
+  name: "QWERTY (US)",
+  rows: ["1234567890-=", "qwertyuiop[]\\", "asdfghjkl;'", "zxcvbnm,./"],
 };
 
 export function AnalyticsView({
@@ -57,7 +63,7 @@ export function AnalyticsView({
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
 
   const layout = useMemo(
-    () => (settings ? resolveKeyboardLayout(settings) : { id: "qwerty-us", name: "QWERTY (US)", rows: ["1234567890-=", "qwertyuiop[]\\", "asdfghjkl;'", "zxcvbnm,./"] }),
+    () => (settings ? resolveKeyboardLayout(settings) : FALLBACK_KEYBOARD_LAYOUT),
     [settings],
   );
 
@@ -67,6 +73,38 @@ export function AnalyticsView({
       (s) => (s.source as string) !== "reader" && (s.source as string) !== "read" && s.wordsTyped >= 5
     );
   }, [analytics]);
+
+  // Prepare graph points based on active toggles
+  const sessionPoints = useMemo(() => {
+    if (!analytics) return [];
+    if (sessionMetric === "wpm") {
+      return analytics.latestDeepAnalytics?.macroWpm ?? [];
+    }
+    return analytics.latestDeepAnalytics?.macroAccuracy ?? [];
+  }, [analytics, sessionMetric]);
+
+  const lifetimePoints = useMemo(() => {
+    if (!analytics) return [];
+    const now = new Date();
+    const filtered = analytics.history.filter((d) => {
+      if (timeRange === "all") return true;
+      const date = new Date(d.day);
+      const diffDays = (now.getTime() - date.getTime()) / (1000 * 3600 * 24);
+      return diffDays <= Number(timeRange);
+    });
+
+    if (filtered.length === 0) return [];
+
+    // Keep the timeline stable even if the backend row order changes in the future.
+    filtered.sort((a, b) => new Date(a.day).getTime() - new Date(b.day).getTime());
+
+    const firstDate = new Date(filtered[0].day).getTime();
+
+    return filtered.map((d) => ({
+      at: (new Date(d.day).getTime() - firstDate) / (1000 * 3600 * 24),
+      value: lifetimeMetric === "wpm" ? d.wpm : lifetimeMetric === "accuracy" ? d.accuracy : d.wordsTyped,
+    }));
+  }, [analytics, lifetimeMetric, timeRange]);
 
   if (!analytics || filteredSessionPoints.length === 0) {
     return (
@@ -81,37 +119,6 @@ export function AnalyticsView({
   const selectedDrifts = activeKey
     ? analytics.aggregateConfusions.filter((pair) => pair.expected === activeKey).sort((left, right) => right.count - left.count).slice(0, 8)
     : [];
-
-  // Prepare graph points based on active toggles
-  const sessionPoints = useMemo(() => {
-    if (sessionMetric === "wpm") {
-      return analytics.latestDeepAnalytics?.macroWpm ?? [];
-    } else {
-      return analytics.latestDeepAnalytics?.macroAccuracy ?? [];
-    }
-  }, [analytics, sessionMetric]);
-
-  const lifetimePoints = useMemo(() => {
-    const now = new Date();
-    const filtered = analytics.history.filter((d) => {
-      if (timeRange === "all") return true;
-      const date = new Date(d.day);
-      const diffDays = (now.getTime() - date.getTime()) / (1000 * 3600 * 24);
-      return diffDays <= parseInt(timeRange);
-    });
-
-    if (filtered.length === 0) return [];
-
-    // Sort by date just in case
-    filtered.sort((a, b) => new Date(a.day).getTime() - new Date(b.day).getTime());
-
-    const firstDate = new Date(filtered[0].day).getTime();
-
-    return filtered.map((d) => ({
-      at: (new Date(d.day).getTime() - firstDate) / (1000 * 3600 * 24), // Days offset
-      value: lifetimeMetric === "wpm" ? d.wpm : lifetimeMetric === "accuracy" ? d.accuracy : d.sessions * 10 // scale sessions
-    }));
-  }, [analytics, lifetimeMetric, timeRange]);
 
   return (
     <div className="space-y-6 pb-12">
@@ -246,7 +253,7 @@ export function AnalyticsView({
             <div className="mt-8 grid gap-4">
               <HeroMetric label="Rhythm Score" value={`${(analytics.latestDeepAnalytics?.rhythmScore ?? 0).toFixed(0)}%`} />
               <HeroMetric label="Focus Score" value={`${(analytics.latestDeepAnalytics?.focusScore ?? 0).toFixed(0)}%`} />
-              <HeroMetric label="Cadence CV" value={(analytics.latestDeepAnalytics?.cadenceCv ?? 0).toFixed(2)} />
+              <HeroMetric label="Consistency" value={(analytics.latestDeepAnalytics?.cadenceCv ?? 0).toFixed(2)} />
               <HeroMetric
                 label="Active Typing"
                 value={formatDuration(analytics.latestDeepAnalytics?.activeTypingSeconds ?? 0)}

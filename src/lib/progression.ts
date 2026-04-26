@@ -53,6 +53,10 @@ export function buildProfileProgress(totalXp: number, streakDays: number, rested
   const level = levelFromXp(totalXp);
   const currentLevelXp = xpThresholdForLevel(level);
   const nextLevelXp = xpThresholdForLevel(level + 1);
+  const progressToNextLevel =
+    nextLevelXp <= currentLevelXp
+      ? 1
+      : Math.min(1, Math.max(0, (totalXp - currentLevelXp) / (nextLevelXp - currentLevelXp)));
 
   return {
     totalXp,
@@ -60,7 +64,7 @@ export function buildProfileProgress(totalXp: number, streakDays: number, rested
     title: titleForLevel(level),
     currentLevelXp,
     nextLevelXp,
-    progressToNextLevel: nextLevelXp <= currentLevelXp ? 1 : (totalXp - currentLevelXp) / (nextLevelXp - currentLevelXp),
+    progressToNextLevel,
     streakDays,
     restedWordsAvailable,
     unlocks: unlocksForLevel(level),

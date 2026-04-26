@@ -1,11 +1,6 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useLayoutEffect } from "react";
 import { createPortal } from "react-dom";
-import { clsx, type ClassValue } from "clsx";
-import { twMerge } from "tailwind-merge";
-
-function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs));
-}
+import { clamp, cn } from "../../lib/utils";
 
 interface InfoTooltipProps {
   content: string;
@@ -15,6 +10,13 @@ interface InfoTooltipProps {
   maxWidth?: string;
 }
 
+interface TooltipPosition {
+  top: number;
+  left: number;
+}
+
+const VIEWPORT_PADDING = 12;
+
 export function InfoTooltip({
   content,
   children,
@@ -23,26 +25,70 @@ export function InfoTooltip({
   maxWidth = "280px",
 }: InfoTooltipProps) {
   const [isVisible, setIsVisible] = useState(false);
-  const [position, setPosition] = useState({ top: 0, left: 0 });
+  const [position, setPosition] = useState<TooltipPosition>({ top: 0, left: 0 });
   const triggerRef = useRef<HTMLDivElement>(null);
   const tooltipRef = useRef<HTMLDivElement>(null);
 
+  // The portal tooltip renders above its anchor with a translate transform, so
+  // the anchor coordinates need to be clamped against the tooltip's size.
+  const clampPosition = (nextPosition: TooltipPosition): TooltipPosition => {
+    const tooltip = tooltipRef.current;
+
+    if (!tooltip) {
+      return nextPosition;
+    }
+
+    const { width, height } = tooltip.getBoundingClientRect();
+    const minLeft = width / 2 + VIEWPORT_PADDING;
+    const maxLeft = window.innerWidth - minLeft;
+    const minTop = height + VIEWPORT_PADDING;
+    const maxTop = window.innerHeight - VIEWPORT_PADDING;
+
+    return {
+      left: minLeft > maxLeft ? window.innerWidth / 2 : clamp(nextPosition.left, minLeft, maxLeft),
+      top: minTop > maxTop ? maxTop : clamp(nextPosition.top, minTop, maxTop),
+    };
+  };
+
   const updatePosition = (e?: React.MouseEvent | MouseEvent) => {
+    let nextPosition: TooltipPosition | null = null;
+
     if (trigger === "hover" && e) {
-      // Follow mouse
-      setPosition({
+      nextPosition = {
         top: e.clientY - 15,
         left: e.clientX,
-      });
+      };
     } else if (trigger === "click" && triggerRef.current) {
-      // Position relative to trigger
       const rect = triggerRef.current.getBoundingClientRect();
-      setPosition({
+      nextPosition = {
         top: rect.top - 10,
         left: rect.left + rect.width / 2,
-      });
+      };
+    }
+
+    if (nextPosition) {
+      setPosition(clampPosition(nextPosition));
     }
   };
+
+  useLayoutEffect(() => {
+    if (!isVisible) {
+      return;
+    }
+
+    setPosition((currentPosition) => {
+      const clampedPosition = clampPosition(currentPosition);
+
+      if (
+        clampedPosition.top === currentPosition.top &&
+        clampedPosition.left === currentPosition.left
+      ) {
+        return currentPosition;
+      }
+
+      return clampedPosition;
+    });
+  }, [content, isVisible, maxWidth]);
 
   useEffect(() => {
     if (isVisible && trigger === "click") {
@@ -93,7 +139,7 @@ export function InfoTooltip({
     if (trigger === "click") {
       e.stopPropagation();
       updatePosition();
-      setIsVisible(!isVisible);
+      setIsVisible((visible) => !visible);
     }
   };
 

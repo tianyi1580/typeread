@@ -98,6 +98,15 @@ textarea {
   animation: zoom-in 0.2s ease-out forwards;
 }
 
+/* Match the animation utility names already used in the app without adding a plugin. */
+.animate-fade-in {
+  animation: fade-in 0.2s ease-out forwards;
+}
+
+.zoom-in-95 {
+  animation: zoom-in 0.2s ease-out forwards;
+}
+
 @keyframes tooltip-in {
   from { opacity: 0; transform: translate(-50%, -95%) scale(0.95); }
   to { opacity: 1; transform: translate(-50%, -100%) scale(1); }

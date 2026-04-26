@@ -1,4 +1,4 @@
-import { type ReactNode, useMemo, useState } from "react";
+import { type ReactNode, useEffect, useMemo, useState } from "react";
 import { keyboardLayoutPresets } from "../lib/keyboard-layouts";
 import { Button } from "./ui/button";
 import { Card } from "./ui/card";
@@ -46,6 +46,22 @@ export function SettingsView({
     customErrorColors: false,
   };
 
+  useEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        onClose();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen, onClose]);
+
   if (!isOpen) {
     return null;
   }
@@ -53,7 +69,12 @@ export function SettingsView({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4 py-6">
       <button type="button" aria-label="Close settings" className="absolute inset-0" onClick={onClose} />
-      <Card className="relative grid h-[min(860px,88vh)] w-full max-w-[1180px] overflow-hidden lg:grid-cols-[260px_minmax(0,1fr)]">
+      <Card
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="settings-title"
+        className="relative grid h-[min(860px,88vh)] w-full max-w-[1180px] overflow-hidden lg:grid-cols-[260px_minmax(0,1fr)]"
+      >
         <aside className="border-r border-[var(--border)] bg-[color-mix(in_srgb,var(--panel-soft)_80%,transparent)] p-5">
           <div className="flex flex-col">
             <button
@@ -63,7 +84,7 @@ export function SettingsView({
             >
               Close
             </button>
-            <h2 className="mt-5 text-center text-2xl font-semibold">Settings</h2>
+            <h2 id="settings-title" className="mt-5 text-center text-2xl font-semibold">Settings</h2>
           </div>
 
           <nav className="mt-6 space-y-2">
@@ -179,6 +200,7 @@ export function SettingsView({
                 <span className="text-xs uppercase tracking-[0.28em] text-[var(--text-muted)]">Error Highlight Color</span>
                 <input
                   type="text"
+                  aria-label="Error highlight color"
                   value={settings.errorColor}
                   disabled={!unlocks.customErrorColors}
                   onChange={(event) => onChange({ ...settings, errorColor: event.target.value })}
@@ -458,6 +480,7 @@ function SliderField({
       </div>
       <input
         type="range"
+        aria-label={label}
         min={min}
         max={max}
         step={step}
@@ -516,7 +539,9 @@ function ToggleRow({
       <button
         type="button"
         disabled={disabled}
-        aria-pressed={checked}
+        role="switch"
+        aria-checked={checked}
+        aria-label={label}
         onClick={() => onChange(!checked)}
         className={cn(
           "relative h-8 w-14 rounded-full transition disabled:cursor-not-allowed",

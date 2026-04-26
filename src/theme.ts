@@ -1,4 +1,4 @@
-import type { AppSettings, ThemeName } from "./types";
+import type { AppFont, AppSettings, ThemeName } from "./types";
 
 export interface ThemeDefinition {
   name: string;
@@ -102,8 +102,16 @@ export const themeMap: Record<ThemeName, ThemeDefinition> = {
   },
 };
 
+const DEFAULT_THEME_NAME: ThemeName = "catppuccin-macchiato";
+
+const fontFamilyMap: Record<AppFont, string> = {
+  "jetbrains-mono": "JetBrains Mono",
+  "fira-code": "Fira Code",
+  "geist-mono": "Geist Mono",
+};
+
 export function applyTheme(settings: AppSettings) {
-  const theme = themeMap[settings.theme];
+  const theme = themeMap[settings.theme] ?? themeMap[DEFAULT_THEME_NAME];
   const root = document.documentElement;
 
   root.style.setProperty("--bg", theme.background);
@@ -120,6 +128,6 @@ export function applyTheme(settings: AppSettings) {
   root.style.setProperty("--font-size-base", `${settings.baseFontSize}px`);
   root.style.setProperty("--line-height-base", settings.lineHeight.toString());
 
-  const appFont = settings.font === "fira-code" ? "Fira Code" : settings.font === "geist-mono" ? "Geist Mono" : "JetBrains Mono";
+  const appFont = fontFamilyMap[settings.font] ?? fontFamilyMap["jetbrains-mono"];
   root.style.setProperty("--font-main", `"${appFont}", ui-monospace, monospace`);
 }

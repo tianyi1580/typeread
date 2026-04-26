@@ -108,9 +108,13 @@ export function TypingLayer({
 
   const visibleTokens = useMemo(() => {
     if (visibleRange) {
+      // Spread mode re-renders on every keystroke; avoid rescanning the full chapter
+      // when the visible page range is already sorted by token start offsets.
+      const startIndex = lowerBoundTokenStart(tokens, visibleRange.start);
+      const endIndex = lowerBoundTokenStart(tokens, visibleRange.end);
       return tokens
-        .map((token, index) => ({ token, index }))
-        .filter(({ token }) => token.start >= visibleRange.start && token.start < visibleRange.end);
+        .slice(startIndex, endIndex)
+        .map((token, index) => ({ token, index: startIndex + index }));
     }
 
     const start = windowStart;
@@ -276,7 +280,12 @@ export function TypingLayer({
 
   useEffect(() => {
     const updateCaret = () => {
-      if (!currentWordRef.current || !containerRef.current) return;
+      if (!containerRef.current) return;
+
+      if (!currentWordRef.current) {
+        setCaretStyle((prev) => (prev.opacity === 0 ? prev : { ...prev, opacity: 0 }));
+        return;
+      }
       
       const wordEl = currentWordRef.current;
       const typedLength = snapshot.words[snapshot.currentWordIndex]?.typed.length ?? 0;
@@ -292,6 +301,8 @@ export function TypingLayer({
           height: charRect.height * 0.8,
           opacity: 1,
         });
+      } else {
+        setCaretStyle((prev) => (prev.opacity === 0 ? prev : { ...prev, opacity: 0 }));
       }
     };
 
@@ -352,6 +363,22 @@ export function TypingLayer({
       ))}
     </div>
   );
+}
+
+function lowerBoundTokenStart(tokens: TokenizedWord[], target: number) {
+  let low = 0;
+  let high = tokens.length;
+
+  while (low < high) {
+    const mid = low + Math.floor((high - low) / 2);
+    if (tokens[mid].start < target) {
+      low = mid + 1;
+    } else {
+      high = mid;
+    }
+  }
+
+  return low;
 }
 
 const Word = React.memo(

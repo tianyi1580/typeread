@@ -1,4 +1,13 @@
 import { create } from "zustand";
+import {
+  APP_FONTS,
+  INTERACTION_MODES,
+  KEYBOARD_LAYOUT_IDS,
+  PRACTICE_WORD_BANK_TYPES,
+  READER_MODES,
+  THEME_NAMES,
+  TYPE_TEST_DURATIONS,
+} from "../types";
 import type { ActiveTab, AnalyticsSummary, AppSettings, BookRecord, InteractionMode, ParsedBook, ReaderMode } from "../types";
 
 interface AppState {
@@ -9,7 +18,7 @@ interface AppState {
   selectedChapterIndex: number;
   readerMode: ReaderMode;
   interactionMode: InteractionMode;
-  settings: AppSettings | null;
+  settings: AppSettings;
   analytics: AnalyticsSummary | null;
   desktopReady: boolean;
   setDesktopReady: (ready: boolean) => void;
@@ -44,15 +53,67 @@ export const defaultSettings: AppSettings = {
   errorColor: "#ed8796",
 };
 
+function isOneOf<T extends string | number>(value: unknown, allowedValues: readonly T[]): value is T {
+  return allowedValues.some((allowedValue) => allowedValue === value);
+}
+
+function normalizeAppSettings(settings: AppSettings): AppSettings {
+  const s = settings || defaultSettings;
+
+  return {
+    ...defaultSettings,
+    ...s,
+    theme: isOneOf(s.theme, THEME_NAMES) ? s.theme : defaultSettings.theme,
+    font: isOneOf(s.font, APP_FONTS) ? s.font : defaultSettings.font,
+    readerMode: isOneOf(s.readerMode, READER_MODES) ? s.readerMode : defaultSettings.readerMode,
+    interactionMode: isOneOf(s.interactionMode, INTERACTION_MODES) ? s.interactionMode : defaultSettings.interactionMode,
+    keyboardLayout: isOneOf(s.keyboardLayout, KEYBOARD_LAYOUT_IDS) ? s.keyboardLayout : defaultSettings.keyboardLayout,
+    typeTestDuration: isOneOf(s.typeTestDuration, TYPE_TEST_DURATIONS)
+      ? s.typeTestDuration
+      : defaultSettings.typeTestDuration,
+    practiceWordBankType: isOneOf(s.practiceWordBankType, PRACTICE_WORD_BANK_TYPES)
+      ? s.practiceWordBankType
+      : defaultSettings.practiceWordBankType,
+
+    // Numeric bounds and types
+    baseFontSize: typeof s.baseFontSize === "number" && s.baseFontSize >= 8 && s.baseFontSize <= 72
+      ? s.baseFontSize
+      : defaultSettings.baseFontSize,
+    lineHeight: typeof s.lineHeight === "number" && s.lineHeight >= 1 && s.lineHeight <= 3
+      ? s.lineHeight
+      : defaultSettings.lineHeight,
+    versusBotCpm: typeof s.versusBotCpm === "number" && s.versusBotCpm >= 10 && s.versusBotCpm <= 2000
+      ? s.versusBotCpm
+      : defaultSettings.versusBotCpm,
+
+    // Boolean flags
+    tabToSkip: typeof s.tabToSkip === "boolean" ? s.tabToSkip : defaultSettings.tabToSkip,
+    ignoreQuotationMarks:
+      typeof s.ignoreQuotationMarks === "boolean" ? s.ignoreQuotationMarks : defaultSettings.ignoreQuotationMarks,
+    focusMode: typeof s.focusMode === "boolean" ? s.focusMode : defaultSettings.focusMode,
+    smoothCaret: typeof s.smoothCaret === "boolean" ? s.smoothCaret : defaultSettings.smoothCaret,
+
+    // String fields
+    customKeyboardLayout: typeof s.customKeyboardLayout === "string" ? s.customKeyboardLayout : defaultSettings.customKeyboardLayout,
+    ignoredCharacters: typeof s.ignoredCharacters === "string" ? s.ignoredCharacters : defaultSettings.ignoredCharacters,
+    errorColor:
+      typeof s.errorColor === "string" && /^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/.test(s.errorColor)
+        ? s.errorColor
+        : defaultSettings.errorColor,
+  };
+}
+
+const initialSettings = normalizeAppSettings(defaultSettings);
+
 export const useAppStore = create<AppState>((set) => ({
   activeTab: "library",
   books: [],
   currentBook: null,
   selectedBookId: null,
   selectedChapterIndex: 0,
-  readerMode: defaultSettings.readerMode,
-  interactionMode: defaultSettings.interactionMode,
-  settings: defaultSettings,
+  readerMode: initialSettings.readerMode,
+  interactionMode: initialSettings.interactionMode,
+  settings: initialSettings,
   analytics: null,
   desktopReady: false,
   setDesktopReady: (desktopReady) => set({ desktopReady }),
@@ -61,13 +122,29 @@ export const useAppStore = create<AppState>((set) => ({
   setCurrentBook: (currentBook) => set({ currentBook }),
   setSelectedBookId: (selectedBookId) => set({ selectedBookId }),
   setSelectedChapterIndex: (selectedChapterIndex) => set({ selectedChapterIndex }),
-  setReaderMode: (readerMode) => set({ readerMode }),
-  setInteractionMode: (interactionMode) => set({ interactionMode }),
-  setSettings: (settings) =>
-    set({
-      settings,
-      readerMode: settings.readerMode,
-      interactionMode: settings.interactionMode,
-    }),
+  setReaderMode: (readerMode) =>
+    set((state) => ({
+      readerMode,
+      settings: {
+        ...state.settings,
+        readerMode,
+      },
+    })),
+  setInteractionMode: (interactionMode) =>
+    set((state) => ({
+      interactionMode,
+      settings: {
+        ...state.settings,
+        interactionMode,
+      },
+    })),
+  setSettings: (settings) => {
+    const normalizedSettings = normalizeAppSettings(settings);
+    return set({
+      settings: normalizedSettings,
+      readerMode: normalizedSettings.readerMode,
+      interactionMode: normalizedSettings.interactionMode,
+    });
+  },
   setAnalytics: (analytics) => set({ analytics }),
 }));

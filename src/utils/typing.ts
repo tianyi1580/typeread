@@ -24,6 +24,10 @@ export function normalizeTypingChar(input: string) {
     .replace(/\u00a0/g, " ");
 }
 
+export function normalizeTypingText(text: string) {
+  return normalizeTypingChar(text.replace(/\r\n/g, "\n").replace(/\r/g, "\n")).normalize("NFKC");
+}
+
 export function parseIgnoredCharacterSet(spec: string) {
   const parsed = new Set<string>();
   const quotedPattern = /"((?:\\.|[^"\\])*)"|'((?:\\.|[^'\\])*)'/g;
@@ -81,7 +85,7 @@ function charIsIgnored(char: string, set?: ReadonlySet<string>) {
 }
 
 export function tokenizeText(text: string): TokenizedWord[] {
-  const normalizedText = normalizeTypingChar(text.replace(/\r\n/g, "\n").replace(/\r/g, "\n")).normalize("NFKC");
+  const normalizedText = normalizeTypingText(text);
   const tokens: TokenizedWord[] = [];
   const regex = /(\S+)(\s*)/g;
   let match: RegExpExecArray | null;
@@ -420,18 +424,13 @@ export function calculateActiveDuration(
   return Math.round(Math.max(1000, activeMs) / 1000);
 }
 
-export function computeMetrics(
-  events: KeystrokeEvent[],
-  elapsedSeconds: number,
-  snapshot: TypingSnapshot,
-  tokens: TokenizedWord[],
-): LiveMetrics {
+function summarizeSessionEvents(events: KeystrokeEvent[]) {
   let typedWords = 0;
   let typedChars = 0;
   let correctChars = 0;
   let errors = 0;
-
   const firstAttempts = new Map<number, boolean>();
+
   for (const event of events) {
     if ((event.type === "char" || event.type === "space") && event.cursorIndex !== undefined) {
       if (!firstAttempts.has(event.cursorIndex)) {
@@ -441,7 +440,7 @@ export function computeMetrics(
         correctChars += 1;
       }
     }
-    
+
     if (!event.skippedWord && event.typedChars !== undefined) {
       typedWords += 1;
       typedChars += event.typedChars;
@@ -453,8 +452,26 @@ export function computeMetrics(
   const correctFirstAttempts = Array.from(firstAttempts.values()).filter(Boolean).length;
   const accuracy = totalFirstAttempts === 0 ? 100 : clamp((correctFirstAttempts / totalFirstAttempts) * 100, 0, 100);
 
+  return {
+    typedWords,
+    typedChars,
+    correctChars,
+    errors,
+    accuracy,
+  };
+}
+
+export function computeMetrics(
+  events: KeystrokeEvent[],
+  elapsedSeconds: number,
+  snapshot: TypingSnapshot,
+  tokens: TokenizedWord[],
+): LiveMetrics {
+  // Live and persisted metrics need to share identical event accounting or the HUD lies.
+  const { typedWords, typedChars, correctChars, errors, accuracy } = summarizeSessionEvents(events);
   const minutes = Math.max(elapsedSeconds / 60, 1 / 60);
-  const wpm = correctChars / 5 / minutes;
+  const rawWpm = correctChars / 5 / minutes;
+  const wpm = Math.min(rawWpm, 350);
   const progress = currentProgress(snapshot, tokens);
 
   return {
@@ -475,33 +492,7 @@ export function finalizeMetrics(
   endTime: number,
 ) {
   const durationSeconds = calculateActiveDuration(events, startTime, endTime);
-  
-  let typedWords = 0;
-  let typedChars = 0;
-  let correctChars = 0;
-  let errors = 0;
-  const firstAttempts = new Map<number, boolean>();
-  
-  for (const event of events) {
-    if ((event.type === "char" || event.type === "space") && event.cursorIndex !== undefined) {
-      if (!firstAttempts.has(event.cursorIndex)) {
-        firstAttempts.set(event.cursorIndex, !!event.isCorrect);
-      }
-      if (event.isCorrect) {
-        correctChars += 1;
-      }
-    }
-    
-    if (!event.skippedWord && event.typedChars !== undefined) {
-      typedWords += 1;
-      typedChars += event.typedChars;
-      errors += event.errors ?? 0;
-    }
-  }
-
-  const totalFirstAttempts = firstAttempts.size;
-  const correctFirstAttempts = Array.from(firstAttempts.values()).filter(Boolean).length;
-  const accuracy = totalFirstAttempts === 0 ? 100 : clamp((correctFirstAttempts / totalFirstAttempts) * 100, 0, 100);
+  const { typedWords, typedChars, correctChars, errors, accuracy } = summarizeSessionEvents(events);
 
   const minutes = durationSeconds / 60;
   const rawWpm = minutes <= 0 ? 0 : correctChars / 5 / minutes;

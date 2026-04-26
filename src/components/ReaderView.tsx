@@ -12,6 +12,7 @@ import {
   currentCursorIndex,
   calculateActiveDuration,
   finalizeMetrics,
+  normalizeTypingText,
   parseIgnoredCharacterSet,
   tokenizeText,
   wordIndexFromTextIndex,
@@ -105,7 +106,7 @@ export function ReaderView({
   onError,
 }: ReaderViewProps) {
   const chapter = book.chapters[chapterIndex];
-  const normalizedText = useMemo(() => chapter.text.replace(/\r\n/g, "\n").replace(/\r/g, "\n"), [chapter.text]);
+  const normalizedText = useMemo(() => normalizeTypingText(chapter.text), [chapter.text]);
   const tokens = useMemo(() => tokenizeText(normalizedText), [normalizedText]);
   const ignoredCharacterSet = useMemo(() => parseIgnoredCharacterSet(settings.ignoredCharacters), [settings.ignoredCharacters]);
   const keyboardLayout = useMemo(() => resolveKeyboardLayout(settings), [settings]);
