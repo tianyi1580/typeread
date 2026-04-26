@@ -204,6 +204,7 @@ pub struct AppSettings {
     pub smooth_caret: bool,
     pub type_test_duration: i64,
     pub versus_bot_cpm: i64,
+    pub practice_word_bank_type: String,
     pub error_color: String,
 }
 

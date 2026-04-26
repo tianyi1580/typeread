@@ -176,6 +176,7 @@ impl Database {
                 smooth_caret INTEGER NOT NULL DEFAULT 0,
                 type_test_duration INTEGER NOT NULL DEFAULT 60,
                 versus_bot_cpm INTEGER NOT NULL DEFAULT 300,
+                practice_word_bank_type TEXT NOT NULL DEFAULT 'easy',
                 error_color TEXT NOT NULL DEFAULT '#ed8796'
             );
             "#,
@@ -204,6 +205,7 @@ impl Database {
                 smooth_caret,
                 type_test_duration,
                 versus_bot_cpm,
+                practice_word_bank_type,
                 error_color
             )
             VALUES (
@@ -223,6 +225,7 @@ impl Database {
                 0,
                 60,
                 300,
+                'easy',
                 '#ed8796'
             )
             ON CONFLICT(id) DO NOTHING;
@@ -261,6 +264,7 @@ impl Database {
         ensure_column(conn, "settings", "smooth_caret", "INTEGER NOT NULL DEFAULT 0")?;
         ensure_column(conn, "settings", "type_test_duration", "INTEGER NOT NULL DEFAULT 60")?;
         ensure_column(conn, "settings", "versus_bot_cpm", "INTEGER NOT NULL DEFAULT 300")?;
+        ensure_column(conn, "settings", "practice_word_bank_type", "TEXT NOT NULL DEFAULT 'easy'")?;
         ensure_column(conn, "settings", "error_color", "TEXT NOT NULL DEFAULT '#ed8796'")?;
 
         ensure_column(conn, "session_analytics", "keyboard_layout_id", "TEXT NOT NULL DEFAULT 'qwerty-us'")?;
@@ -933,6 +937,7 @@ impl Database {
                 smooth_caret,
                 type_test_duration,
                 versus_bot_cpm,
+                practice_word_bank_type,
                 error_color
             FROM settings
             WHERE id = 1
@@ -955,7 +960,8 @@ impl Database {
                     smooth_caret: row.get::<_, i64>(12)? == 1,
                     type_test_duration: row.get(13)?,
                     versus_bot_cpm: row.get(14)?,
-                    error_color: row.get(15)?,
+                    practice_word_bank_type: row.get(15)?,
+                    error_color: row.get(16)?,
                 })
             },
         )
@@ -982,7 +988,8 @@ impl Database {
                 smooth_caret = ?13,
                 type_test_duration = ?14,
                 versus_bot_cpm = ?15,
-                error_color = ?16
+                practice_word_bank_type = ?16,
+                error_color = ?17
             WHERE id = 1
             "#,
             params![
@@ -1001,7 +1008,8 @@ impl Database {
                 if settings.smooth_caret { 1 } else { 0 },
                 settings.type_test_duration,
                 settings.versus_bot_cpm,
-                settings.error_color
+                settings.practice_word_bank_type.clone(),
+                settings.error_color.clone()
             ],
         )
         .context("failed to save settings")?;

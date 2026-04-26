@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { resolveKeyboardLayout } from "../lib/keyboard-layouts";
 import { formatPercent } from "../lib/utils";
-import { practiceWordBank } from "../lib/word-bank";
+import { practiceWordBanks } from "../lib/word-bank";
 import { useBufferedKeystrokeTransport } from "../hooks/useBufferedKeystrokeTransport";
 import { applyTypingInput, computeMetrics, createTypingSnapshot, finalizeMetrics, parseIgnoredCharacterSet, tokenizeText, wordIndexFromTextIndex } from "../utils/typing";
 import type {
@@ -54,7 +54,7 @@ export function PracticeView({
   onError,
 }: PracticeViewProps) {
   const [seed, setSeed] = useState(() => Math.floor(Math.random() * 1000000));
-  const practiceText = useMemo(() => buildPracticeText(seed, 600), [seed]);
+  const practiceText = useMemo(() => buildPracticeText(seed, 600, settings.practiceWordBankType), [seed, settings.practiceWordBankType]);
   const tokens = useMemo(() => tokenizeText(practiceText), [practiceText]);
   
   const [status, setStatus] = useState<"idle" | "active" | "completed">("idle");
@@ -371,6 +371,49 @@ export function PracticeView({
               )}
             </div>
 
+            <div className="flex items-center gap-4">
+              <div className="flex flex-col gap-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs uppercase tracking-widest text-[var(--text-muted)]">Difficulty</span>
+                  <div className="group relative">
+                    <button
+                      type="button"
+                      className="flex h-5 w-5 items-center justify-center rounded-full bg-white/5 text-[10px] font-bold text-[var(--text-muted)] transition hover:bg-[var(--accent)] hover:text-black"
+                    >
+                      i
+                    </button>
+                    <div className="absolute bottom-full right-0 mb-3 w-64 translate-y-2 opacity-0 transition group-hover:translate-y-0 group-hover:opacity-100 pointer-events-none z-[60]">
+                      <div className="rounded-2xl border border-[var(--border)] bg-[var(--panel)] p-4 shadow-2xl backdrop-blur-xl">
+                        <p className="text-xs font-semibold uppercase tracking-widest text-[var(--accent)]">Word Bank Difficulty</p>
+                        <div className="mt-3 space-y-2 text-xs leading-5 text-[var(--text-muted)]">
+                          <p><span className="text-[var(--text)] font-medium">Easy:</span> 3,000 most common English words. Perfect for consistent speed training.</p>
+                          <p><span className="text-[var(--text)] font-medium">Medium:</span> 3,000 intermediate words. Introducing more complex syllables and patterns.</p>
+                          <p><span className="text-[var(--text)] font-medium">Hard:</span> 3,000 rare and complex words. Tests precision and unfamiliar transitions.</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="text-[10px] text-[var(--text-muted)]">Easy</span>
+                  <input
+                    type="range"
+                    min="0"
+                    max="2"
+                    step="1"
+                    value={settings.practiceWordBankType === "easy" ? 0 : settings.practiceWordBankType === "medium" ? 1 : 2}
+                    onChange={(e) => {
+                      const val = parseInt(e.target.value);
+                      const type = val === 0 ? "easy" : val === 1 ? "medium" : "hard";
+                      onSettingsChange({ ...settings, practiceWordBankType: type });
+                    }}
+                    disabled={status !== "idle"}
+                    className="h-1.5 w-32 cursor-pointer appearance-none rounded-full bg-white/10 accent-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-50"
+                  />
+                  <span className="text-[10px] text-[var(--text-muted)]">Hard</span>
+                </div>
+              </div>
+            </div>
           </div>
 
           <div className="relative mt-6 h-[440px] overflow-hidden rounded-[34px] border border-[var(--border)] bg-[color-mix(in_srgb,var(--panel-soft)_74%,transparent)] px-6 py-8 md:px-10 md:py-12">
@@ -497,15 +540,16 @@ function Metric({ label, value, compact = false }: { label: string; value: strin
   );
 }
 
-function buildPracticeText(seed: number, words: number) {
+function buildPracticeText(seed: number, words: number, bankType: keyof typeof practiceWordBanks = "easy") {
   // Deterministic generation based on seed
   let state = seed;
   const generated: string[] = [];
+  const bank = practiceWordBanks[bankType] || practiceWordBanks.easy;
 
   for (let index = 0; index < words; index += 1) {
     state = (state * 1103515245 + 12345) % 2147483648;
-    const nextIndex = Math.floor((state / 2147483648) * practiceWordBank.length);
-    generated.push(practiceWordBank[nextIndex] ?? practiceWordBank[0]);
+    const nextIndex = Math.floor((state / 2147483648) * bank.length);
+    generated.push(bank[nextIndex] ?? bank[0]);
   }
 
   return generated.join(" ");

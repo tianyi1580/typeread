@@ -40,6 +40,7 @@ export const defaultSettings: AppSettings = {
   smoothCaret: false,
   typeTestDuration: 60,
   versusBotCpm: 300,
+  practiceWordBankType: "easy",
   errorColor: "#ed8796",
 };
 

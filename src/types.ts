@@ -118,6 +118,7 @@ export interface AppSettings {
   smoothCaret: boolean;
   typeTestDuration: 15 | 30 | 60 | 120;
   versusBotCpm: number;
+  practiceWordBankType: "easy" | "medium" | "hard";
   errorColor: string;
 }
 

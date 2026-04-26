@@ -279,6 +279,18 @@ export function SettingsView({
                   format={(value) => `${Math.round(value)} CPM`}
                   onChange={(value) => onChange({ ...settings, versusBotCpm: Math.round(value) })}
                 />
+                <SliderField
+                  label="Word Bank Difficulty"
+                  value={settings.practiceWordBankType === "easy" ? 0 : settings.practiceWordBankType === "medium" ? 1 : 2}
+                  min={0}
+                  max={2}
+                  step={1}
+                  format={(value) => (value === 0 ? "Easy" : value === 1 ? "Medium" : "Hard")}
+                  onChange={(value) => {
+                    const type = value === 0 ? "easy" : value === 1 ? "medium" : "hard";
+                    onChange({ ...settings, practiceWordBankType: type });
+                  }}
+                />
               </div>
             </div>
           )}
