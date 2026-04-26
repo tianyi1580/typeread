@@ -2,6 +2,7 @@ import { type ReactNode, useEffect, useMemo, useState } from "react";
 import { keyboardLayoutPresets } from "../lib/keyboard-layouts";
 import { Button } from "./ui/button";
 import { Card } from "./ui/card";
+import { ColorPicker } from "./ui/color-picker";
 import { themeMap } from "../theme";
 import { cn, clamp } from "../lib/utils";
 import { api } from "../lib/tauri";
@@ -196,20 +197,28 @@ export function SettingsView({
                 onChange={(checked) => onChange({ ...settings, smoothCaret: checked })}
               />
 
-              <label className="space-y-3">
-                <span className="text-xs uppercase tracking-[0.28em] text-[var(--text-muted)]">Error Highlight Color</span>
-                <input
-                  type="text"
-                  aria-label="Error highlight color"
-                  value={settings.errorColor}
-                  disabled={!unlocks.customErrorColors}
-                  onChange={(event) => onChange({ ...settings, errorColor: event.target.value })}
-                  className="w-full rounded-[22px] border border-[var(--border)] bg-[var(--panel-soft)] px-4 py-3 outline-none transition focus:border-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-55"
-                />
+              <div className="space-y-4">
+                <div className="grid gap-6 md:grid-cols-2">
+                  <ColorPicker
+                    label="Error Highlight Color"
+                    value={settings.errorColor}
+                    disabled={!unlocks.customErrorColors}
+                    levelLabel="Lvl 50"
+                    onChange={(color) => onChange({ ...settings, errorColor: color })}
+                  />
+                  <div className="flex flex-col justify-end">
+                    <span className="mb-3 text-[10px] uppercase tracking-[0.28em] text-[var(--text-muted)]">Live Preview</span>
+                    <div className="flex h-12 items-center rounded-[18px] border border-[var(--border)] bg-[var(--panel-soft)] px-5">
+                      <p className="text-sm font-medium" style={{ fontFamily: `var(--font-main)` }}>
+                        Sphinx of black <span className="rounded-sm px-0.5" style={{ backgroundColor: `${settings.errorColor}33`, color: settings.errorColor, borderBottom: `2px solid ${settings.errorColor}` }}>quartz</span>, judge my vow.
+                      </p>
+                    </div>
+                  </div>
+                </div>
                 {!unlocks.customErrorColors && (
                   <p className="text-sm text-[var(--text-muted)]">Unlocks at level 50.</p>
                 )}
-              </label>
+              </div>
             </div>
           )}
 
