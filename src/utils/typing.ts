@@ -387,6 +387,36 @@ export function currentProgress(snapshot: TypingSnapshot, tokens: TokenizedWord[
   return currentCursorIndex(snapshot, tokens) / Math.max(lastToken.end, 1);
 }
 
+export function calculateActiveDuration(
+  events: KeystrokeEvent[],
+  startTime: number,
+  currentTime: number,
+  thresholdMs: number = 10000,
+): number {
+  if (events.length === 0) {
+    return 0;
+  }
+
+  let activeMs = 0;
+  let lastAt = startTime;
+
+  for (const event of events) {
+    const gap = event.at - lastAt;
+    if (gap < thresholdMs) {
+      activeMs += gap;
+    }
+    lastAt = event.at;
+  }
+
+  // Handle the current pending time since the last event
+  const finalGap = currentTime - lastAt;
+  if (finalGap < thresholdMs) {
+    activeMs += finalGap;
+  }
+
+  return Math.round(Math.max(1000, activeMs) / 1000);
+}
+
 export function computeMetrics(
   events: KeystrokeEvent[],
   elapsedSeconds: number,
@@ -404,32 +434,21 @@ export function computeMetrics(
       if (!firstAttempts.has(event.cursorIndex)) {
         firstAttempts.set(event.cursorIndex, !!event.isCorrect);
       }
+      if (event.isCorrect) {
+        correctChars += 1;
+      }
+    }
+    
+    if (!event.skippedWord && event.typedChars !== undefined) {
+      typedWords += 1;
+      typedChars += event.typedChars;
+      errors += event.errors ?? 0;
     }
   }
 
   const totalFirstAttempts = firstAttempts.size;
   const correctFirstAttempts = Array.from(firstAttempts.values()).filter(Boolean).length;
   const accuracy = totalFirstAttempts === 0 ? 100 : clamp((correctFirstAttempts / totalFirstAttempts) * 100, 0, 100);
-
-  const recentEvents = events.length > 200 ? events.slice(-200) : events;
-  for (const event of recentEvents) {
-    if (event.skippedWord || event.typedChars === undefined) {
-      continue;
-    }
-
-    typedWords += 1;
-    typedChars += event.typedChars;
-    correctChars += event.correctChars ?? 0;
-    errors += event.errors ?? 0;
-  }
-
-  if (events.length > 200) {
-    const ratio = events.length / 200;
-    typedWords = Math.round(typedWords * ratio);
-    typedChars = Math.round(typedChars * ratio);
-    correctChars = Math.round(correctChars * ratio);
-    errors = Math.round(errors * ratio);
-  }
 
   const minutes = Math.max(elapsedSeconds / 60, 1 / 60);
   const wpm = correctChars / 5 / minutes;
@@ -451,16 +470,16 @@ export function finalizeMetrics(
   events: KeystrokeEvent[],
   startTime: number,
   endTime: number,
-  discardedTailMs = 0,
 ) {
-  const effectiveEnd = Math.max(startTime, endTime - discardedTailMs);
-  const filteredEvents = events.filter((event) => event.at <= effectiveEnd);
+  const durationSeconds = calculateActiveDuration(events, startTime, endTime);
+  
   let typedWords = 0;
   let typedChars = 0;
   let correctChars = 0;
   let errors = 0;
   const firstAttempts = new Map<number, boolean>();
-  for (const event of filteredEvents) {
+  
+  for (const event of events) {
     if ((event.type === "char" || event.type === "space") && event.cursorIndex !== undefined) {
       if (!firstAttempts.has(event.cursorIndex)) {
         firstAttempts.set(event.cursorIndex, !!event.isCorrect);
@@ -481,7 +500,6 @@ export function finalizeMetrics(
   const correctFirstAttempts = Array.from(firstAttempts.values()).filter(Boolean).length;
   const accuracy = totalFirstAttempts === 0 ? 100 : clamp((correctFirstAttempts / totalFirstAttempts) * 100, 0, 100);
 
-  const durationSeconds = Math.max(1, Math.round((effectiveEnd - startTime) / 1000));
   const minutes = durationSeconds / 60;
   const rawWpm = minutes <= 0 ? 0 : correctChars / 5 / minutes;
   const wpm = Math.min(rawWpm, 350);
@@ -493,7 +511,7 @@ export function finalizeMetrics(
     wpm,
     accuracy,
     durationSeconds,
-    effectiveEndTimeMs: effectiveEnd,
+    effectiveEndTimeMs: endTime,
   };
 }
 

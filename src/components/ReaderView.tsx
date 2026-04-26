@@ -9,6 +9,7 @@ import {
   createSnapshotFromWordStart,
   createTypingSnapshot,
   currentCursorIndex,
+  calculateActiveDuration,
   finalizeMetrics,
   parseIgnoredCharacterSet,
   tokenizeText,
@@ -110,6 +111,7 @@ export function ReaderView({
   const [summary, setSummary] = useState<SessionSummaryResponse | null>(null);
   const [botCursorIndex, setBotCursorIndex] = useState(0);
   const [versusConfigOpen, setVersusConfigOpen] = useState(false);
+  const [pendingNav, setPendingNav] = useState<(() => void) | null>(null);
 
   const snapshotRef = useRef(snapshot);
   const eventsRef = useRef(events);
@@ -191,8 +193,9 @@ export function ReaderView({
   const pages = useMemo(() => pageRanges.map((range) => normalizedText.substring(range.start, range.end)), [normalizedText, pageRanges]);
 
   const liveMetrics = useMemo(() => {
-    const elapsedSeconds = sessionStartAt ? Math.max(1, Math.round((clock - sessionStartAt) / 1000)) : 0;
-    return computeMetrics(events, elapsedSeconds, snapshot, tokens);
+    if (!sessionStartAt) return EMPTY_METRICS;
+    const activeSeconds = calculateActiveDuration(events, sessionStartAt, clock, 10000);
+    return computeMetrics(events, activeSeconds, snapshot, tokens);
   }, [clock, events, sessionStartAt, snapshot, tokens]);
 
   useEffect(() => {
@@ -238,15 +241,8 @@ export function ReaderView({
     };
   }, []);
 
-  useEffect(() => {
-    if (!sessionStartAt || !lastInputAt || interactionMode === "read") {
-      return;
-    }
-
-    if (Date.now() - lastInputAt >= 30_000) {
-      void flushSession(false, true);
-    }
-  }, [clock, interactionMode, lastInputAt, sessionStartAt]);
+  // Auto-pause is now handled implicitly by calculateActiveDuration in liveMetrics.
+  // The session no longer flushes on inactivity, it only 'pauses' the clock.
 
   useEffect(() => {
     const handleBeforeUnload = () => {
@@ -418,7 +414,7 @@ export function ReaderView({
     return () => {
       void flushSession(false, false);
     };
-  }, [book.id, chapter.id, interactionMode]);
+  }, [book.id, chapter.id]);
 
   useEffect(() => {
     if (readerMode === "spread") {
@@ -464,13 +460,13 @@ export function ReaderView({
     }
   }, [pageRanges, snapshot, tokens, interactionMode]);
 
-  async function flushSession(revealSummary: boolean, inactive: boolean) {
+  const flushSession = useCallback(async (revealSummary: boolean, inactive: boolean): Promise<SessionSummaryResponse | undefined> => {
     const startAt = sessionStartRef.current;
     if (!startAt) {
-      return;
+      return undefined;
     }
 
-    const result = finalizeMetrics(eventsRef.current, startAt, Date.now(), inactive ? 30_000 : 0);
+    const result = finalizeMetrics(eventsRef.current, startAt, Date.now());
     setSessionStartAt(null);
     sessionStartRef.current = null;
     setLastInputAt(null);
@@ -479,10 +475,9 @@ export function ReaderView({
     eventsRef.current = [];
 
     // Only save if meaningful work was done.
-    // 5 words is a safe threshold to avoid accidental keypresses or just clicking around.
     if (result.wordsTyped < 5) {
       transport.resetTransport();
-      return;
+      return undefined;
     }
 
     const saved = await transport.flushPending({
@@ -498,13 +493,28 @@ export function ReaderView({
       errors: result.errors,
       wpm: result.wpm,
       accuracy: result.accuracy,
-      durationSeconds: result.durationSeconds,
+      durationSeconds: Math.round(result.durationSeconds),
     });
 
     if (revealSummary && saved) {
       setSummary(saved);
     }
-  }
+    return saved;
+  }, [book.id, book.title, chapter.title, interactionMode, transport]);
+
+  const navigate = useCallback(async (action: () => void) => {
+    const startAt = sessionStartRef.current;
+    if (startAt) {
+      // Create a snapshot of current progress to check word count
+      const result = finalizeMetrics(eventsRef.current, startAt, Date.now());
+      if (result.wordsTyped >= 5) {
+        setPendingNav(() => action);
+        await flushSession(true, false);
+        return;
+      }
+    }
+    action();
+  }, [flushSession]);
 
   const handleWordSelect = useCallback((wordIndex: number) => {
     if (interactionMode === "read") {
@@ -557,7 +567,7 @@ export function ReaderView({
           )}
         >
           <div className="mx-auto flex max-w-[1360px] items-center justify-between gap-4 rounded-full border border-[var(--border)] bg-[color-mix(in_srgb,var(--panel)_76%,transparent)] px-4 py-3 shadow-panel backdrop-blur-2xl">
-            <Button variant="ghost" className="rounded-full px-3 py-2" onClick={onBackToLibrary}>
+            <Button variant="ghost" className="rounded-full px-3 py-2" onClick={() => navigate(onBackToLibrary)}>
               &lt; Back to Library
             </Button>
 
@@ -622,28 +632,28 @@ export function ReaderView({
                   >
                     <MenuButton
                       onClick={() => {
-                        onOpenTab("library");
+                        navigate(() => onOpenTab("library"));
                       }}
                     >
                       Library
                     </MenuButton>
                     <MenuButton
                       onClick={() => {
-                        onOpenTab("analytics");
+                        navigate(() => onOpenTab("analytics"));
                       }}
                     >
                       Profile & Analytics
                     </MenuButton>
                     <MenuButton
                       onClick={() => {
-                        onOpenTab("achievements");
+                        navigate(() => onOpenTab("achievements"));
                       }}
                     >
                       Achievements
                     </MenuButton>
                     <MenuButton
                       onClick={() => {
-                        onOpenTab("type-test");
+                        navigate(() => onOpenTab("type-test"));
                       }}
                     >
                       Type Test
@@ -806,7 +816,16 @@ export function ReaderView({
         </div>
       </div>
 
-      <SessionSummaryModal summary={summary} onClose={() => setSummary(null)} />
+      <SessionSummaryModal
+        summary={summary}
+        onClose={() => {
+          setSummary(null);
+          if (pendingNav) {
+            pendingNav();
+            setPendingNav(null);
+          }
+        }}
+      />
 
       <VersusConfigModal
         isOpen={versusConfigOpen}

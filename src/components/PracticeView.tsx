@@ -3,7 +3,7 @@ import { resolveKeyboardLayout } from "../lib/keyboard-layouts";
 import { formatPercent } from "../lib/utils";
 import { practiceWordBanks } from "../lib/word-bank";
 import { useBufferedKeystrokeTransport } from "../hooks/useBufferedKeystrokeTransport";
-import { applyTypingInput, computeMetrics, createTypingSnapshot, finalizeMetrics, parseIgnoredCharacterSet, tokenizeText, wordIndexFromTextIndex } from "../utils/typing";
+import { applyTypingInput, calculateActiveDuration, computeMetrics, createTypingSnapshot, finalizeMetrics, parseIgnoredCharacterSet, tokenizeText, wordIndexFromTextIndex } from "../utils/typing";
 import type {
   AnalyticsSummary,
   AppSettings,
@@ -120,8 +120,9 @@ export function PracticeView({
   }, []);
 
   const liveMetrics = useMemo(() => {
-    const elapsedSeconds = sessionStartAt ? Math.max(1, Math.round((clock - sessionStartAt) / 1000)) : 0;
-    return computeMetrics(events, elapsedSeconds, snapshot, tokens);
+    if (!sessionStartAt) return EMPTY_METRICS;
+    const activeSeconds = calculateActiveDuration(events, sessionStartAt, clock, 10000);
+    return computeMetrics(events, activeSeconds, snapshot, tokens);
   }, [clock, events, sessionStartAt, snapshot, tokens]);
 
   useEffect(() => {
@@ -278,7 +279,7 @@ export function PracticeView({
     setStatus("completed");
     statusRef.current = "completed";
 
-    const result = finalizeMetrics(eventsRef.current, startAt, Date.now(), reason === "inactive" ? 30_000 : 0);
+    const result = finalizeMetrics(eventsRef.current, startAt, Date.now());
     
     // Update live metrics one last time with finalized values
     setMetrics({
