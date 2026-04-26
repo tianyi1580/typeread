@@ -435,7 +435,7 @@ function summarizeSessionEvents(events: KeystrokeEvent[]) {
   let typedChars = 0;
   let correctChars = 0;
   let errors = 0;
-  const firstAttempts = new Map<number, boolean>();
+  const firstAttempts = new Map<string, boolean>();
 
   for (const event of events) {
     if ((event.type === "char" || event.type === "space") && event.cursorIndex !== undefined) {
