@@ -482,7 +482,6 @@ fn is_chapter_heading(block: &str) -> bool {
 fn markdown_to_text(source: &str) -> String {
     let mut rendered = String::new();
     let mut list_index: Vec<Option<u64>> = Vec::new();
-    let mut last_was_block = false;
 
     for event in Parser::new(source) {
         match event {
@@ -496,7 +495,6 @@ fn markdown_to_text(source: &str) -> String {
                 } else {
                     rendered.push_str("• ");
                 }
-                last_was_block = false;
             }
             Event::Start(pulldown_cmark::Tag::List(start)) => {
                 list_index.push(start);
@@ -507,25 +505,20 @@ fn markdown_to_text(source: &str) -> String {
             Event::End(pulldown_cmark::TagEnd::List(_)) => {
                 list_index.pop();
                 rendered.push('\n');
-                last_was_block = true;
             }
             Event::Start(pulldown_cmark::Tag::Heading { .. }) | Event::Start(pulldown_cmark::Tag::Paragraph) => {
                 if !rendered.is_empty() && !rendered.ends_with('\n') {
                     rendered.push_str("\n\n");
                 }
-                last_was_block = false;
             }
             Event::End(pulldown_cmark::TagEnd::Heading { .. }) | Event::End(pulldown_cmark::TagEnd::Paragraph) => {
                 rendered.push('\n');
-                last_was_block = true;
             }
             Event::Text(value) | Event::Code(value) => {
                 rendered.push_str(&value);
-                last_was_block = false;
             }
             Event::SoftBreak | Event::HardBreak => {
                 rendered.push('\n');
-                last_was_block = false;
             }
             _ => {}
         }
