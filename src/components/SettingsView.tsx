@@ -56,17 +56,18 @@ export function SettingsView({
       <button type="button" aria-label="Close settings" className="absolute inset-0" onClick={onClose} />
       <Card className="relative grid h-[min(860px,88vh)] w-full max-w-[1180px] overflow-hidden lg:grid-cols-[260px_minmax(0,1fr)]">
         <aside className="border-r border-[var(--border)] bg-[color-mix(in_srgb,var(--panel-soft)_80%,transparent)] p-5">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs uppercase tracking-[0.28em] text-[var(--text-muted)]">Settings</p>
-              <h2 className="mt-3 text-2xl font-semibold">Application</h2>
-            </div>
-            <button type="button" onClick={onClose} className="rounded-full px-3 py-2 text-sm text-[var(--text-muted)] transition hover:bg-[var(--accent-soft)] hover:text-[var(--text)]">
+          <div className="flex flex-col">
+            <button
+              type="button"
+              onClick={onClose}
+              className="w-fit text-xs uppercase tracking-[0.28em] text-[var(--text-muted)] transition hover:text-[var(--text)]"
+            >
               Close
             </button>
+            <h2 className="mt-5 text-center text-2xl font-semibold">Settings</h2>
           </div>
 
-          <nav className="mt-8 space-y-2">
+          <nav className="mt-6 space-y-2">
             <SidebarButton active={section === "appearance"} onClick={() => setSection("appearance")}>
               Appearance
             </SidebarButton>
@@ -353,8 +354,7 @@ function SidebarButton({
 function SectionTitle({ title, description }: { title: string; description: string }) {
   return (
     <div>
-      <p className="text-xs uppercase tracking-[0.28em] text-[var(--text-muted)]">Panel</p>
-      <h3 className="mt-3 text-3xl font-semibold">{title}</h3>
+      <h3 className="text-3xl font-semibold">{title}</h3>
       <p className="mt-3 max-w-3xl text-sm leading-7 text-[var(--text-muted)]">{description}</p>
     </div>
   );
