@@ -112,6 +112,7 @@ export function ReaderView({
   const [botCursorIndex, setBotCursorIndex] = useState(0);
   const [versusConfigOpen, setVersusConfigOpen] = useState(false);
   const [pendingNav, setPendingNav] = useState<(() => void) | null>(null);
+  const [chapterMenuOpen, setChapterMenuOpen] = useState(false);
 
   const snapshotRef = useRef(snapshot);
   const eventsRef = useRef(events);
@@ -119,6 +120,7 @@ export function ReaderView({
   const lastInputRef = useRef<number | null>(lastInputAt);
   const botCursorRef = useRef(0);
   const botPausedRef = useRef(false);
+  const chapterMenuRef = useRef<HTMLDivElement>(null);
 
   snapshotRef.current = snapshot;
   eventsRef.current = events;
@@ -445,6 +447,27 @@ export function ReaderView({
   }, [menuOpen, onCloseMenu]);
 
   useEffect(() => {
+    if (!chapterMenuOpen) {
+      return;
+    }
+
+    const handleClickOutside = (event: MouseEvent) => {
+      if (chapterMenuRef.current && !chapterMenuRef.current.contains(event.target as Node)) {
+        setChapterMenuOpen(false);
+      }
+    };
+
+    const timeout = setTimeout(() => {
+      document.addEventListener("click", handleClickOutside);
+    }, 0);
+
+    return () => {
+      clearTimeout(timeout);
+      document.removeEventListener("click", handleClickOutside);
+    };
+  }, [chapterMenuOpen]);
+
+  useEffect(() => {
     // Only auto-snap the page if the user is in typing mode or versus mode.
     // In read mode, we let the user navigate freely with arrows/buttons.
     if (interactionMode === "read") {
@@ -567,16 +590,11 @@ export function ReaderView({
           )}
         >
           <div className="mx-auto flex max-w-[1360px] items-center justify-between gap-4 rounded-full border border-[var(--border)] bg-[color-mix(in_srgb,var(--panel)_76%,transparent)] px-4 py-3 shadow-panel backdrop-blur-2xl">
-            <Button variant="ghost" className="rounded-full px-3 py-2" onClick={() => navigate(onBackToLibrary)}>
-              &lt; Back to Library
-            </Button>
+            <div className="flex flex-1 items-center justify-start gap-4">
+              <Button variant="ghost" className="rounded-full px-3 py-2" onClick={() => navigate(onBackToLibrary)}>
+                &lt; Library
+              </Button>
 
-            <div className="min-w-0 text-center">
-              <p className="truncate text-sm font-medium">{book.title}</p>
-              <p className="truncate text-xs uppercase tracking-[0.24em] text-[var(--text-muted)]">{chapter.title}</p>
-            </div>
-
-            <div className="flex items-center gap-2">
               <div className="inline-flex rounded-full border border-[var(--border)] bg-[var(--panel-soft)] p-1">
                 <ModePill active={interactionMode === "read"} onClick={() => onSettingsChange({ ...settings, interactionMode: "read" })}>
                   Read
@@ -606,6 +624,82 @@ export function ReaderView({
               >
                 Versus
               </button>
+            </div>
+
+            <div className="relative min-w-0 flex-1 text-center">
+              <p className="truncate text-sm font-medium">{book.title}</p>
+              <button
+                type="button"
+                onClick={() => setChapterMenuOpen(!chapterMenuOpen)}
+                className="mx-auto flex items-center gap-1.5 truncate text-xs uppercase tracking-[0.24em] text-[var(--text-muted)] transition hover:text-[var(--text)]"
+              >
+                {chapter.title}
+                <span className="text-[10px] opacity-60">▼</span>
+              </button>
+
+              {chapterMenuOpen && (
+                <div
+                  ref={chapterMenuRef}
+                  className="no-scrollbar absolute left-1/2 top-full z-50 mt-4 max-h-[360px] w-[280px] -translate-x-1/2 overflow-y-auto rounded-[28px] border border-[var(--border)] bg-[var(--panel)] p-2 shadow-panel backdrop-blur-2xl"
+                >
+                  <div className="px-3 py-2 text-[10px] font-bold uppercase tracking-[0.2em] text-[var(--text-muted)]">
+                    Chapters
+                  </div>
+                  {book.chapters.map((ch, idx) => (
+                    <button
+                      key={ch.id}
+                      type="button"
+                      onClick={() => {
+                        handleChapterJump(idx);
+                        setChapterMenuOpen(false);
+                      }}
+                      className={cn(
+                        "flex w-full items-center rounded-[20px] px-4 py-3 text-left text-sm transition",
+                        idx === chapterIndex
+                          ? "bg-[var(--accent-soft)] font-semibold text-[var(--text)]"
+                          : "text-[var(--text-muted)] hover:bg-white/5 hover:text-[var(--text)]",
+                      )}
+                    >
+                      <span className="mr-3 tabular-nums opacity-40">{idx + 1}</span>
+                      <span className="truncate">{ch.title}</span>
+
+                      {(() => {
+                        let progress = 0;
+                        if (idx < book.currentChapter) {
+                          progress = 1;
+                        } else if (idx === book.currentChapter) {
+                          progress = book.currentIndex / Math.max(1, ch.text.length);
+                        }
+
+                        // If this is the chapter currently being viewed/typed in, show live progress
+                        if (idx === chapterIndex) {
+                          const currentIdx = currentCursorIndex(snapshot, tokens);
+                          progress = currentIdx / Math.max(1, normalizedText.length);
+                        }
+
+                        if (progress <= 0) return null;
+
+                        return (
+                          <div className="ml-auto flex items-center gap-2 pl-4">
+                            <div className="h-1 w-10 overflow-hidden rounded-full bg-white/10">
+                              <div
+                                className="h-full bg-[var(--accent)] transition-all duration-300"
+                                style={{ width: `${Math.min(1, progress) * 100}%` }}
+                              />
+                            </div>
+                            <span className="min-w-[28px] text-right text-[10px] tabular-nums opacity-40">
+                              {Math.round(Math.min(1, progress) * 100)}%
+                            </span>
+                          </div>
+                        );
+                      })()}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="flex flex-1 items-center justify-end gap-2">
               <button
                 type="button"
                 onClick={() => void flushSession(true, false)}

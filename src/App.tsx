@@ -583,11 +583,11 @@ function WindowShell({
     <div className="mx-auto max-w-[1480px] space-y-4">
       <div className="relative z-20 rounded-[30px] border border-[var(--border)] bg-[color-mix(in_srgb,var(--panel)_86%,transparent)] px-4 py-3 shadow-panel backdrop-blur-2xl">
         <div data-tauri-drag-region className="absolute inset-0" />
-        <div className="relative z-10 grid gap-3 md:grid-cols-[180px_minmax(0,1fr)_220px] md:items-center">
+        <div className="relative z-10 grid gap-3 md:grid-cols-[220px_1fr_220px] md:items-center">
           <div className="flex items-center gap-3">
             {activeTab !== "library" ? (
               <Button variant="ghost" className="rounded-full px-3 py-2" onClick={onBackToLibrary}>
-                Back to Library
+                &lt; Library
               </Button>
             ) : (
               <div className="pl-3 text-xs uppercase tracking-[0.28em] text-[var(--text-muted)]">TypeRead</div>
