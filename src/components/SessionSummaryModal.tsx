@@ -1,9 +1,11 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useRef } from "react";
 import { formatPercent, cn } from "../lib/utils";
-import type { SessionSummaryResponse, WpmSample, TransitionStat } from "../types";
+import type { SessionSummaryResponse, WpmSample } from "../types";
 import { Button } from "./ui/button";
 import { Card } from "./ui/card";
-import { InfoTooltip, InfoIcon } from "./ui/InfoTooltip";
+import { InfoTooltip } from "./ui/InfoTooltip";
+import { motion, AnimatePresence, useSpring, useTransform, animate } from "framer-motion";
+import confetti from "canvas-confetti";
 
 const METRIC_DESCRIPTIONS: Record<string, string> = {
   "Speed": "Words Per Minute (WPM). A measure of your typing throughput.",
@@ -19,32 +21,61 @@ interface SessionSummaryModalProps {
   onClose: () => void;
 }
 
-export function SessionSummaryModal({ summary, onClose }: SessionSummaryModalProps) {
-  const [animatedXp, setAnimatedXp] = useState(0);
-  const [activeMetric, setActiveMetric] = useState<"wpm" | "accuracy">("wpm");
+function CountUp({ value, decimals = 0, suffix = "" }: { value: number, decimals?: number, suffix?: string }) {
+  const [displayValue, setDisplayValue] = useState(0);
+  const nodeRef = useRef<HTMLSpanElement>(null);
 
+  useEffect(() => {
+    const controls = animate(0, value, {
+      duration: 1.5,
+      ease: [0.16, 1, 0.3, 1], // Custom cubic-bezier for a smooth decelerating count
+      onUpdate(value) {
+        setDisplayValue(value);
+      }
+    });
+
+    return () => controls.stop();
+  }, [value]);
+
+  return <span>{displayValue.toFixed(decimals)}{suffix}</span>;
+}
+
+export function SessionSummaryModal({ summary, onClose }: SessionSummaryModalProps) {
+  const [activeMetric, setActiveMetric] = useState<"wpm" | "accuracy">("wpm");
   const isTypeTest = summary?.sessionPoint.source === "type-test";
 
   useEffect(() => {
-    if (!summary || summary.xpGained === 0) {
-      setAnimatedXp(0);
-      return;
+    if (summary) {
+      const duration = 2 * 1000;
+      const animationEnd = Date.now() + duration;
+      const defaults = { startVelocity: 25, spread: 360, ticks: 60, zIndex: 100 };
+
+      const randomInRange = (min: number, max: number) => Math.random() * (max - min) + min;
+
+      const interval: any = setInterval(function() {
+        const timeLeft = animationEnd - Date.now();
+
+        if (timeLeft <= 0) {
+          return clearInterval(interval);
+        }
+
+        const particleCount = 15 * (timeLeft / duration);
+        confetti({ 
+          ...defaults, 
+          particleCount, 
+          colors: ['#8aadf4', '#a6da95', '#cad3f5'],
+          origin: { x: randomInRange(0.1, 0.3), y: Math.random() - 0.2 } 
+        });
+        confetti({ 
+          ...defaults, 
+          particleCount, 
+          colors: ['#8aadf4', '#a6da95', '#cad3f5'],
+          origin: { x: randomInRange(0.7, 0.9), y: Math.random() - 0.2 } 
+        });
+      }, 400);
+
+      return () => clearInterval(interval);
     }
-
-    let frame = 0;
-    const startedAt = performance.now();
-    const durationMs = 850;
-    const tick = (now: number) => {
-      const progress = Math.min((now - startedAt) / durationMs, 1);
-      const eased = 1 - Math.pow(1 - progress, 4);
-      setAnimatedXp(Math.round(summary.xpGained * eased));
-      if (progress < 1) {
-        frame = window.requestAnimationFrame(tick);
-      }
-    };
-
-    frame = window.requestAnimationFrame(tick);
-    return () => window.cancelAnimationFrame(frame);
   }, [summary]);
 
   const graphPoints = useMemo(() => {
@@ -53,70 +84,134 @@ export function SessionSummaryModal({ summary, onClose }: SessionSummaryModalPro
     return points || [];
   }, [summary, activeMetric]);
 
-  if (!summary) {
-    return null;
-  }
+  if (!summary) return null;
+
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+      transition: {
+        staggerChildren: 0.1,
+        delayChildren: 0.2
+      }
+    }
+  };
+
+  const itemVariants = {
+    hidden: { opacity: 0, y: 20, scale: 0.95 },
+    visible: { 
+      opacity: 1, 
+      y: 0, 
+      scale: 1,
+      transition: { type: "spring" as const, damping: 20, stiffness: 100 }
+    }
+  };
 
   return (
-    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-[rgba(6,8,14,0.7)] px-4 py-6 backdrop-blur-xl animate-in fade-in">
-      <button type="button" aria-label="Close summary" className="absolute inset-0" onClick={onClose} />
-      <Card className={cn(
-        "relative w-full border-white/10 bg-[color-mix(in_srgb,var(--panel)_82%,transparent)] p-8 shadow-[0_32px_120px_rgba(0,0,0,0.5)] backdrop-blur-3xl animate-in max-h-[90vh] overflow-y-auto transition-all duration-500",
-        isTypeTest ? "max-w-3xl md:p-12" : "max-w-5xl md:p-10"
-      )}>
-        <div className="space-y-10">
-          <div className="text-center">
-            <p className="text-xs font-bold uppercase tracking-[0.4em] text-[var(--text-muted)]">Session Complete</p>
-            <h2 className="mt-4 text-4xl font-bold tracking-tight text-[var(--text)]">
-              {summary.xpGained > 0 ? "Breakdown" : "Test finished!"}
+    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-[rgba(6,8,14,0.85)] px-4 py-6 backdrop-blur-2xl">
+      <motion.button 
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        type="button" 
+        className="absolute inset-0 cursor-default" 
+        onClick={onClose} 
+      />
+      
+      <motion.div
+        variants={containerVariants}
+        initial="hidden"
+        animate="visible"
+        className={cn(
+          "relative w-full overflow-hidden rounded-[40px] border border-white/10 bg-[color-mix(in_srgb,var(--panel)_92%,transparent)] shadow-[0_32px_120px_rgba(0,0,0,0.6)] backdrop-blur-3xl max-h-[95vh] overflow-y-auto",
+          isTypeTest ? "max-w-3xl" : "max-w-5xl"
+        )}
+      >
+        <div className="absolute inset-0 bg-gradient-to-br from-[var(--accent)]/5 via-transparent to-transparent pointer-events-none" />
+
+        <div className="relative p-8 md:p-12">
+          {/* Header */}
+          <motion.div variants={itemVariants} className="text-center mb-12">
+            <p className="text-[10px] font-black uppercase tracking-[0.6em] text-[var(--accent)]">
+              {summary.xpGained > 0 ? "Session Complete" : "Test Results"}
+            </p>
+            <h2 className="mt-4 text-5xl font-black tracking-tighter text-[var(--text)]">
+              {summary.xpGained > 0 ? "Performance Report" : "Great Run!"}
             </h2>
+          </motion.div>
+
+          {/* Hero Metrics */}
+          <div className="grid grid-cols-1 gap-6 sm:grid-cols-3 mb-12">
+            <motion.div variants={itemVariants}>
+              <HeroMetric 
+                label="Average Speed" 
+                value={<CountUp value={summary.sessionPoint?.wpm || 0} decimals={1} suffix=" WPM" />} 
+                description={METRIC_DESCRIPTIONS["Speed"]}
+              />
+            </motion.div>
+            <motion.div variants={itemVariants}>
+              <HeroMetric 
+                label="Accuracy" 
+                value={<CountUp value={summary.sessionPoint?.accuracy || 0} decimals={1} suffix="%" />} 
+                description={METRIC_DESCRIPTIONS["Accuracy"]}
+                highlight={ (summary.sessionPoint?.accuracy || 0) > 98 }
+              />
+            </motion.div>
+            <motion.div variants={itemVariants}>
+              <HeroMetric 
+                label="Total XP" 
+                value={<CountUp value={summary.xpGained || 0} suffix=" XP" />} 
+                description="Total experience points earned in this session."
+                highlight={summary.levelAfter > summary.levelBefore}
+              />
+            </motion.div>
           </div>
 
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3">
-            <SummaryMetric label="Speed" value={`${(summary.sessionPoint?.wpm || 0).toFixed(1)} WPM`} />
-            <SummaryMetric label="Accuracy" value={formatPercent(summary.sessionPoint?.accuracy || 0)} />
+          {/* Secondary Metrics */}
+          <motion.div variants={itemVariants} className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 mb-12">
             <SummaryMetric label="Words" value={(summary.sessionPoint?.wordsTyped || 0).toLocaleString()} />
             {!isTypeTest && (
               <>
                 <SummaryMetric label="Rhythm" value={`${(summary.deepAnalytics?.rhythmScore || 0).toFixed(0)}%`} />
                 <SummaryMetric label="Focus" value={`${(summary.deepAnalytics?.focusScore || 0).toFixed(0)}%`} />
-                <SummaryMetric label="Cadence CV" value={(summary.deepAnalytics?.cadenceCv || 0).toFixed(2)} />
+                <SummaryMetric label="Consistency" value={(summary.deepAnalytics?.cadenceCv || 0).toFixed(2)} />
               </>
             )}
-          </div>
+          </motion.div>
 
-          <div className={cn("grid gap-6", isTypeTest ? "grid-cols-1" : "lg:grid-cols-[1fr_320px]")}>
-            <div className="rounded-[32px] border border-[var(--border)] bg-black/20 p-8">
+          {/* Analytics & Multipliers */}
+          <div className={cn("grid gap-8", isTypeTest ? "grid-cols-1" : "lg:grid-cols-[1fr_320px] mb-12")}>
+            <motion.div variants={itemVariants} className="rounded-[32px] border border-[var(--border)] bg-black/40 p-8 shadow-inner">
               <div className="flex items-center justify-between gap-4">
-                <p className="text-xs font-bold uppercase tracking-[0.3em] text-[var(--text-muted)]">Performance Flow</p>
-                <div className="flex gap-1 rounded-full bg-black/20 p-1">
-                  <button
-                    onClick={() => setActiveMetric("wpm")}
-                    className={`px-4 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-widest transition-all ${activeMetric === "wpm" ? "bg-[var(--accent)] text-black" : "text-[var(--text-muted)] hover:text-[var(--text)]"}`}
-                  >
-                    WPM
-                  </button>
-                  <button
-                    onClick={() => setActiveMetric("accuracy")}
-                    className={`px-4 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-widest transition-all ${activeMetric === "accuracy" ? "bg-[var(--accent)] text-black" : "text-[var(--text-muted)] hover:text-[var(--text)]"}`}
-                  >
-                    Accuracy
-                  </button>
+                <p className="text-[10px] font-black uppercase tracking-[0.3em] text-[var(--text-muted)]">Performance Over Time</p>
+                <div className="flex gap-1 rounded-full bg-white/5 p-1">
+                  {(["wpm", "accuracy"] as const).map((m) => (
+                    <button
+                      key={m}
+                      onClick={() => setActiveMetric(m)}
+                      className={cn(
+                        "px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest transition-all",
+                        activeMetric === m ? "bg-[var(--accent)] text-black shadow-lg" : "text-[var(--text-muted)] hover:text-[var(--text)]"
+                      )}
+                    >
+                      {m}
+                    </button>
+                  ))}
                 </div>
               </div>
-              <div className="mt-8 h-[260px]">
+              <div className="mt-8 h-[240px]">
                 <SimpleGraph points={graphPoints} unit={activeMetric === "wpm" ? "WPM" : "%"} />
               </div>
-            </div>
+            </motion.div>
 
             {!isTypeTest && (
               <div className="space-y-6">
-                <div className="rounded-[32px] border border-[var(--border)] bg-black/20 p-6">
+                <motion.div variants={itemVariants} className="rounded-[32px] border border-[var(--border)] bg-black/40 p-6">
                   <div className="flex items-center justify-between">
-                    <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-[var(--text-muted)]">Multiplier Stack</p>
-                    <div className="h-1.5 w-1.5 rounded-full bg-[var(--accent)] animate-pulse" />
+                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[var(--text-muted)]">Multiplier Stack</p>
+                    <div className="h-2 w-2 rounded-full bg-[var(--accent)] animate-pulse" />
                   </div>
-                  <div className="mt-4 space-y-3">
+                  <div className="mt-4 space-y-4">
                     <MultiplierRow label="Accuracy" value={summary.accuracyMultiplier} />
                     <MultiplierRow label="Cadence" value={summary.cadenceMultiplier} />
                     <MultiplierRow label="Endurance" value={summary.enduranceMultiplier} />
@@ -128,78 +223,81 @@ export function SessionSummaryModal({ summary, onClose }: SessionSummaryModalPro
                       />
                     )}
                   </div>
-                </div>
+                </motion.div>
 
                 {summary.deepAnalytics?.transitions.slowest.length > 0 && (
-                  <div className="rounded-[32px] border border-[var(--border)] bg-black/20 p-6">
-                    <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-[var(--text-muted)]">Slowest Transitions</p>
+                  <motion.div variants={itemVariants} className="rounded-[32px] border border-[var(--border)] bg-black/40 p-6">
+                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[var(--text-muted)]">Slowest Transitions</p>
                     <div className="mt-4 space-y-2">
                       {summary.deepAnalytics.transitions.slowest.slice(0, 3).map((t) => (
-                        <div key={t.combo} className="group flex items-center justify-between rounded-xl border border-white/5 bg-white/5 px-3 py-2.5 text-xs transition-colors hover:border-[var(--accent)]/30">
-                          <span className="font-bold tracking-tight">{t.combo.replace(/ /g, "␣")}</span>
-                          <span className="text-[var(--text-muted)] tabular-nums">{t.averageMs.toFixed(0)}ms</span>
+                        <div key={t.combo} className="group flex items-center justify-between rounded-xl border border-white/5 bg-white/5 px-4 py-3 text-xs transition-all hover:border-[var(--accent)]/50 hover:bg-white/10">
+                          <span className="font-black tracking-tight font-mono">{t.combo.replace(/ /g, "␣")}</span>
+                          <span className="text-[var(--text-muted)] tabular-nums font-bold">{t.averageMs.toFixed(0)}ms</span>
                         </div>
                       ))}
                     </div>
-                  </div>
+                  </motion.div>
                 )}
               </div>
             )}
           </div>
 
-          {(summary.newlyEarnedAchievements.length > 0 || summary.unlockedRewards.length > 0) && !isTypeTest && (
-            <div className="grid gap-6 md:grid-cols-2">
-              {summary.newlyEarnedAchievements.length > 0 && (
-                <div className="rounded-[32px] border border-[var(--border)] bg-[var(--accent)]/5 p-6 shadow-[inset_0_0_20px_rgba(138,173,244,0.1)]">
-                  <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-[var(--accent)]">New Achievements</p>
-                  <div className="mt-4 flex flex-wrap gap-2">
-                    {summary.newlyEarnedAchievements.map((a) => (
-                      <div key={a.key} className="flex items-center gap-2 rounded-full bg-[var(--accent)]/20 px-3 py-1.5 text-xs font-bold text-[var(--accent)]">
-                        <span className="text-sm">🏆</span> {a.key.replace(/-/g, " ")}
-                      </div>
-                    ))}
-                  </div>
+          {/* XP & Footer */}
+          <motion.div 
+            variants={itemVariants}
+            className="flex flex-col items-center justify-between gap-8 border-t border-white/10 pt-10 sm:flex-row"
+          >
+            <div className="text-center sm:text-left flex flex-col items-center sm:items-start">
+              {summary.levelAfter > summary.levelBefore ? (
+                <div className="flex items-center gap-4">
+                  <p className="text-[10px] font-black uppercase tracking-[0.4em] text-[var(--success)]">New Rank Achieved!</p>
+                  <motion.div 
+                    animate={{ scale: [1, 1.1, 1] }}
+                    transition={{ duration: 2, repeat: Infinity }}
+                    className="rounded-full bg-gradient-to-r from-[var(--accent)] to-[var(--success)] px-4 py-1 text-[9px] font-black uppercase text-black"
+                  >
+                    Level {summary.levelAfter}
+                  </motion.div>
                 </div>
-              )}
-              {summary.unlockedRewards.length > 0 && (
-                <div className="rounded-[32px] border border-[var(--border)] bg-[var(--success)]/5 p-6 shadow-[inset_0_0_20px_rgba(166,227,161,0.1)]">
-                  <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-[var(--success)]">Rewards Unlocked</p>
-                  <div className="mt-4 space-y-2">
-                    {summary.unlockedRewards.map((r, i) => (
-                      <div key={i} className="flex items-center gap-2 text-xs font-medium text-[var(--text)]">
-                        <span className="text-[var(--success)]">✨</span> {r}
-                      </div>
-                    ))}
-                  </div>
-                </div>
+              ) : (
+                <p className="text-[10px] font-black uppercase tracking-[0.4em] text-[var(--text-muted)]">Session Overview Complete</p>
               )}
             </div>
-          )}
 
-          <div className="flex flex-col items-center justify-between gap-8 border-t border-[var(--border)] pt-10 sm:flex-row">
-            {summary.xpGained > 0 ? (
-              <div className="text-center sm:text-left">
-                <p className="text-xs font-bold uppercase tracking-[0.24em] text-[var(--text-muted)]">Session Total</p>
-                <div className="flex items-baseline gap-4">
-                  <p className="mt-2 text-6xl font-black tracking-tighter text-[var(--accent)] tabular-nums drop-shadow-[0_0_20px_rgba(138,173,244,0.3)]">
-                    {animatedXp.toLocaleString()} <span className="text-2xl font-bold tracking-tight">XP</span>
-                  </p>
-                  {summary.levelAfter > summary.levelBefore && (
-                    <div className="animate-bounce rounded-full bg-[var(--accent)] px-3 py-1 text-[10px] font-black uppercase text-black">
-                      Level Up!
-                    </div>
-                  )}
-                </div>
-              </div>
-            ) : <div />}
-
-            <div className="flex w-full flex-col gap-3 sm:w-auto">
-              <Button onClick={onClose} className="min-w-[180px] py-6 text-base font-bold">Close Summary</Button>
+            <div className="flex w-full flex-col gap-4 sm:w-auto">
+              <Button 
+                onClick={onClose} 
+                className="group relative min-w-[240px] overflow-hidden rounded-2xl py-8 text-lg font-black uppercase tracking-widest transition-all hover:scale-105 active:scale-95 bg-[var(--accent)] text-black"
+              >
+                <span className="relative z-10">Continue</span>
+                <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300" />
+              </Button>
             </div>
-          </div>
+          </motion.div>
         </div>
-      </Card>
+      </motion.div>
     </div>
+  );
+}
+
+function HeroMetric({ label, value, description, highlight = false }: { label: string, value: React.ReactNode, description: string, highlight?: boolean }) {
+  return (
+    <InfoTooltip content={description} trigger="hover" maxWidth="240px" className="w-full">
+      <div className={cn(
+        "group relative w-full cursor-help overflow-hidden rounded-[32px] border p-8 transition-all duration-500",
+        highlight 
+          ? "border-[var(--accent)] bg-[var(--accent)]/10 shadow-[0_0_40px_rgba(138,173,244,0.15)]" 
+          : "border-white/5 bg-white/5 hover:border-white/20 hover:bg-white/10"
+      )}>
+        <p className="text-[10px] font-black uppercase tracking-[0.4em] text-[var(--text-muted)] group-hover:text-[var(--accent)] transition-colors">{label}</p>
+        <div className="mt-4 text-5xl font-black tracking-tighter tabular-nums text-[var(--text)]">
+          {value}
+        </div>
+        {highlight && (
+          <div className="absolute top-4 right-4 h-2 w-2 rounded-full bg-[var(--accent)] animate-ping" />
+        )}
+      </div>
+    </InfoTooltip>
   );
 }
 
@@ -214,9 +312,9 @@ function SummaryMetric({
 
   return (
     <InfoTooltip content={description} trigger="hover" maxWidth="240px" className="w-full">
-      <div className="group relative w-full cursor-help overflow-hidden rounded-[24px] border border-[var(--border)] bg-white/5 px-6 py-6 transition-all hover:border-[var(--accent)] hover:bg-white/10">
-        <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-[var(--text-muted)] group-hover:text-[var(--accent)] transition-colors">{label}</p>
-        <p className="mt-3 text-2xl font-bold tracking-tight">{value}</p>
+      <div className="group relative w-full cursor-help overflow-hidden rounded-[24px] border border-white/5 bg-white/5 px-6 py-5 transition-all hover:border-[var(--accent)]/30 hover:bg-white/10">
+        <p className="text-[9px] font-black uppercase tracking-[0.2em] text-[var(--text-muted)] group-hover:text-[var(--accent)] transition-colors">{label}</p>
+        <p className="mt-2 text-xl font-bold tracking-tight">{value}</p>
       </div>
     </InfoTooltip>
   );
@@ -225,9 +323,9 @@ function SummaryMetric({
 function MultiplierRow({ label, value, success = false }: { label: string, value: number, success?: boolean }) {
   if (value === 1 && !success) return null;
   return (
-    <div className="flex items-center justify-between text-xs">
-      <span className="text-[var(--text-muted)]">{label}</span>
-      <span className={cn("font-bold tabular-nums", success ? "text-[var(--accent)]" : "text-[var(--text)]")}>
+    <div className="flex items-center justify-between text-[11px]">
+      <span className="font-bold text-[var(--text-muted)] uppercase tracking-wider">{label}</span>
+      <span className={cn("font-black tabular-nums text-sm", success ? "text-[var(--accent)]" : "text-[var(--text)]")}>
         x{value.toFixed(2)}
       </span>
     </div>
@@ -235,11 +333,11 @@ function MultiplierRow({ label, value, success = false }: { label: string, value
 }
 
 function SimpleGraph({ points, unit }: { points: WpmSample[]; unit: string }) {
-  if (points.length === 0) return <div className="flex h-full items-center justify-center text-[var(--text-muted)] text-xs">Awaiting data samples...</div>;
+  if (points.length === 0) return <div className="flex h-full items-center justify-center text-[var(--text-muted)] text-[10px] font-black uppercase tracking-widest">Collecting Data...</div>;
 
   const width = 800;
   const height = 240;
-  const padding = { top: 10, right: 10, bottom: 20, left: 40 };
+  const padding = { top: 20, right: 20, bottom: 30, left: 50 };
 
   const minAt = points[0].at;
   const maxAt = points[points.length - 1].at;
@@ -257,10 +355,16 @@ function SimpleGraph({ points, unit }: { points: WpmSample[]; unit: string }) {
     : "";
 
   return (
-    <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-full overflow-visible">
+    <motion.svg 
+      viewBox={`0 0 ${width} ${height}`} 
+      className="w-full h-full overflow-visible"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 1 }}
+    >
       <defs>
         <linearGradient id="graphGradient" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="var(--accent)" stopOpacity="0.2" />
+          <stop offset="0%" stopColor="var(--accent)" stopOpacity="0.3" />
           <stop offset="100%" stopColor="var(--accent)" stopOpacity="0" />
         </linearGradient>
       </defs>
@@ -270,22 +374,48 @@ function SimpleGraph({ points, unit }: { points: WpmSample[]; unit: string }) {
         const val = Math.round(minVal + ratio * (maxVal - minVal));
         return (
           <g key={ratio}>
-            <line x1={padding.left} x2={width - padding.right} y1={y} y2={y} stroke="var(--border)" strokeWidth="1" strokeDasharray="4 4" opacity="0.2" />
-            <text x={padding.left - 10} y={y} textAnchor="end" alignmentBaseline="middle" className="fill-[var(--text-muted)] text-[10px] tabular-nums font-bold">{val}</text>
+            <line x1={padding.left} x2={width - padding.right} y1={y} y2={y} stroke="var(--border)" strokeWidth="1" strokeDasharray="8 8" opacity="0.1" />
+            <text x={padding.left - 15} y={y} textAnchor="end" alignmentBaseline="middle" className="fill-[var(--text-muted)] text-[10px] tabular-nums font-black">{val}</text>
           </g>
         );
       })}
 
       {path && (
         <>
-          <path d={`${path} L ${chartPoints[chartPoints.length - 1].x} ${height - padding.bottom} L ${chartPoints[0].x} ${height - padding.bottom} Z`} fill="url(#graphGradient)" />
-          <path d={path} fill="none" stroke="var(--accent)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+          <motion.path 
+            initial={{ pathLength: 0, opacity: 0 }}
+            animate={{ pathLength: 1, opacity: 1 }}
+            transition={{ duration: 2, ease: "easeInOut" }}
+            d={`${path} L ${chartPoints[chartPoints.length - 1].x} ${height - padding.bottom} L ${chartPoints[0].x} ${height - padding.bottom} Z`} 
+            fill="url(#graphGradient)" 
+          />
+          <motion.path 
+            initial={{ pathLength: 0, opacity: 0 }}
+            animate={{ pathLength: 1, opacity: 1 }}
+            transition={{ duration: 1.5, ease: "easeInOut" }}
+            d={path} 
+            fill="none" 
+            stroke="var(--accent)" 
+            strokeWidth="4" 
+            strokeLinecap="round" 
+            strokeLinejoin="round" 
+          />
         </>
       )}
 
       {chartPoints.map((p, i) => (
-        <circle key={i} cx={p.x} cy={p.y} r="2" fill="var(--accent)" opacity="0.4" />
+        <motion.circle 
+          initial={{ scale: 0 }}
+          animate={{ scale: 1 }}
+          transition={{ delay: 1 + i * 0.05, type: "spring" as const }}
+          key={i} 
+          cx={p.x} 
+          cy={p.y} 
+          r="3" 
+          fill="var(--accent)" 
+          className="shadow-lg shadow-[var(--accent)]"
+        />
       ))}
-    </svg>
+    </motion.svg>
   );
 }
