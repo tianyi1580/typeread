@@ -26,6 +26,10 @@ export function parseIgnoredCharacterSet(spec: string) {
   while ((match = quotedPattern.exec(spec)) !== null) {
     const value = unescapeSettingToken(match[1] ?? match[2] ?? "");
     for (const character of [...value]) {
+      const normalized = normalizeTypingChar(character);
+      for (const n of [...normalized]) {
+        parsed.add(n);
+      }
       parsed.add(character);
     }
   }
@@ -40,6 +44,10 @@ export function parseIgnoredCharacterSet(spec: string) {
       continue;
     }
     for (const character of [...value]) {
+      const normalized = normalizeTypingChar(character);
+      for (const n of [...normalized]) {
+        parsed.add(n);
+      }
       parsed.add(character);
     }
   }
@@ -53,7 +61,17 @@ export function normalizeForCompare(input: string, ignoredCharacterSet?: Readonl
     return normalized;
   }
 
-  return [...normalized].filter((character) => !ignoredCharacterSet.has(character)).join("");
+  return [...normalized].filter((character) => !charIsIgnored(character, ignoredCharacterSet)).join("");
+}
+
+function charIsIgnored(char: string, set?: ReadonlySet<string>) {
+  if (!set || set.size === 0) return false;
+  if (set.has(char)) return true;
+  const normalized = normalizeTypingChar(char).normalize("NFKC");
+  for (const n of [...normalized]) {
+    if (set.has(n)) return true;
+  }
+  return false;
 }
 
 export function tokenizeText(text: string): TokenizedWord[] {
@@ -503,7 +521,7 @@ function autoConsumeIgnoredCharacters(
   }
 
   const expected = expectedText(token);
-  while (state.typed.length < expected.length && ignoredCharacterSet.has(expected[state.typed.length] ?? "")) {
+  while (state.typed.length < expected.length && charIsIgnored(expected[state.typed.length] ?? "", ignoredCharacterSet)) {
     state.typed += expected[state.typed.length];
   }
 }

@@ -310,6 +310,10 @@ export function ReaderView({
       const isMac = navigator.userAgent.toLowerCase().includes("mac");
       const isWordDeletion = event.key === "Backspace" && (isMac ? event.metaKey : event.ctrlKey);
 
+      if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement) {
+        return;
+      }
+
       if (event.key === "Escape") {
         event.preventDefault();
         void flushSession(true, false);
