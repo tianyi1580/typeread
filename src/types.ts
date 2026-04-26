@@ -22,6 +22,8 @@ export interface BookRecord {
   coverPath: string | null;
   currentIndex: number;
   currentChapter: number;
+  readIndex: number;
+  readChapter: number;
   totalChars: number;
   pinned: boolean;
   averageWpm: number;

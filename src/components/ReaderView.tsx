@@ -53,6 +53,7 @@ interface ReaderViewProps {
   onCloseMenu: () => void;
   onOpenTab: (tab: ActiveTab) => void;
   onProgress: (bookId: number, currentIndex: number, currentChapter: number) => Promise<void>;
+  onReadProgress: (bookId: number, readIndex: number, readChapter: number) => Promise<void>;
   onProcessBatch: (payload: ProcessKeystrokeBatchInput) => Promise<ProcessKeystrokeBatchResult>;
   onError: (message: string) => void;
 }
@@ -95,10 +96,19 @@ export function ReaderView({
   const tokens = useMemo(() => tokenizeText(normalizedText), [normalizedText]);
   const ignoredCharacterSet = useMemo(() => parseIgnoredCharacterSet(settings.ignoredCharacters), [settings.ignoredCharacters]);
   const keyboardLayout = useMemo(() => resolveKeyboardLayout(settings), [settings]);
-  const resumeCursorIndex = useMemo(
-    () => (chapterIndex === book.currentChapter ? book.currentIndex : 0),
-    [book.currentChapter, book.currentIndex, chapterIndex],
-  );
+  const resumeCursorIndex = useMemo(() => {
+    const isReadMode = interactionMode === "read";
+    const targetChapter = isReadMode ? book.readChapter : book.currentChapter;
+    const targetIndex = isReadMode ? book.readIndex : book.currentIndex;
+    return chapterIndex === targetChapter ? targetIndex : 0;
+  }, [
+    book.currentChapter,
+    book.currentIndex,
+    book.readChapter,
+    book.readIndex,
+    chapterIndex,
+    interactionMode,
+  ]);
 
   const [snapshot, setSnapshot] = useState<TypingSnapshot>(() => createTypingSnapshot(tokens, resumeCursorIndex));
   const [events, setEvents] = useState<KeystrokeEvent[]>([]);
@@ -121,6 +131,8 @@ export function ReaderView({
   const botCursorRef = useRef(0);
   const botPausedRef = useRef(false);
   const chapterMenuRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const [scrollReadIndex, setScrollReadIndex] = useState<number | null>(null);
 
   snapshotRef.current = snapshot;
   eventsRef.current = events;
@@ -217,7 +229,8 @@ export function ReaderView({
     sessionStartRef.current = null;
     setLastInputAt(null);
     lastInputRef.current = null;
-    setPageIndex(0);
+    const activePage = pageRanges.findIndex((range) => resumeCursorIndex >= range.start && resumeCursorIndex < range.end);
+    setPageIndex(activePage >= 0 ? activePage - (activePage % 2) : 0);
     setSummary(null);
     setBotCursorIndex(0);
     botCursorRef.current = 0;
@@ -411,6 +424,50 @@ export function ReaderView({
 
     return () => window.clearTimeout(timer);
   }, [book.id, chapterIndex, onProgress, snapshot, tokens]);
+
+  useEffect(() => {
+    let readIndex = 0;
+    if (readerMode === "spread") {
+      readIndex = pageRanges[pageIndex]?.start ?? 0;
+    } else {
+      // In scroll mode, we use the cursor index as the bookmark
+      readIndex = currentCursorIndex(snapshot, tokens);
+    }
+
+    const timer = window.setTimeout(() => {
+      void onReadProgress(book.id, readIndex, chapterIndex);
+    }, 1000);
+
+    return () => window.clearTimeout(timer);
+  }, [book.id, chapterIndex, onReadProgress, pageIndex, pageRanges, readerMode, snapshot, tokens, scrollReadIndex]);
+
+  const handleScroll = useCallback(() => {
+    if (readerMode !== "scroll" || !scrollContainerRef.current) return;
+    
+    const container = scrollContainerRef.current;
+    const containerRect = container.getBoundingClientRect();
+    const scrollTop = container.scrollTop;
+    
+    // Find the word element closest to the top of the container
+    // We can use the container's children (which is the TypingLayer's div)
+    const layer = container.firstElementChild as HTMLElement;
+    if (!layer) return;
+
+    const words = Array.from(layer.children) as HTMLElement[];
+    // Find the first word whose bottom is below the top of the container
+    const topWord = words.find((word) => word.offsetTop + word.offsetHeight > scrollTop);
+    
+    if (topWord) {
+      const indexAttr = topWord.getAttribute("data-word-index");
+      if (indexAttr) {
+        const wordIndex = parseInt(indexAttr, 10);
+        if (!isNaN(wordIndex)) {
+          const textIndex = tokens[wordIndex]?.start ?? 0;
+          setScrollReadIndex(textIndex);
+        }
+      }
+    }
+  }, [readerMode, tokens]);
 
   useEffect(() => {
     return () => {
@@ -811,6 +868,8 @@ export function ReaderView({
           {readerMode === "scroll" ? (
             <div className={cn("mx-auto flex-1 w-full max-w-5xl overflow-hidden flex flex-col px-4 md:px-6 pb-24 pt-24", readerFontClass)}>
               <div
+                ref={scrollContainerRef}
+                onScroll={handleScroll}
                 className="flex-1 overflow-y-auto no-scrollbar rounded-[36px] border border-[var(--border)] bg-[color-mix(in_srgb,var(--panel-soft)_68%,transparent)] px-6 py-8 md:px-10 md:py-12"
                 style={{ fontSize: `${settings.baseFontSize}px`, lineHeight: settings.lineHeight }}
               >

@@ -118,7 +118,8 @@ export function LibraryView({
         ) : (
           <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
             {books.map((book) => {
-              const progress = progressForBook(book);
+              const typeProgress = progressForBook(book, "type");
+              const readProgress = progressForBook(book, "read");
               const assetUrl = api.assetUrl(book.coverPath);
 
               return (
@@ -211,12 +212,26 @@ export function LibraryView({
 
                     <div className="flex items-center justify-between text-xs uppercase tracking-[0.22em] text-[var(--text-muted)]">
                       <span>{book.format}</span>
-                      <span>{Math.round(progress * 100)}%</span>
+                      <div className="flex gap-2">
+                        <span title="Typing Progress">{Math.round(typeProgress * 100)}%</span>
+                        {readProgress > typeProgress && (
+                          <span title="Reading Progress" className="text-[var(--accent)]">
+                            (R: {Math.round(readProgress * 100)}%)
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
 
-                  <div className="absolute inset-x-0 bottom-0 h-[2px] bg-white/10">
-                    <div className="h-full bg-[var(--accent)]" style={{ width: `${progress * 100}%` }} />
+                  <div className="absolute inset-x-0 bottom-0 h-[2.5px] bg-white/10">
+                    <div
+                      className="absolute inset-y-0 left-0 bg-[var(--accent)] opacity-30 transition-all duration-500"
+                      style={{ width: `${readProgress * 100}%` }}
+                    />
+                    <div
+                      className="absolute inset-y-0 left-0 bg-[var(--accent)] transition-all duration-500"
+                      style={{ width: `${typeProgress * 100}%` }}
+                    />
                   </div>
                 </button>
               );
@@ -327,12 +342,13 @@ function BookActionButton({
   );
 }
 
-function progressForBook(book: BookRecord) {
+function progressForBook(book: BookRecord, type: "type" | "read" = "type") {
   if (book.totalChars <= 0) {
     return 0;
   }
 
-  return Math.max(0, Math.min(1, book.currentIndex / book.totalChars));
+  const index = type === "type" ? book.currentIndex : book.readIndex;
+  return Math.max(0, Math.min(1, index / book.totalChars));
 }
 
 function fileNameFromPath(path: string) {

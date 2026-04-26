@@ -11,6 +11,8 @@ pub struct BookRecord {
     pub cover_path: Option<String>,
     pub current_index: i64,
     pub current_chapter: i64,
+    pub read_index: i64,
+    pub read_chapter: i64,
     pub total_chars: i64,
     pub pinned: bool,
     pub average_wpm: f64,

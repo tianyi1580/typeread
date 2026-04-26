@@ -35,6 +35,8 @@ export const api = {
   loadBook: (bookId: number) => call<ParsedBook>("load_book", { bookId }),
   updateProgress: (bookId: number, currentIndex: number, currentChapter: number) =>
     call<void>("update_progress", { bookId, currentIndex, currentChapter }),
+  updateReadProgress: (bookId: number, readIndex: number, readChapter: number) =>
+    call<void>("update_read_progress", { bookId, readIndex, readChapter }),
   renameBook: (bookId: number, title: string) => call<void>("rename_book", { bookId, title }),
   setBookPinned: (bookId: number, pinned: boolean) => call<void>("set_book_pinned", { bookId, pinned }),
   deleteBook: (bookId: number) => call<void>("delete_book", { bookId }),

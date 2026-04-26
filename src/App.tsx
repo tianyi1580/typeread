@@ -179,7 +179,8 @@ export default function App() {
       startTransition(() => {
         setCurrentBook(book as ParsedBook);
         setSelectedBookId(book.id);
-        setSelectedChapterIndex(book.currentChapter);
+        const resumeChapter = interactionMode === "read" ? book.readChapter : book.currentChapter;
+        setSelectedChapterIndex(resumeChapter);
       });
     } catch (caught) {
       if (switchToReader) {
@@ -246,6 +247,17 @@ export default function App() {
       await api.updateProgress(bookId, currentIndex, currentChapter);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Failed to save progress.");
+    }
+  }
+
+  async function handleReadProgress(bookId: number, readIndex: number, readChapter: number) {
+    if (!desktopReady) {
+      return;
+    }
+    try {
+      await api.updateReadProgress(bookId, readIndex, readChapter);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Failed to save reading progress.");
     }
   }
 
@@ -483,6 +495,7 @@ export default function App() {
                 setMenuOpen(false);
               }}
               onProgress={handleProgress}
+              onReadProgress={handleReadProgress}
               onProcessBatch={handleProcessBatch}
               onError={(message) => setError(message)}
             />

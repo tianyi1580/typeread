@@ -70,6 +70,14 @@ fn update_progress(book_id: i64, current_index: i64, current_chapter: i64, state
 }
 
 #[tauri::command]
+fn update_read_progress(book_id: i64, read_index: i64, read_chapter: i64, state: tauri::State<'_, AppState>) -> Result<(), String> {
+    state
+        .db
+        .update_read_progress(book_id, read_index, read_chapter)
+        .map_err(to_message)
+}
+
+#[tauri::command]
 fn rename_book(book_id: i64, title: String, state: tauri::State<'_, AppState>) -> Result<(), String> {
     if title.trim().is_empty() {
         return Err("Book title cannot be empty.".to_string());
@@ -283,6 +291,7 @@ fn main() {
             list_books,
             load_book,
             update_progress,
+            update_read_progress,
             rename_book,
             set_book_pinned,
             delete_book,

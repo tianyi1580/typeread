@@ -109,6 +109,8 @@ impl Database {
                 cover_path TEXT,
                 current_index INTEGER NOT NULL DEFAULT 0,
                 current_chapter INTEGER NOT NULL DEFAULT 0,
+                read_index INTEGER NOT NULL DEFAULT 0,
+                read_chapter INTEGER NOT NULL DEFAULT 0,
                 total_chars INTEGER NOT NULL DEFAULT 0,
                 pinned INTEGER NOT NULL DEFAULT 0,
                 added_at TEXT NOT NULL
@@ -249,6 +251,8 @@ impl Database {
 
     fn ensure_columns(&self, conn: &Connection) -> Result<()> {
         ensure_column(conn, "books", "pinned", "INTEGER NOT NULL DEFAULT 0")?;
+        ensure_column(conn, "books", "read_index", "INTEGER NOT NULL DEFAULT 0")?;
+        ensure_column(conn, "books", "read_chapter", "INTEGER NOT NULL DEFAULT 0")?;
         ensure_column(conn, "settings", "theme", "TEXT NOT NULL DEFAULT 'catppuccin-macchiato'")?;
         ensure_column(conn, "settings", "type_font", "TEXT NOT NULL DEFAULT 'jetbrains-mono'")?;
         ensure_column(conn, "settings", "reader_mode", "TEXT NOT NULL DEFAULT 'scroll'")?;
@@ -470,6 +474,8 @@ impl Database {
                 books.cover_path,
                 books.current_index,
                 books.current_chapter,
+                books.read_index,
+                books.read_chapter,
                 books.total_chars,
                 books.pinned,
                 COALESCE(book_sessions.average_wpm, 0.0),
@@ -502,6 +508,8 @@ impl Database {
                 books.cover_path,
                 books.current_index,
                 books.current_chapter,
+                books.read_index,
+                books.read_chapter,
                 books.total_chars,
                 books.pinned,
                 COALESCE(book_sessions.average_wpm, 0.0),
@@ -529,6 +537,16 @@ impl Database {
         conn.execute(
             "UPDATE books SET current_index = ?2, current_chapter = ?3 WHERE id = ?1",
             params![book_id, current_index, current_chapter],
+        )
+        .context("failed to update typing progress")?;
+        Ok(())
+    }
+
+    pub fn update_read_progress(&self, book_id: i64, read_index: i64, read_chapter: i64) -> Result<()> {
+        let conn = self.connection()?;
+        conn.execute(
+            "UPDATE books SET read_index = ?2, read_chapter = ?3 WHERE id = ?1",
+            params![book_id, read_index, read_chapter],
         )
         .context("failed to update reading progress")?;
         Ok(())
@@ -1103,6 +1121,8 @@ impl Database {
                 books.cover_path,
                 books.current_index,
                 books.current_chapter,
+                books.read_index,
+                books.read_chapter,
                 books.total_chars,
                 books.pinned,
                 COALESCE(book_sessions.average_wpm, 0.0),
@@ -1240,10 +1260,12 @@ fn map_book(row: &rusqlite::Row<'_>) -> rusqlite::Result<BookRecord> {
         cover_path: row.get(5)?,
         current_index: row.get(6)?,
         current_chapter: row.get(7)?,
-        total_chars: row.get(8)?,
-        pinned: row.get::<_, i64>(9)? == 1,
-        average_wpm: row.get(10)?,
-        added_at: row.get(11)?,
+        read_index: row.get(8)?,
+        read_chapter: row.get(9)?,
+        total_chars: row.get(10)?,
+        pinned: row.get::<_, i64>(11)? == 1,
+        average_wpm: row.get(12)?,
+        added_at: row.get(13)?,
     })
 }
 

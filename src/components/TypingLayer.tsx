@@ -386,6 +386,7 @@ const Word = React.memo(
     if (interactionMode === "read") {
       return (
         <span
+          data-word-index={index}
           className={cn("text-[var(--text)] transition hover:text-[var(--accent)]", onClick && "cursor-pointer")}
           onClick={onClick ? () => onClick(index) : undefined}
         >
@@ -397,6 +398,7 @@ const Word = React.memo(
     if (isUpcoming && !botInThisWord) {
       return (
         <span
+          data-word-index={index}
           className={cn("text-[var(--text-muted)] transition hover:text-[var(--text)]", onClick && "cursor-text")}
           style={{ opacity }}
           onClick={onClick ? () => onClick(index) : undefined}
@@ -415,6 +417,7 @@ const Word = React.memo(
       if (isPerfect) {
         return (
           <span
+            data-word-index={index}
             className={cn("text-[var(--success)] transition hover:opacity-70", onClick && "cursor-text")}
             style={{ opacity }}
             onClick={onClick ? () => onClick(index) : undefined}
@@ -428,6 +431,7 @@ const Word = React.memo(
     return (
       <span
         ref={ref}
+        data-word-index={index}
         className={cn("transition duration-300", onClick && "cursor-text")}
         style={{ opacity }}
         onClick={onClick ? () => onClick(index) : undefined}
