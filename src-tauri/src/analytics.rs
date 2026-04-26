@@ -94,7 +94,7 @@ impl LiveSessionAnalytics {
     }
 
     pub fn finalize(self, session: &TypingSessionInput) -> FinalizedAnalytics {
-        let duration_ms = (session.duration_seconds.max(1) * 1000) as i64;
+        let duration_ms = session.duration_seconds.max(1) * 1000;
         let end_time_ms = self
             .typing_timestamps
             .last()
@@ -495,7 +495,7 @@ fn median(values: &[f64]) -> f64 {
     let mut sorted = values.to_vec();
     sorted.sort_by(|left, right| left.partial_cmp(right).unwrap_or(Ordering::Equal));
     let middle = sorted.len() / 2;
-    if sorted.len() % 2 == 0 {
+    if sorted.len().is_multiple_of(2) {
         (sorted[middle - 1] + sorted[middle]) / 2.0
     } else {
         sorted[middle]

@@ -463,8 +463,6 @@ export default function App() {
               desktopReady={desktopReady}
               processBatch={handleProcessBatch}
               onSettingsChange={handleSettingsChange}
-              onOpenSettings={() => setSettingsOpen(true)}
-              onBackToLibrary={() => setActiveTab("library")}
               onError={(message) => setError(message)}
             />
           )}
@@ -485,10 +483,7 @@ export default function App() {
               onSettingsChange={handleSettingsChange}
               onOpenSettings={() => setSettingsOpen(true)}
               menuOpen={menuOpen}
-              onToggleMenu={() => {
-                console.log("Toggle menu called, current state:", menuOpen);
-                setMenuOpen((current) => !current);
-              }}
+              onToggleMenu={() => setMenuOpen((current) => !current)}
               onCloseMenu={() => setMenuOpen(false)}
               onOpenTab={(tab) => {
                 setActiveTab(tab);

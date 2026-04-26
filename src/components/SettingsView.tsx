@@ -5,7 +5,7 @@ import { Card } from "./ui/card";
 import { themeMap } from "../theme";
 import { cn, clamp } from "../lib/utils";
 import { api } from "../lib/tauri";
-import type { AppSettings, AppFont, KeyboardLayoutId, ProfileProgress, ThemeName } from "../types";
+import type { AppSettings, AppFont, ProfileProgress, ThemeName } from "../types";
 
 type SettingsSection = "appearance" | "reading" | "storage";
 
@@ -43,7 +43,6 @@ export function SettingsView({
     nordTheme: false,
     smoothCaret: false,
     premiumTypography: false,
-    ghostPacer: false,
     customErrorColors: false,
   };
 

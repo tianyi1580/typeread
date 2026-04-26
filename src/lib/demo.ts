@@ -46,6 +46,8 @@ export const demoBook: ParsedBook = {
   coverPath: null,
   currentIndex: 0,
   currentChapter: 0,
+  readIndex: 0,
+  readChapter: 0,
   totalChars: demoText.length,
   pinned: true,
   averageWpm: 64.2,

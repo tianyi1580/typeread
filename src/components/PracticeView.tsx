@@ -37,8 +37,6 @@ interface PracticeViewProps {
   desktopReady: boolean;
   processBatch: (payload: ProcessKeystrokeBatchInput) => Promise<ProcessKeystrokeBatchResult>;
   onSettingsChange: (settings: AppSettings) => void;
-  onOpenSettings: () => void;
-  onBackToLibrary: () => void;
   onError: (message: string) => void;
 }
 
@@ -49,8 +47,6 @@ export function PracticeView({
   desktopReady,
   processBatch,
   onSettingsChange,
-  onOpenSettings,
-  onBackToLibrary,
   onError,
 }: PracticeViewProps) {
   const [seed, setSeed] = useState(() => Math.floor(Math.random() * 1000000));
@@ -108,6 +104,8 @@ export function PracticeView({
     setSessionStartAt(null);
     setLastInputAt(null);
     setBotCursorIndex(0);
+    botCursorRef.current = 0;
+    botPausedRef.current = false;
     setSummary(null);
     setShowSummary(false);
     setStatus("idle");
@@ -137,7 +135,7 @@ export function PracticeView({
     }
 
     if (Date.now() - lastInputAt >= 30_000) {
-      void flushSession("inactive");
+      void flushSession();
     }
   }, [clock, lastInputAt, sessionStartAt, status]);
 
@@ -147,7 +145,7 @@ export function PracticeView({
     }
 
     if (clock - sessionStartAt >= settings.typeTestDuration * 1000) {
-      void flushSession("timer");
+      void flushSession();
     }
   }, [clock, mode, status, sessionStartAt, settings.typeTestDuration]);
 
@@ -174,7 +172,9 @@ export function PracticeView({
 
       if (!botPausedRef.current) {
         const cps = settings.versusBotCpm / 60;
-        setBotCursorIndex((current) => Math.min(Math.round(current + cps * (elapsedMs / 1000)), practiceText.length));
+        const nextCursor = Math.min(botCursorRef.current + cps * (elapsedMs / 1000), practiceText.length);
+        botCursorRef.current = nextCursor;
+        setBotCursorIndex(nextCursor);
       }
 
       frame = window.requestAnimationFrame(tick);
@@ -200,7 +200,7 @@ export function PracticeView({
 
       if (event.key === "Escape") {
         event.preventDefault();
-        void flushSession("manual");
+        void flushSession();
         return;
       }
 
@@ -269,7 +269,7 @@ export function PracticeView({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [ignoredCharacterSet, keyboardLayout.id, settings.tabToSkip, tokens, transport]);
 
-  async function flushSession(reason: "inactive" | "manual" | "timer") {
+  async function flushSession() {
     const startAt = sessionStartRef.current;
     if (!startAt || statusRef.current === "completed") {
       return;

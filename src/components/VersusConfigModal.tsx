@@ -1,7 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "./ui/button";
 import { Card } from "./ui/card";
-import { cn } from "../lib/utils";
 
 interface VersusConfigModalProps {
   isOpen: boolean;
@@ -20,6 +19,12 @@ export function VersusConfigModal({
 }: VersusConfigModalProps) {
   const [cpm, setCpm] = useState(currentCpm);
   const averageCpm = Math.round(averageWpm * 5);
+
+  useEffect(() => {
+    if (isOpen) {
+      setCpm(currentCpm);
+    }
+  }, [currentCpm, isOpen]);
 
   if (!isOpen) return null;
 

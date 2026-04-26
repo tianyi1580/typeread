@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef } from "react";
 import { cn } from "../lib/utils";
-import type { InteractionMode, TokenizedWord, TypingSnapshot } from "../types";
+import type { InteractionMode, TokenizedWord, TypingSnapshot, WordTypingState } from "../types";
 import { normalizeForCompare } from "../utils/typing";
 
 interface TypingLayerProps {
@@ -360,7 +360,7 @@ const Word = React.memo(
     {
       index: number;
       token: TokenizedWord;
-      state: any;
+      state: WordTypingState | undefined;
       isCurrent: boolean;
       isCompleted: boolean;
       isUpcoming: boolean;

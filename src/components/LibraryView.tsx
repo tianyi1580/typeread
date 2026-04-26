@@ -4,7 +4,7 @@ import { Card } from "./ui/card";
 import { api } from "../lib/tauri";
 import { themeMap } from "../theme";
 import { cn } from "../lib/utils";
-import type { BookRecord, InteractionMode, ThemeName } from "../types";
+import type { BookRecord, ThemeName } from "../types";
 
 interface LibraryViewProps {
   books: BookRecord[];

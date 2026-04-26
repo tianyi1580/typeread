@@ -1,10 +1,9 @@
-import { useEffect, useState, useMemo, useRef } from "react";
-import { formatPercent, cn } from "../lib/utils";
+import { useEffect, useState, useMemo } from "react";
+import { cn } from "../lib/utils";
 import type { SessionSummaryResponse, WpmSample } from "../types";
 import { Button } from "./ui/button";
-import { Card } from "./ui/card";
 import { InfoTooltip } from "./ui/InfoTooltip";
-import { motion, AnimatePresence, useSpring, useTransform, animate } from "framer-motion";
+import { motion, animate } from "framer-motion";
 import confetti from "canvas-confetti";
 
 const METRIC_DESCRIPTIONS: Record<string, string> = {
@@ -23,7 +22,6 @@ interface SessionSummaryModalProps {
 
 function CountUp({ value, decimals = 0, suffix = "" }: { value: number, decimals?: number, suffix?: string }) {
   const [displayValue, setDisplayValue] = useState(0);
-  const nodeRef = useRef<HTMLSpanElement>(null);
 
   useEffect(() => {
     const controls = animate(0, value, {
@@ -52,7 +50,7 @@ export function SessionSummaryModal({ summary, onClose }: SessionSummaryModalPro
 
       const randomInRange = (min: number, max: number) => Math.random() * (max - min) + min;
 
-      const interval: any = setInterval(function() {
+      const interval = window.setInterval(function() {
         const timeLeft = animationEnd - Date.now();
 
         if (timeLeft <= 0) {

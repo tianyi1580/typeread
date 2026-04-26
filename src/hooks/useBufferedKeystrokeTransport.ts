@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import type {
   KeystrokeEvent,
   ProcessKeystrokeBatchInput,
@@ -21,42 +21,45 @@ export function useBufferedKeystrokeTransport({
   processBatch,
   onError,
 }: BufferedKeystrokeTransportOptions) {
+  const desktopReadyRef = useRef(desktopReady);
   const contextRef = useRef(context);
+  const processBatchRef = useRef(processBatch);
+  const onErrorRef = useRef(onError);
   const sessionKeyRef = useRef<string | null>(null);
   const pendingEventsRef = useRef<KeystrokeEvent[]>([]);
   const flushQueueRef = useRef(Promise.resolve<ProcessKeystrokeBatchResult | undefined>(undefined));
 
   useEffect(() => {
+    desktopReadyRef.current = desktopReady;
+  }, [desktopReady]);
+
+  useEffect(() => {
     contextRef.current = context;
   }, [context]);
 
-  function ensureSessionKey() {
+  useEffect(() => {
+    processBatchRef.current = processBatch;
+  }, [processBatch]);
+
+  useEffect(() => {
+    onErrorRef.current = onError;
+  }, [onError]);
+
+  const ensureSessionKey = useCallback(() => {
     if (!sessionKeyRef.current) {
       sessionKeyRef.current = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
     }
     return sessionKeyRef.current;
-  }
+  }, []);
 
-  function resetTransport() {
+  const resetTransport = useCallback(() => {
     sessionKeyRef.current = null;
     pendingEventsRef.current = [];
-  }
+  }, []);
 
-  function pushEvent(event: KeystrokeEvent) {
-    if (!desktopReady) {
-      return;
-    }
-
-    pendingEventsRef.current.push(event);
-    ensureSessionKey();
-
-    if (pendingEventsRef.current.length >= 100) {
-      void flushPending();
-    }
-  }
-
-  async function flushPending(finalizeSession?: TypingSessionInput): Promise<SessionSummaryResponse | undefined> {
-    if (!desktopReady) {
+  // Keep these callbacks stable so Reader/Practice listeners do not rebind every render.
+  const flushPending = useCallback(async (finalizeSession?: TypingSessionInput): Promise<SessionSummaryResponse | undefined> => {
+    if (!desktopReadyRef.current) {
       return undefined;
     }
 
@@ -74,7 +77,7 @@ export function useBufferedKeystrokeTransport({
       pendingEventsRef.current = [];
 
       try {
-        return await processBatch({
+        return await processBatchRef.current({
           sessionKey,
           context: contextRef.current,
           events,
@@ -85,7 +88,7 @@ export function useBufferedKeystrokeTransport({
           pendingEventsRef.current = [...events, ...pendingEventsRef.current];
         }
         const message = typeof caught === "string" ? caught : caught instanceof Error ? caught.message : "Failed to sync keystroke analytics.";
-        onError?.(message);
+        onErrorRef.current?.(message);
         return undefined;
       }
     };
@@ -100,11 +103,24 @@ export function useBufferedKeystrokeTransport({
       resetTransport();
     }
     return result?.savedSession;
-  }
+  }, [ensureSessionKey, resetTransport]);
 
-  return {
+  const pushEvent = useCallback((event: KeystrokeEvent) => {
+    if (!desktopReadyRef.current) {
+      return;
+    }
+
+    pendingEventsRef.current.push(event);
+    ensureSessionKey();
+
+    if (pendingEventsRef.current.length >= 100) {
+      void flushPending();
+    }
+  }, [ensureSessionKey, flushPending]);
+
+  return useMemo(() => ({
     pushEvent,
     flushPending,
     resetTransport,
-  };
+  }), [pushEvent, flushPending, resetTransport]);
 }

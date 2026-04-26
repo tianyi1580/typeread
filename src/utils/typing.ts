@@ -221,7 +221,10 @@ export function moveToPreviousWord(snapshot: TypingSnapshot) {
   }
 
   snapshot.currentWordIndex -= 1;
-  const current = snapshot.words[snapshot.currentWordIndex];
+  const current = getMutableWord(snapshot, snapshot.currentWordIndex);
+  if (!current) {
+    return snapshot;
+  }
   current.completed = false;
   current.skipped = false;
 
@@ -239,7 +242,7 @@ export function applyTypingInput(
   timestamp: number,
   options: TypingBehavior = {},
 ): { snapshot: TypingSnapshot; event?: KeystrokeEvent } {
-  const current = snapshot.words[snapshot.currentWordIndex];
+  const current = getMutableWord(snapshot, snapshot.currentWordIndex);
   const token = tokens[snapshot.currentWordIndex];
 
   if (!current || !token) {
@@ -516,7 +519,7 @@ export function finalizeMetrics(
 }
 
 function deleteCurrentWord(snapshot: TypingSnapshot) {
-  const current = snapshot.words[snapshot.currentWordIndex];
+  const current = getMutableWord(snapshot, snapshot.currentWordIndex);
   if (current?.typed.length) {
     current.typed = "";
     current.completed = false;
@@ -529,7 +532,10 @@ function deleteCurrentWord(snapshot: TypingSnapshot) {
   }
 
   snapshot.currentWordIndex -= 1;
-  const previous = snapshot.words[snapshot.currentWordIndex];
+  const previous = getMutableWord(snapshot, snapshot.currentWordIndex);
+  if (!previous) {
+    return;
+  }
   previous.typed = "";
   previous.completed = false;
   previous.skipped = false;
@@ -556,6 +562,17 @@ function expectedText(token: TokenizedWord) {
 
 function currentExpectedCharacter(state: WordTypingState, token: TokenizedWord) {
   return expectedText(token)[state.typed.length];
+}
+
+function getMutableWord(snapshot: TypingSnapshot, index: number) {
+  const state = snapshot.words[index];
+  if (!state) {
+    return undefined;
+  }
+
+  const clone = { ...state };
+  snapshot.words[index] = clone;
+  return clone;
 }
 
 function unescapeSettingToken(value: string) {

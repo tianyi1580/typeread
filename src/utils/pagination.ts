@@ -1,4 +1,3 @@
-import { clamp } from "../lib/utils";
 import type { TokenizedWord } from "../types";
 
 export interface PageRange {

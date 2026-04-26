@@ -88,6 +88,7 @@ export function ReaderView({
   onCloseMenu,
   onOpenTab,
   onProgress,
+  onReadProgress,
   onProcessBatch,
   onError,
 }: ReaderViewProps) {
@@ -231,6 +232,7 @@ export function ReaderView({
     lastInputRef.current = null;
     const activePage = pageRanges.findIndex((range) => resumeCursorIndex >= range.start && resumeCursorIndex < range.end);
     setPageIndex(activePage >= 0 ? activePage - (activePage % 2) : 0);
+    setScrollReadIndex(null);
     setSummary(null);
     setBotCursorIndex(0);
     botCursorRef.current = 0;
@@ -261,7 +263,7 @@ export function ReaderView({
 
   useEffect(() => {
     const handleBeforeUnload = () => {
-      void flushSession(false, false);
+      void flushSession(false);
     };
 
     window.addEventListener("beforeunload", handleBeforeUnload);
@@ -328,7 +330,7 @@ export function ReaderView({
 
       if (event.key === "Escape") {
         event.preventDefault();
-        void flushSession(true, false);
+        void flushSession(true);
         return;
       }
 
@@ -429,8 +431,9 @@ export function ReaderView({
     let readIndex = 0;
     if (readerMode === "spread") {
       readIndex = pageRanges[pageIndex]?.start ?? 0;
+    } else if (interactionMode === "read") {
+      readIndex = scrollReadIndex ?? currentCursorIndex(snapshot, tokens);
     } else {
-      // In scroll mode, we use the cursor index as the bookmark
       readIndex = currentCursorIndex(snapshot, tokens);
     }
 
@@ -439,13 +442,12 @@ export function ReaderView({
     }, 1000);
 
     return () => window.clearTimeout(timer);
-  }, [book.id, chapterIndex, onReadProgress, pageIndex, pageRanges, readerMode, snapshot, tokens, scrollReadIndex]);
+  }, [book.id, chapterIndex, interactionMode, onReadProgress, pageIndex, pageRanges, readerMode, scrollReadIndex, snapshot, tokens]);
 
   const handleScroll = useCallback(() => {
     if (readerMode !== "scroll" || !scrollContainerRef.current) return;
     
     const container = scrollContainerRef.current;
-    const containerRect = container.getBoundingClientRect();
     const scrollTop = container.scrollTop;
     
     // Find the word element closest to the top of the container
@@ -463,7 +465,7 @@ export function ReaderView({
         const wordIndex = parseInt(indexAttr, 10);
         if (!isNaN(wordIndex)) {
           const textIndex = tokens[wordIndex]?.start ?? 0;
-          setScrollReadIndex(textIndex);
+          setScrollReadIndex((current) => (current === textIndex ? current : textIndex));
         }
       }
     }
@@ -471,7 +473,7 @@ export function ReaderView({
 
   useEffect(() => {
     return () => {
-      void flushSession(false, false);
+      void flushSession(false);
     };
   }, [book.id, chapter.id]);
 
@@ -540,7 +542,7 @@ export function ReaderView({
     }
   }, [pageRanges, snapshot, tokens, interactionMode]);
 
-  const flushSession = useCallback(async (revealSummary: boolean, inactive: boolean): Promise<SessionSummaryResponse | undefined> => {
+  const flushSession = useCallback(async (revealSummary: boolean): Promise<SessionSummaryResponse | undefined> => {
     const startAt = sessionStartRef.current;
     if (!startAt) {
       return undefined;
@@ -589,7 +591,11 @@ export function ReaderView({
       const result = finalizeMetrics(eventsRef.current, startAt, Date.now());
       if (result.wordsTyped >= 5) {
         setPendingNav(() => action);
-        await flushSession(true, false);
+        const saved = await flushSession(true);
+        if (!saved) {
+          setPendingNav(null);
+          action();
+        }
         return;
       }
     }
@@ -601,7 +607,7 @@ export function ReaderView({
       onSettingsChange({ ...settings, interactionMode: "type" });
     }
 
-    void flushSession(false, false);
+    void flushSession(false);
     const nextSnapshot = createSnapshotFromWordStart(tokens, wordIndex);
     setSnapshot(nextSnapshot);
     snapshotRef.current = nextSnapshot;
@@ -609,7 +615,7 @@ export function ReaderView({
   }, [interactionMode, onSettingsChange, settings, tokens]);
 
   function handleChapterJump(nextIndex: number) {
-    void flushSession(false, false);
+    void flushSession(false);
     onChapterChange(nextIndex);
   }
 
@@ -617,15 +623,6 @@ export function ReaderView({
   const readerFontClass = "font-[var(--font-main)]";
   const visibleLeft = pageRanges[pageIndex];
   const visibleRight = pageRanges[pageIndex + 1];
-  const xpProgress =
-    analytics && analytics.profile.nextLevelXp > analytics.profile.currentLevelXp
-      ? Math.min(
-          1,
-          analytics.profile.progressToNextLevel +
-            metrics.typedWords / Math.max(1, analytics.profile.nextLevelXp - analytics.profile.currentLevelXp),
-        )
-      : 0;
-  
   const compareOptions = useMemo(() => ({ ignoredCharacters: ignoredCharacterSet }), [ignoredCharacterSet]);
 
   return (
@@ -759,7 +756,7 @@ export function ReaderView({
             <div className="flex flex-1 items-center justify-end gap-2">
               <button
                 type="button"
-                onClick={() => void flushSession(true, false)}
+                onClick={() => void flushSession(true)}
                 disabled={!sessionStartAt}
                 className="rounded-full border border-[var(--border)] bg-[var(--panel-soft)] px-3 py-2 text-sm text-[var(--text)] transition hover:border-[var(--accent)] disabled:opacity-40"
               >
@@ -768,10 +765,7 @@ export function ReaderView({
               <div className="relative">
                 <button
                   type="button"
-                  onClick={() => {
-                    console.log("Menu button clicked in ReaderView");
-                    onToggleMenu();
-                  }}
+                  onClick={onToggleMenu}
                   className="flex h-9 w-9 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--panel-soft)] text-lg text-[var(--text)] transition hover:border-[var(--accent)]"
                 >
                   ≡
