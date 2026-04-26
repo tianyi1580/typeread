@@ -192,7 +192,8 @@ export function PracticeView({
       const isMac = navigator.userAgent.toLowerCase().includes("mac");
       const isWordDeletion = event.key === "Backspace" && (isMac ? event.metaKey : event.ctrlKey);
 
-      if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement) {
+      const target = event.target as HTMLElement;
+      if (target?.tagName === "INPUT" || target?.tagName === "TEXTAREA" || target?.isContentEditable) {
         return;
       }
 
