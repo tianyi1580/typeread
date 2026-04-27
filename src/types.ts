@@ -23,6 +23,9 @@ export const THEME_NAMES = [
   "solarized-light",
   "dracula",
   "nord",
+  "rosewood",
+  "sakura-tea",
+  "mocha-blush",
 ] as const;
 export type ThemeName = (typeof THEME_NAMES)[number];
 

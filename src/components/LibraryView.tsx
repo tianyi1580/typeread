@@ -170,7 +170,7 @@ export function LibraryView({
               return (
                 <article
                   key={book.id}
-                  className="group relative overflow-hidden rounded-[22px] border border-[var(--border)] bg-[color-mix(in_srgb,var(--panel)_92%,transparent)] text-left shadow-panel transition duration-200 hover:-translate-y-1 hover:border-[var(--accent)] focus-within:border-[var(--accent)] focus-within:ring-2 focus-within:ring-[var(--accent)] focus-within:ring-offset-2 focus-within:ring-offset-[var(--bg)]"
+                  className="group relative isolate overflow-hidden rounded-[22px] border border-[var(--border)] bg-[color-mix(in_srgb,var(--panel)_92%,transparent)] text-left shadow-panel transition duration-200 hover:-translate-y-1 hover:border-[var(--accent)] focus-within:border-[var(--accent)] focus-within:ring-2 focus-within:ring-[var(--accent)] focus-within:ring-offset-2 focus-within:ring-offset-[var(--bg)] [transform:translateZ(0)] [-webkit-mask-image:-webkit-radial-gradient(white,black)]"
                 >
                   {/* Keep the primary open action separate from the action menu to avoid nested buttons. */}
                   <button
@@ -180,8 +180,8 @@ export function LibraryView({
                     className="absolute inset-0 z-0 rounded-[22px] focus-visible:outline-none"
                   />
 
-                  <div className="pointer-events-none relative flex h-full flex-col">
-                    <div className="relative aspect-[3/4] w-full overflow-hidden">
+                  <div className="pointer-events-none relative flex h-full flex-col overflow-hidden rounded-[22px]">
+                    <div className="relative aspect-[3/4] w-full overflow-hidden rounded-t-[22px] [transform:translateZ(0)] [-webkit-mask-image:-webkit-radial-gradient(white,black)]">
                       {book.coverPath ? (
                         <CoverImage path={book.coverPath} />
                       ) : (
