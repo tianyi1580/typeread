@@ -440,27 +440,29 @@ export function PracticeView({
             </div>
           </div>
 
-          <div className="relative mt-6 h-[440px] overflow-hidden rounded-[34px] border border-[var(--border)] bg-[color-mix(in_srgb,var(--panel-soft)_74%,transparent)] px-6 py-8 md:px-10 md:py-12">
-            <TypingLayer
-              tokens={tokens}
-              snapshot={snapshot}
-              chapterText={practiceText}
-              className={`text-lg leading-9 md:text-[1.35rem] md:leading-[2.6rem] transition-opacity duration-500 ${status === "completed" ? "opacity-40 grayscale pointer-events-none" : ""}`}
-              interactionMode="type"
-              smoothCaret={settings.smoothCaret && analytics?.profile.unlocks.smoothCaret}
-              botCursorIndex={mode === "versus" ? botCursorIndex : null}
-              compareOptions={compareOptions}
-            />
+          <div className="relative mt-6 h-[440px] rounded-[34px] border border-[var(--border)] bg-[color-mix(in_srgb,var(--panel-soft)_74%,transparent)]">
+            <div className="absolute inset-0 overflow-hidden px-6 py-8 md:px-10 md:py-12">
+              <TypingLayer
+                tokens={tokens}
+                snapshot={snapshot}
+                chapterText={practiceText}
+                className={`text-lg leading-9 md:text-[1.35rem] md:leading-[2.6rem] transition-opacity duration-500 ${status === "completed" ? "opacity-40 grayscale pointer-events-none" : ""}`}
+                interactionMode="type"
+                smoothCaret={settings.smoothCaret && analytics?.profile.unlocks.smoothCaret}
+                botCursorIndex={mode === "versus" ? botCursorIndex : null}
+                compareOptions={compareOptions}
+              />
 
-            {mode === "versus" && (
-              <div className="absolute inset-x-6 bottom-5 h-8 md:inset-x-10">
-                <div className="absolute inset-x-0 top-1/2 h-px -translate-y-1/2 bg-white/10" />
-                <div
-                  className="absolute top-1/2 h-2 w-2 -translate-y-1/2 rounded-full bg-[var(--accent)] shadow-[0_0_18px_var(--accent)]"
-                  style={{ left: `calc(${botProgress * 100}% - 4px)` }}
-                />
-              </div>
-            )}
+              {mode === "versus" && (
+                <div className="absolute inset-x-6 bottom-5 h-8 md:inset-x-10">
+                  <div className="absolute inset-x-0 top-1/2 h-px -translate-y-1/2 bg-white/10" />
+                  <div
+                    className="absolute top-1/2 h-2 w-2 -translate-y-1/2 rounded-full bg-[var(--accent)] shadow-[0_0_18px_var(--accent)]"
+                    style={{ left: `calc(${botProgress * 100}% - 4px)` }}
+                  />
+                </div>
+              )}
+            </div>
             
             {status === "completed" && (
               <div className="absolute inset-0 flex items-center justify-center bg-black/40 backdrop-blur-md rounded-[34px] z-50">
