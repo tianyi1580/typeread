@@ -155,7 +155,7 @@ export function LibraryView({
         ) : books.length === 0 && normalizedSearchQuery ? (
           <EmptySearchState query={normalizedSearchQuery} />
         ) : (
-          <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7">
             {books.map((book) => {
               const typeProgress = progressForBook(book, "type");
               const readProgress = progressForBook(book, "read");
@@ -164,18 +164,18 @@ export function LibraryView({
               return (
                 <article
                   key={book.id}
-                  className="group relative overflow-hidden rounded-[30px] border border-[var(--border)] bg-[color-mix(in_srgb,var(--panel)_92%,transparent)] text-left shadow-panel transition duration-200 hover:-translate-y-1 hover:border-[var(--accent)] focus-within:border-[var(--accent)] focus-within:ring-2 focus-within:ring-[var(--accent)] focus-within:ring-offset-2 focus-within:ring-offset-[var(--bg)]"
+                  className="group relative overflow-hidden rounded-[22px] border border-[var(--border)] bg-[color-mix(in_srgb,var(--panel)_92%,transparent)] text-left shadow-panel transition duration-200 hover:-translate-y-1 hover:border-[var(--accent)] focus-within:border-[var(--accent)] focus-within:ring-2 focus-within:ring-[var(--accent)] focus-within:ring-offset-2 focus-within:ring-offset-[var(--bg)]"
                 >
                   {/* Keep the primary open action separate from the action menu to avoid nested buttons. */}
                   <button
                     type="button"
                     aria-label={`Open ${book.title}`}
                     onClick={() => onOpenBook(book.id)}
-                    className="absolute inset-0 z-0 rounded-[30px] focus-visible:outline-none"
+                    className="absolute inset-0 z-0 rounded-[22px] focus-visible:outline-none"
                   />
 
                   <div className="pointer-events-none relative z-10">
-                    <div className="relative h-[240px] overflow-hidden">
+                    <div className="relative h-[160px] overflow-hidden">
                       {assetUrl ? (
                         <img src={assetUrl} alt="" className="h-full w-full object-cover" />
                       ) : (
@@ -189,31 +189,28 @@ export function LibraryView({
                       <div className="absolute inset-0 bg-[linear-gradient(180deg,transparent,rgba(0,0,0,0.38))]" />
                       <div className="absolute left-4 top-4 flex gap-2">
                         {book.pinned && (
-                          <span className="rounded-full border border-[var(--border)] bg-[var(--panel)] px-3 py-1 text-[10px] uppercase tracking-[0.24em] text-[var(--text)]">
+                          <span className="rounded-full border border-[var(--border)] bg-[var(--panel)] px-2.5 py-0.5 text-[9px] uppercase tracking-[0.2em] text-[var(--text)]">
                             Pinned
                           </span>
                         )}
                       </div>
                     </div>
 
-                    <div className="space-y-4 px-5 py-5">
-                      <div className="flex items-start justify-between gap-4">
+                    <div className="space-y-3 px-4 py-4">
+                      <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
-                          <p className="truncate text-xl font-semibold">{book.title}</p>
-                          <p className="mt-1 truncate text-sm text-[var(--text-muted)]">{book.author ?? fileNameFromPath(book.path)}</p>
-                        </div>
-                        <div className="rounded-full bg-[var(--accent-soft)] px-3 py-1 text-xs font-medium text-[var(--text)]">
-                          {book.averageWpm > 0 ? `${Math.round(book.averageWpm)} WPM` : "No WPM"}
+                          <p className="truncate text-sm font-semibold leading-tight">{book.title}</p>
+                          <p className="mt-1 truncate text-[11px] text-[var(--text-muted)]">{book.author ?? fileNameFromPath(book.path)}</p>
                         </div>
                       </div>
 
-                      <div className="flex items-center justify-between text-xs uppercase tracking-[0.22em] text-[var(--text-muted)]">
-                        <span>{book.format}</span>
-                        <div className="flex gap-2">
+                      <div className="flex items-center justify-between text-[9px] uppercase tracking-[0.18em] text-[var(--text-muted)]">
+                        <span className="truncate">{book.format}</span>
+                        <div className="flex gap-1.5 shrink-0">
                           <span title="Typing Progress">{Math.round(typeProgress * 100)}%</span>
                           {readProgress > typeProgress && (
-                            <span title="Reading Progress" className="text-[var(--accent)]">
-                              (R: {Math.round(readProgress * 100)}%)
+                            <span title="Reading Progress" className="text-[var(--accent)] font-bold">
+                              {Math.round(readProgress * 100)}%
                             </span>
                           )}
                         </div>
@@ -221,9 +218,9 @@ export function LibraryView({
                     </div>
                   </div>
 
-                  <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-[2.5px] bg-white/10">
+                  <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-0.5 bg-white/10">
                     <div
-                      className="absolute inset-y-0 left-0 bg-[var(--accent)] opacity-30 transition-all duration-500"
+                      className="absolute inset-y-0 left-0 bg-[var(--accent)] opacity-25 transition-all duration-500"
                       style={{ width: `${readProgress * 100}%` }}
                     />
                     <div
@@ -242,9 +239,9 @@ export function LibraryView({
                         event.stopPropagation();
                         setMenuBookId((current) => (current === book.id ? null : book.id));
                       }}
-                      className="rounded-full border border-[var(--border)] bg-[var(--panel)]/90 px-3 py-2 text-sm text-[var(--text)] opacity-0 transition group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100 backdrop-blur-lg"
+                      className="rounded-full border border-[var(--border)] bg-[var(--panel)]/90 px-2 py-1.5 text-xs text-[var(--text)] opacity-0 transition group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100 backdrop-blur-lg"
                     >
-                      ...
+                      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg>
                     </button>
                     {menuBookId === book.id && (
                       <div
