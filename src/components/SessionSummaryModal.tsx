@@ -107,7 +107,7 @@ export function SessionSummaryModal({ summary, onClose }: SessionSummaryModalPro
   };
 
   return (
-    <div className="fixed inset-0 z-[70] flex items-start justify-center overflow-y-auto bg-[rgba(6,8,14,0.85)] px-4 py-8 backdrop-blur-2xl md:items-center md:py-12">
+    <div className="fixed inset-0 z-[70] flex items-start justify-center overflow-y-auto bg-[rgba(6,8,14,0.85)] px-4 py-4 backdrop-blur-2xl md:py-12">
       <motion.button 
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
@@ -128,19 +128,19 @@ export function SessionSummaryModal({ summary, onClose }: SessionSummaryModalPro
       >
         <div className="absolute inset-0 bg-gradient-to-br from-[var(--accent)]/5 via-transparent to-transparent pointer-events-none" />
 
-        <div className="relative p-8 md:p-12">
+        <div className="relative p-6 md:p-10">
           {/* Header */}
-          <motion.div variants={itemVariants} className="text-center mb-12">
+          <motion.div variants={itemVariants} className="text-center mb-8">
             <p className="text-[10px] font-black uppercase tracking-[0.6em] text-[var(--accent)]">
               {summary.xpGained > 0 ? "Session Complete" : "Test Results"}
             </p>
-            <h2 className="mt-4 text-5xl font-black tracking-tighter text-[var(--text)]">
+            <h2 className="mt-3 text-3xl md:text-4xl font-black tracking-tighter text-[var(--text)]">
               {summary.xpGained > 0 ? "Performance Report" : "Great Run!"}
             </h2>
           </motion.div>
 
           {/* Hero Metrics */}
-          <div className="grid grid-cols-1 gap-6 sm:grid-cols-3 mb-12">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 mb-8">
             <motion.div variants={itemVariants}>
               <HeroMetric 
                 label="Average Speed" 
@@ -167,7 +167,7 @@ export function SessionSummaryModal({ summary, onClose }: SessionSummaryModalPro
           </div>
 
           {/* Secondary Metrics */}
-          <motion.div variants={itemVariants} className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 mb-12">
+          <motion.div variants={itemVariants} className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 mb-8">
             <SummaryMetric label="Words" value={(summary.sessionPoint?.wordsTyped || 0).toLocaleString()} />
             {!isTypeTest && (
               <>
@@ -180,8 +180,8 @@ export function SessionSummaryModal({ summary, onClose }: SessionSummaryModalPro
           </motion.div>
 
           {/* Analytics & Multipliers */}
-          <div className={cn("grid gap-8", isTypeTest ? "grid-cols-1" : "lg:grid-cols-[1fr_320px] mb-12")}>
-            <motion.div variants={itemVariants} className="rounded-[32px] border border-[var(--border)] bg-black/40 p-8 shadow-inner">
+          <div className={cn("grid gap-6", isTypeTest ? "grid-cols-1" : "lg:grid-cols-[1fr_300px] mb-8")}>
+            <motion.div variants={itemVariants} className="rounded-[32px] border border-[var(--border)] bg-black/40 p-6 shadow-inner">
               <div className="flex items-center justify-between gap-4">
                 <p className="text-[10px] font-black uppercase tracking-[0.3em] text-[var(--text-muted)]">Performance Over Time</p>
                 <div className="flex gap-1 rounded-full bg-white/5 p-1">
@@ -199,13 +199,13 @@ export function SessionSummaryModal({ summary, onClose }: SessionSummaryModalPro
                   ))}
                 </div>
               </div>
-              <div className="mt-8 h-[240px]">
+              <div className="mt-6 h-[200px]">
                 <SimpleGraph points={graphPoints} unit={activeMetric === "wpm" ? "WPM" : "%"} />
               </div>
             </motion.div>
 
             {!isTypeTest && (
-              <div className="space-y-6">
+              <div className="space-y-4">
                 <motion.div variants={itemVariants} className="rounded-[32px] border border-[var(--border)] bg-black/40 p-6">
                   <div className="flex items-center justify-between">
                     <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[var(--text-muted)]">Multiplier Stack</p>
@@ -245,7 +245,7 @@ export function SessionSummaryModal({ summary, onClose }: SessionSummaryModalPro
           {/* XP & Footer */}
           <motion.div 
             variants={itemVariants}
-            className="flex flex-col items-center justify-between gap-8 border-t border-white/10 pt-10 sm:flex-row"
+            className="flex flex-col items-center justify-between gap-6 border-t border-white/10 pt-8 sm:flex-row"
           >
             <div className="text-center sm:text-left flex flex-col items-center sm:items-start">
               {summary.levelAfter > summary.levelBefore ? (
@@ -267,7 +267,7 @@ export function SessionSummaryModal({ summary, onClose }: SessionSummaryModalPro
             <div className="flex w-full flex-col gap-4 sm:w-auto">
               <Button 
                 onClick={onClose} 
-                className="group relative min-w-[240px] overflow-hidden rounded-2xl py-8 text-lg font-black uppercase tracking-widest transition-all hover:scale-105 active:scale-95 bg-[var(--accent)] text-black"
+                className="group relative min-w-[240px] overflow-hidden rounded-2xl py-6 text-lg font-black uppercase tracking-widest transition-all hover:scale-105 active:scale-95 bg-[var(--accent)] text-black"
               >
                 <span className="relative z-10">Continue</span>
                 <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300" />
@@ -284,13 +284,13 @@ function HeroMetric({ label, value, description, highlight = false }: { label: s
   return (
     <InfoTooltip content={description} trigger="hover" maxWidth="240px" className="w-full">
       <div className={cn(
-        "group relative w-full cursor-help overflow-hidden rounded-[32px] border p-8 transition-all duration-500",
+        "group relative w-full cursor-help overflow-hidden rounded-[28px] border p-6 transition-all duration-500",
         highlight 
           ? "border-[var(--accent)] bg-[var(--accent)]/10 shadow-[0_0_40px_rgba(138,173,244,0.15)]" 
           : "border-white/5 bg-white/5 hover:border-white/20 hover:bg-white/10"
       )}>
         <p className="text-[10px] font-black uppercase tracking-[0.4em] text-[var(--text-muted)] group-hover:text-[var(--accent)] transition-colors">{label}</p>
-        <div className="mt-4 text-5xl font-black tracking-tighter tabular-nums text-[var(--text)]">
+        <div className="mt-3 text-4xl font-black tracking-tighter tabular-nums text-[var(--text)]">
           {value}
         </div>
         {highlight && (
@@ -312,7 +312,7 @@ function SummaryMetric({
 
   return (
     <InfoTooltip content={description} trigger="hover" maxWidth="240px" className="w-full">
-      <div className="group relative w-full cursor-help overflow-hidden rounded-[24px] border border-white/5 bg-white/5 px-6 py-5 transition-all hover:border-[var(--accent)]/30 hover:bg-white/10">
+      <div className="group relative w-full cursor-help overflow-hidden rounded-[20px] border border-white/5 bg-white/5 px-5 py-4 transition-all hover:border-[var(--accent)]/30 hover:bg-white/10">
         <p className="text-[9px] font-black uppercase tracking-[0.2em] text-[var(--text-muted)] group-hover:text-[var(--accent)] transition-colors">{label}</p>
         <p className="mt-2 text-xl font-bold tracking-tight">{value}</p>
       </div>

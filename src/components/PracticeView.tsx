@@ -467,9 +467,9 @@ export function PracticeView({
             {status === "completed" && (
               <div className="absolute inset-0 flex items-center justify-center bg-black/40 backdrop-blur-md rounded-[34px] z-50">
                 <div className="text-center animate-in fade-in zoom-in duration-500 max-w-sm px-6">
-                  <p className="text-3xl font-bold">Session Finished</p>
+                  <p className="text-2xl font-bold">Session Finished</p>
                   
-                  <div className="mt-8 grid grid-cols-2 gap-4">
+                  <div className="mt-6 grid grid-cols-2 gap-4">
                     <div className="rounded-2xl bg-white/5 p-4 border border-white/10">
                       <p className="text-[10px] uppercase tracking-widest text-[var(--text-muted)]">WPM</p>
                       <p className="text-2xl font-bold mt-1">{metrics.wpm.toFixed(1)}</p>
@@ -481,15 +481,15 @@ export function PracticeView({
                   </div>
 
                   {!summary ? (
-                    <p className="text-[var(--text-muted)] mt-8 text-sm flex items-center justify-center gap-2">
+                    <p className="text-[var(--text-muted)] mt-6 text-sm flex items-center justify-center gap-2">
                       <span className="h-2 w-2 rounded-full bg-[var(--accent)] animate-pulse" />
                       Syncing your results...
                     </p>
                   ) : (
-                    <p className="text-[var(--accent)] mt-8 text-sm font-medium">✓ Results synced to profile</p>
+                    <p className="text-[var(--accent)] mt-6 text-sm font-medium">✓ Results synced to profile</p>
                   )}
                   
-                  <div className="mt-10 flex flex-col gap-3">
+                  <div className="mt-8 flex flex-col gap-3">
                     <Button className="w-full" onClick={() => setShowSummary(true)} disabled={!summary}>See Results</Button>
                     <Button variant="ghost" className="w-full" onClick={restart}>Start New Test</Button>
                   </div>
