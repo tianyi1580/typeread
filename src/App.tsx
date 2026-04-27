@@ -333,6 +333,19 @@ export default function App() {
     }
   }
 
+  async function handleUpdateCover(bookId: number, imageDataBase64: string) {
+    try {
+      setError(null);
+      setBusyAction("Updating cover…");
+      await api.updateBookCover(bookId, imageDataBase64);
+      await refreshAll({ preferredBookId: bookId });
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Failed to update book cover.");
+    } finally {
+      setBusyAction(null);
+    }
+  }
+
   async function handleTogglePinned(bookId: number, pinned: boolean) {
     try {
       setError(null);
@@ -504,6 +517,7 @@ export default function App() {
               onImportBooks={handleImportBooks}
               onOpenBook={(bookId) => void loadBook(bookId, true)}
               onRenameBook={handleRenameBook}
+              onUpdateCover={handleUpdateCover}
               onTogglePinned={handleTogglePinned}
               onDeleteBook={handleDeleteBook}
             />

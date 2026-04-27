@@ -51,4 +51,7 @@ export const api = {
   clearSessionHistory: () => call<void>("clear_session_history"),
   deleteLibrary: () => call<void>("delete_library"),
   gainOneLevel: () => call<void>("gain_one_level"),
+  updateBookCover: (bookId: number, imageDataBase64: string) =>
+    call<void>("update_book_cover", { bookId, imageDataBase64 }),
+  getBookCover: (path: string) => call<string>("get_book_cover", { path }),
 };

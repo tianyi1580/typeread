@@ -362,6 +362,7 @@ fn process_keystroke_batch_inner(
 
 fn main() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_fs::init())
         .setup(|app| {
             let state = prepare_state(app.handle())?;
             app.manage(state);
@@ -386,10 +387,58 @@ fn main() {
             import_database,
             clear_session_history,
             delete_library,
-            gain_one_level
+            gain_one_level,
+            update_book_cover,
+            get_book_cover
         ])
         .run(tauri::generate_context!())
         .expect("failed to run application");
+}
+
+#[tauri::command]
+async fn update_book_cover(
+    book_id: i64,
+    image_data_base64: String,
+    state: tauri::State<'_, AppState>,
+) -> Result<(), String> {
+    use base64::{engine::general_purpose, Engine as _};
+    use std::io::Write;
+
+    if image_data_base64.is_empty() {
+        state.db.update_book_cover(book_id, None).map_err(to_message)?;
+        return Ok(());
+    }
+
+    let data = general_purpose::STANDARD
+        .decode(image_data_base64)
+        .map_err(|e| format!("Failed to decode base64: {}", e))?;
+
+    let file_name = format!("cover_{}_{}.png", book_id, chrono::Utc::now().timestamp());
+    let cover_path = state.covers_dir.join(&file_name);
+
+    let mut file = std::fs::File::create(&cover_path)
+        .map_err(|e| format!("Failed to create cover file: {}", e))?;
+    file.write_all(&data)
+        .map_err(|e| format!("Failed to write cover data: {}", e))?;
+
+    state
+        .db
+        .update_book_cover(book_id, Some(&cover_path.to_string_lossy()))
+        .map_err(to_message)?;
+
+    Ok(())
+}
+
+#[tauri::command]
+fn get_book_cover(path: String) -> Result<String, String> {
+    use std::io::Read;
+    use base64::{engine::general_purpose, Engine as _};
+
+    let mut file = std::fs::File::open(path).map_err(|e| e.to_string())?;
+    let mut buffer = Vec::new();
+    file.read_to_end(&mut buffer).map_err(|e| e.to_string())?;
+
+    Ok(format!("data:image/png;base64,{}", general_purpose::STANDARD.encode(buffer)))
 }
 
 #[cfg(test)]

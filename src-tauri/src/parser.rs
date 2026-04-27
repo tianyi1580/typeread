@@ -506,12 +506,14 @@ fn markdown_to_text(source: &str) -> String {
                 list_index.pop();
                 rendered.push('\n');
             }
-            Event::Start(pulldown_cmark::Tag::Heading { .. }) | Event::Start(pulldown_cmark::Tag::Paragraph) => {
+            Event::Start(pulldown_cmark::Tag::Heading { .. })
+            | Event::Start(pulldown_cmark::Tag::Paragraph) => {
                 if !rendered.is_empty() && !rendered.ends_with('\n') {
                     rendered.push_str("\n\n");
                 }
             }
-            Event::End(pulldown_cmark::TagEnd::Heading { .. }) | Event::End(pulldown_cmark::TagEnd::Paragraph) => {
+            Event::End(pulldown_cmark::TagEnd::Heading { .. })
+            | Event::End(pulldown_cmark::TagEnd::Paragraph) => {
                 rendered.push('\n');
             }
             Event::Text(value) | Event::Code(value) => {

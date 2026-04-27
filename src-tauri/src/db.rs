@@ -796,6 +796,15 @@ impl Database {
         Ok(())
     }
 
+    pub fn update_book_cover(&self, book_id: i64, cover_path: Option<&str>) -> Result<()> {
+        let conn = self.connection()?;
+        conn.execute(
+            "UPDATE books SET cover_path = ?2 WHERE id = ?1",
+            params![book_id, cover_path],
+        )?;
+        Ok(())
+    }
+
     pub fn set_book_pinned(&self, book_id: i64, pinned: bool) -> Result<()> {
         let conn = self.connection()?;
         conn.execute(

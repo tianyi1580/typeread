@@ -1,6 +1,14 @@
 {
   "identifier": "default-capability",
   "description": "Default capability for the main application window.",
-  "windows": ["main"],
-  "permissions": ["core:default"]
+  "windows": [
+    "main"
+  ],
+  "permissions": [
+    "core:default",
+    "core:path:default",
+    "core:webview:default",
+    "core:window:default",
+    "core:event:default"
+  ]
 }

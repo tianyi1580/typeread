@@ -1,4 +1,5 @@
-import { type MouseEvent, type ReactNode, useEffect, useRef, useState } from "react";
+import { type MouseEvent, type ReactNode, useCallback, useEffect, useRef, useState } from "react";
+import Cropper, { type Area } from "react-easy-crop";
 import { Button } from "./ui/button";
 import { Card } from "./ui/card";
 import { api } from "../lib/tauri";
@@ -16,6 +17,7 @@ interface LibraryViewProps {
   onImportBooks: () => void;
   onOpenBook: (bookId: number) => void;
   onRenameBook: (bookId: number, title: string) => Promise<void>;
+  onUpdateCover: (bookId: number, imageDataBase64: string) => Promise<void>;
   onTogglePinned: (bookId: number, pinned: boolean) => Promise<void>;
   onDeleteBook: (bookId: number) => Promise<void>;
 }
@@ -30,6 +32,7 @@ export function LibraryView({
   onImportBooks,
   onOpenBook,
   onRenameBook,
+  onUpdateCover,
   onTogglePinned,
   onDeleteBook,
 }: LibraryViewProps) {
@@ -37,7 +40,11 @@ export function LibraryView({
   const [menuBookId, setMenuBookId] = useState<number | null>(null);
   const [showTips, setShowTips] = useState(false);
   const [editingBook, setEditingBook] = useState<BookRecord | null>(null);
+  const [coverEditingBook, setCoverEditingBook] = useState<BookRecord | null>(null);
+  const [showCoverManager, setShowCoverManager] = useState(false);
+  const [imageToCrop, setImageToCrop] = useState<string | null>(null);
   const [draftTitle, setDraftTitle] = useState("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const normalizedSearchQuery = searchQuery.trim();
 
@@ -159,7 +166,6 @@ export function LibraryView({
             {books.map((book) => {
               const typeProgress = progressForBook(book, "type");
               const readProgress = progressForBook(book, "read");
-              const assetUrl = api.assetUrl(book.coverPath);
 
               return (
                 <article
@@ -174,10 +180,10 @@ export function LibraryView({
                     className="absolute inset-0 z-0 rounded-[22px] focus-visible:outline-none"
                   />
 
-                  <div className="pointer-events-none relative z-10">
-                    <div className="relative h-[160px] overflow-hidden">
-                      {assetUrl ? (
-                        <img src={assetUrl} alt="" className="h-full w-full object-cover" />
+                  <div className="pointer-events-none relative flex h-full flex-col">
+                    <div className="relative aspect-[3/4] w-full overflow-hidden">
+                      {book.coverPath ? (
+                        <CoverImage path={book.coverPath} />
                       ) : (
                         <div
                           className="h-full w-full"
@@ -186,47 +192,52 @@ export function LibraryView({
                           }}
                         />
                       )}
-                      <div className="absolute inset-0 bg-[linear-gradient(180deg,transparent,rgba(0,0,0,0.38))]" />
+                      <div className="absolute inset-0 bg-[linear-gradient(180deg,transparent,rgba(0,0,0,0.4))] opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
+                      
                       <div className="absolute left-4 top-4 flex gap-2">
                         {book.pinned && (
-                          <span className="rounded-full border border-[var(--border)] bg-[var(--panel)] px-2.5 py-0.5 text-[9px] uppercase tracking-[0.2em] text-[var(--text)]">
+                          <span className="rounded-full border border-white/20 bg-black/40 px-2.5 py-0.5 text-[9px] uppercase tracking-[0.2em] text-white backdrop-blur-md">
                             Pinned
                           </span>
                         )}
                       </div>
                     </div>
 
-                    <div className="space-y-3 px-4 py-4">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <p className="truncate text-sm font-semibold leading-tight">{book.title}</p>
-                          <p className="mt-1 truncate text-[11px] text-[var(--text-muted)]">{book.author ?? fileNameFromPath(book.path)}</p>
+                    <div className="absolute inset-x-0 bottom-0 z-10 p-1">
+                      <div className="space-y-3 rounded-[18px] border border-white/10 bg-[var(--panel)]/60 p-4 shadow-xl backdrop-blur-xl transition-transform duration-300 group-hover:-translate-y-1">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-bold leading-tight tracking-tight text-[var(--text)]">{book.title}</p>
+                            <p className="mt-1 truncate text-[10px] font-medium text-[var(--text-muted)]">{book.author ?? fileNameFromPath(book.path)}</p>
+                          </div>
                         </div>
-                      </div>
 
-                      <div className="flex items-center justify-between text-[9px] uppercase tracking-[0.18em] text-[var(--text-muted)]">
-                        <span className="truncate">{book.format}</span>
-                        <div className="flex gap-1.5 shrink-0">
-                          <span title="Typing Progress">{Math.round(typeProgress * 100)}%</span>
-                          {readProgress > typeProgress && (
-                            <span title="Reading Progress" className="text-[var(--accent)] font-bold">
-                              {Math.round(readProgress * 100)}%
-                            </span>
-                          )}
+                        <div className="flex items-center justify-between text-[9px] font-bold uppercase tracking-[0.18em] text-[var(--text-muted)]">
+                          <span className="truncate">{book.format}</span>
+                          <div className="flex gap-2 shrink-0">
+                            <span title="Typing Progress">{Math.round(typeProgress * 100)}%</span>
+                            {readProgress > typeProgress && (
+                              <span title="Reading Progress" className="text-[var(--accent)]">
+                                {Math.round(readProgress * 100)}%
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </div>
                     </div>
                   </div>
 
-                  <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-0.5 bg-white/10">
-                    <div
-                      className="absolute inset-y-0 left-0 bg-[var(--accent)] opacity-25 transition-all duration-500"
-                      style={{ width: `${readProgress * 100}%` }}
-                    />
-                    <div
-                      className="absolute inset-y-0 left-0 bg-[var(--accent)] transition-all duration-500"
-                      style={{ width: `${typeProgress * 100}%` }}
-                    />
+                  <div className="pointer-events-none absolute inset-x-0 bottom-1 z-20 h-1 px-5">
+                    <div className="relative h-full w-full overflow-hidden rounded-full bg-white/10">
+                      <div
+                        className="absolute inset-y-0 left-0 bg-[var(--accent)] opacity-25 transition-all duration-500"
+                        style={{ width: `${readProgress * 100}%` }}
+                      />
+                      <div
+                        className="absolute inset-y-0 left-0 bg-[var(--accent)] transition-all duration-500 shadow-[0_0_8px_var(--accent)]"
+                        style={{ width: `${typeProgress * 100}%` }}
+                      />
+                    </div>
                   </div>
 
                   <div className="absolute right-4 top-4 z-20">
@@ -266,6 +277,16 @@ export function LibraryView({
                           }}
                         >
                           Edit Name
+                        </BookActionButton>
+                        <BookActionButton
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setCoverEditingBook(book);
+                            setShowCoverManager(true);
+                            setMenuBookId(null);
+                          }}
+                        >
+                          Edit Cover
                         </BookActionButton>
                         <BookActionButton
                           danger
@@ -328,6 +349,70 @@ export function LibraryView({
             </div>
           </div>
         </div>
+      )}
+
+      <input
+        type="file"
+        ref={fileInputRef}
+        className="hidden"
+        accept="image/*"
+        onChange={(event) => {
+          const file = event.target.files?.[0];
+          if (file) {
+            const reader = new FileReader();
+            reader.onload = () => {
+              setImageToCrop(reader.result as string);
+            };
+            reader.readAsDataURL(file);
+          }
+          // Reset input value to allow selecting the same file again
+          event.target.value = "";
+        }}
+      />
+
+      {coverEditingBook && showCoverManager && (
+        <CoverManagementModal
+          book={coverEditingBook}
+          onClose={() => {
+            setCoverEditingBook(null);
+            setShowCoverManager(false);
+          }}
+          onUpload={() => {
+            setShowCoverManager(false);
+            fileInputRef.current?.click();
+          }}
+          onAdjust={async () => {
+            if (coverEditingBook.coverPath) {
+              try {
+                const base64 = await api.getBookCover(coverEditingBook.coverPath);
+                setImageToCrop(base64);
+                setShowCoverManager(false);
+              } catch (e) {
+                console.error("Failed to load current cover for adjustment", e);
+              }
+            }
+          }}
+          onRemove={async () => {
+            await onUpdateCover(coverEditingBook.id, "");
+            setCoverEditingBook(null);
+            setShowCoverManager(false);
+          }}
+        />
+      )}
+
+      {coverEditingBook && imageToCrop && (
+        <CoverEditorModal
+          image={imageToCrop}
+          onClose={() => {
+            setImageToCrop(null);
+            setCoverEditingBook(null);
+          }}
+          onSave={async (base64) => {
+            await onUpdateCover(coverEditingBook.id, base64);
+            setImageToCrop(null);
+            setCoverEditingBook(null);
+          }}
+        />
       )}
     </>
   );
@@ -527,6 +612,211 @@ function progressForBook(book: BookRecord, type: "type" | "read" = "type") {
   return Math.max(0, Math.min(1, index / book.totalChars));
 }
 
+function CoverManagementModal({
+  book,
+  onClose,
+  onUpload,
+  onAdjust,
+  onRemove,
+}: {
+  book: BookRecord;
+  onClose: () => void;
+  onUpload: () => void;
+  onAdjust: () => void;
+  onRemove: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 px-4 backdrop-blur-md">
+      <div className="relative w-full max-w-md overflow-hidden rounded-[32px] border border-[var(--border)] bg-[var(--panel)] p-8 shadow-2xl">
+        <div className="mb-8 text-center">
+          <p className="text-[10px] uppercase tracking-[0.3em] text-[var(--accent)] font-bold">Customize</p>
+          <h2 className="mt-1 text-2xl font-semibold">Book Cover</h2>
+        </div>
+
+        <div className="mb-8 flex justify-center">
+          <div className="h-48 w-32 overflow-hidden rounded-xl border border-[var(--border)] bg-black/20 shadow-inner">
+            {book.coverPath ? (
+              <CoverImage path={book.coverPath} />
+            ) : (
+              <div className="flex h-full w-full items-center justify-center text-[var(--text-muted)]">
+                <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-3">
+          <Button onClick={onUpload} className="h-12 w-full rounded-2xl font-bold">
+            Upload New Cover
+          </Button>
+          
+          {book.coverPath && (
+            <Button variant="ghost" onClick={onAdjust} className="h-12 w-full rounded-2xl">
+              Adjust Current Crop
+            </Button>
+          )}
+
+          {book.coverPath && (
+            <Button variant="ghost" onClick={onRemove} className="h-12 w-full rounded-2xl text-red-400 hover:text-red-300">
+              Remove Custom Cover
+            </Button>
+          )}
+
+          <Button variant="ghost" onClick={onClose} className="h-12 w-full rounded-2xl text-[var(--text-muted)]">
+            Cancel
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CoverImage({ path }: { path: string }) {
+  const [url, setUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!path) return;
+    if (path.startsWith("http") || path.startsWith("data:")) {
+      setUrl(path);
+    } else {
+      api.getBookCover(path).then(setUrl).catch(console.error);
+    }
+  }, [path]);
+
+  if (!url) return <div className="h-full w-full animate-pulse bg-white/5" />;
+  return <img src={url} alt="" className="h-full w-full object-cover" />;
+}
+
 function fileNameFromPath(path: string) {
   return path.split(/[\\/]/).pop() ?? path;
+}
+
+function CoverEditorModal({
+  image,
+  onClose,
+  onSave,
+}: {
+  image: string;
+  onClose: () => void;
+  onSave: (base64: string) => Promise<void>;
+}) {
+  const [crop, setCrop] = useState({ x: 0, y: 0 });
+  const [zoom, setZoom] = useState(1);
+  const [croppedAreaPixels, setCroppedAreaPixels] = useState<Area | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  const onCropComplete = useCallback((_croppedArea: Area, croppedAreaPixels: Area) => {
+    setCroppedAreaPixels(croppedAreaPixels);
+  }, []);
+
+  const handleSave = async () => {
+    if (!croppedAreaPixels) return;
+    setSaving(true);
+    try {
+      const croppedImage = await getCroppedImg(image, croppedAreaPixels);
+      // getCroppedImg returns a base64 string without the prefix if we want, 
+      // but the Rust side expects standard base64 without prefix usually, or we can strip it.
+      // My Rust side decodes standard base64.
+      const base64Data = croppedImage.split(",")[1];
+      await onSave(base64Data);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 px-4 backdrop-blur-md">
+      <div className="relative flex h-[80vh] w-full max-w-4xl flex-col overflow-hidden rounded-[32px] border border-[var(--border)] bg-[var(--panel)] shadow-2xl">
+        <div className="flex items-center justify-between border-b border-[var(--border)] px-8 py-6">
+          <div>
+            <p className="text-[10px] uppercase tracking-[0.3em] text-[var(--accent)] font-bold">Customize</p>
+            <h2 className="text-2xl font-semibold">Edit Book Cover</h2>
+          </div>
+          <button
+            onClick={onClose}
+            className="rounded-full p-2 text-[var(--text-muted)] hover:bg-[var(--accent-soft)] hover:text-[var(--text)] transition-colors"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+          </button>
+        </div>
+
+        <div className="relative flex-1 bg-[#111]">
+          <Cropper
+            image={image}
+            crop={crop}
+            zoom={zoom}
+            aspect={2 / 3}
+            onCropChange={setCrop}
+            onCropComplete={onCropComplete}
+            onZoomChange={setZoom}
+          />
+        </div>
+
+        <div className="border-t border-[var(--border)] p-8">
+          <div className="flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex flex-1 items-center gap-4">
+              <span className="text-xs font-bold uppercase tracking-widest text-[var(--text-muted)]">Zoom</span>
+              <input
+                type="range"
+                value={zoom}
+                min={1}
+                max={3}
+                step={0.1}
+                aria-labelledby="Zoom"
+                onChange={(e) => setZoom(Number(e.target.value))}
+                className="h-1.5 flex-1 cursor-pointer appearance-none rounded-full bg-[var(--border)] accent-[var(--accent)]"
+              />
+            </div>
+            <div className="flex gap-3">
+              <Button variant="ghost" onClick={onClose} className="px-8 h-12 rounded-2xl">
+                Cancel
+              </Button>
+              <Button onClick={handleSave} disabled={saving} className="px-12 h-12 rounded-2xl font-bold shadow-lg shadow-[var(--accent-soft)]">
+                {saving ? "Saving..." : "Apply Cover"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+async function getCroppedImg(imageSrc: string, pixelCrop: Area): Promise<string> {
+  const image = await createImage(imageSrc);
+  const canvas = document.createElement("canvas");
+  const ctx = canvas.getContext("2d");
+
+  if (!ctx) {
+    return "";
+  }
+
+  canvas.width = pixelCrop.width;
+  canvas.height = pixelCrop.height;
+
+  ctx.drawImage(
+    image,
+    pixelCrop.x,
+    pixelCrop.y,
+    pixelCrop.width,
+    pixelCrop.height,
+    0,
+    0,
+    pixelCrop.width,
+    pixelCrop.height
+  );
+
+  return canvas.toDataURL("image/png");
+}
+
+function createImage(url: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    image.addEventListener("load", () => resolve(image));
+    image.addEventListener("error", (error) => reject(error));
+    image.setAttribute("crossOrigin", "anonymous");
+    image.src = url;
+  });
 }
