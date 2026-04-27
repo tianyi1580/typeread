@@ -363,6 +363,7 @@ fn process_keystroke_batch_inner(
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_fs::init())
+        .plugin(tauri_plugin_opener::init())
         .setup(|app| {
             let state = prepare_state(app.handle())?;
             app.manage(state);

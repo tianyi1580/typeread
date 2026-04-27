@@ -1,4 +1,5 @@
 import { convertFileSrc, invoke } from "@tauri-apps/api/core";
+import { openUrl as tauriOpenUrl } from "@tauri-apps/plugin-opener";
 import type {
   AnalyticsSummary,
   AppSettings,
@@ -54,4 +55,11 @@ export const api = {
   updateBookCover: (bookId: number, imageDataBase64: string) =>
     call<void>("update_book_cover", { bookId, imageDataBase64 }),
   getBookCover: (path: string) => call<string>("get_book_cover", { path }),
+  openUrl: async (url: string) => {
+    if (isDesktop()) {
+      await tauriOpenUrl(url);
+    } else {
+      window.open(url, "_blank");
+    }
+  },
 };

@@ -199,10 +199,10 @@ export function LibraryView({
                               filter: "blur(40px)",
                             }}
                           />
-                          
+
                           {/* Elegant Initial */}
                           <div className="absolute inset-0 flex items-center justify-center">
-                            <span 
+                            <span
                               className="text-[120px] font-black leading-none opacity-10 transition-transform duration-700 group-hover:scale-110 group-hover:opacity-20"
                               style={{ color: theme.accent }}
                             >
@@ -211,12 +211,12 @@ export function LibraryView({
                           </div>
 
                           {/* Grain Texture Overlay */}
-                          <div className="absolute inset-0 opacity-[0.03] mix-blend-overlay pointer-events-none" 
-                               style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")` }} />
+                          <div className="absolute inset-0 opacity-[0.03] mix-blend-overlay pointer-events-none"
+                            style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")` }} />
                         </div>
                       )}
                       <div className="absolute inset-0 bg-[linear-gradient(180deg,transparent,rgba(0,0,0,0.4))] opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
-                      
+
                       <div className="absolute left-4 top-4 flex gap-2">
                         {book.pinned && (
                           <span className="rounded-full border border-white/20 bg-black/40 px-2.5 py-0.5 text-[9px] uppercase tracking-[0.2em] text-white backdrop-blur-md">
@@ -275,7 +275,7 @@ export function LibraryView({
                       }}
                       className="rounded-full border border-[var(--border)] bg-[var(--panel)]/90 px-2 py-1.5 text-xs text-[var(--text)] opacity-0 transition group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100 backdrop-blur-lg"
                     >
-                      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg>
+                      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="1" /><circle cx="19" cy="12" r="1" /><circle cx="5" cy="12" r="1" /></svg>
                     </button>
                     {menuBookId === book.id && (
                       <div
@@ -340,7 +340,7 @@ export function LibraryView({
       )}
 
       {editingBook && (
-        <div 
+        <div
           className="fixed inset-0 z-40 flex items-center justify-center bg-black/45 px-4"
           onClick={(event) => {
             if (event.target === event.currentTarget) {
@@ -443,7 +443,7 @@ export function LibraryView({
 
 function LibraryTipsModal({ onClose }: { onClose: () => void }) {
   return (
-    <div 
+    <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 backdrop-blur-sm animate-fade-in"
       onClick={(event) => {
         if (event.target === event.currentTarget) {
@@ -456,7 +456,7 @@ function LibraryTipsModal({ onClose }: { onClose: () => void }) {
           onClick={onClose}
           className="absolute right-6 top-6 rounded-full p-2 text-[var(--text-muted)] hover:bg-[var(--accent-soft)] hover:text-[var(--text)] transition-colors"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>
         </button>
 
         <div className="space-y-10">
@@ -479,15 +479,66 @@ function LibraryTipsModal({ onClose }: { onClose: () => void }) {
                 <li className="flex items-start gap-4">
                   <div className="mt-[11px] h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--accent)]" />
                   <div className="text-sm leading-7">
-                    <a href="https://standardebooks.org/" target="_blank" rel="noopener noreferrer" className="font-bold text-[var(--text)] hover:text-[var(--accent)] transition-colors underline decoration-[var(--accent-soft)] underline-offset-4 decoration-2">Standard Ebooks</a>
+                    <a
+                      href="https://standardebooks.org/"
+                      onClick={(e) => { e.preventDefault(); api.openUrl("https://standardebooks.org/"); }}
+                      className="font-bold text-[var(--text)] hover:text-[var(--accent)] transition-colors underline decoration-[var(--accent-soft)] underline-offset-4 decoration-2"
+                    >
+                      Standard Ebooks
+                    </a>
                     <p className="text-[var(--text-muted)] mt-1">The absolute best source. They take public domain classics and professionally format them into pristine <code className="rounded bg-[var(--panel-soft)] px-1.5 py-0.5 text-[10px] text-[var(--text)] font-mono">.epub</code> files.</p>
                   </div>
                 </li>
                 <li className="flex items-start gap-4">
                   <div className="mt-[11px] h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--accent)]" />
                   <div className="text-sm leading-7">
-                    <a href="https://www.gutenberg.org/" target="_blank" rel="noopener noreferrer" className="font-bold text-[var(--text)] hover:text-[var(--accent)] transition-colors underline decoration-[var(--accent-soft)] underline-offset-4 decoration-2">Project Gutenberg</a>
+                    <a
+                      href="https://www.gutenberg.org/"
+                      onClick={(e) => { e.preventDefault(); api.openUrl("https://www.gutenberg.org/"); }}
+                      className="font-bold text-[var(--text)] hover:text-[var(--accent)] transition-colors underline decoration-[var(--accent-soft)] underline-offset-4 decoration-2"
+                    >
+                      Project Gutenberg
+                    </a>
                     <p className="text-[var(--text-muted)] mt-1">A massive library of over 70,000 free, public domain books available in both <code className="rounded bg-[var(--panel-soft)] px-1.5 py-0.5 text-[10px] text-[var(--text)] font-mono">.epub</code> and <code className="rounded bg-[var(--panel-soft)] px-1.5 py-0.5 text-[10px] text-[var(--text)] font-mono">.txt</code>.</p>
+                  </div>
+                </li>
+                <li className="flex items-start gap-4">
+                  <div className="mt-[11px] h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--accent)]" />
+                  <div className="text-sm leading-7">
+                    <a
+                      href="https://archive.org/"
+                      onClick={(e) => { e.preventDefault(); api.openUrl("https://archive.org/"); }}
+                      className="font-bold text-[var(--text)] hover:text-[var(--accent)] transition-colors underline decoration-[var(--accent-soft)] underline-offset-4 decoration-2"
+                    >
+                      Internet Archive
+                    </a>
+                    <p className="text-[var(--text-muted)] mt-1">A non-profit library of millions of free books, movies, software, music, websites, and more.</p>
+                  </div>
+                </li>
+                <li className="flex items-start gap-4">
+                  <div className="mt-[11px] h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--accent)]" />
+                  <div className="text-sm leading-7">
+                    <a
+                      href="https://openlibrary.org/"
+                      onClick={(e) => { e.preventDefault(); api.openUrl("https://openlibrary.org/"); }}
+                      className="font-bold text-[var(--text)] hover:text-[var(--accent)] transition-colors underline decoration-[var(--accent-soft)] underline-offset-4 decoration-2"
+                    >
+                      Open Library
+                    </a>
+                    <p className="text-[var(--text-muted)] mt-1">An initiative of the Internet Archive, a web page for every book ever published.</p>
+                  </div>
+                </li>
+                <li className="flex items-start gap-4">
+                  <div className="mt-[11px] h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--accent)]" />
+                  <div className="text-sm leading-7">
+                    <a
+                      href="https://google.com/"
+                      onClick={(e) => { e.preventDefault(); api.openUrl("https://google.com/"); }}
+                      className="font-bold text-[var(--text)] hover:text-[var(--accent)] transition-colors underline decoration-[var(--accent-soft)] underline-offset-4 decoration-2"
+                    >
+                      Google Search
+                    </a>
+                    <p className="text-[var(--text-muted)] mt-1">You can often find DRM-free books by simply searching for them on google or appending "filetype:epub" or "filetype:txt" to your Google search query. Be careful when downloading from suspicious websites.</p>
                   </div>
                 </li>
                 <li className="flex items-start gap-4">
@@ -509,21 +560,33 @@ function LibraryTipsModal({ onClose }: { onClose: () => void }) {
                 <li className="flex items-start gap-4">
                   <div className="mt-[11px] h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--accent)]" />
                   <div className="text-sm leading-7">
-                    <a href="https://calibre-ebook.com/" target="_blank" rel="noopener noreferrer" className="font-bold text-[var(--text)] hover:text-[var(--accent)] transition-colors underline decoration-[var(--accent-soft)] underline-offset-4 decoration-2">Calibre (Recommended)</a>
+                    <a
+                      href="https://calibre-ebook.com/"
+                      onClick={(e) => { e.preventDefault(); api.openUrl("https://calibre-ebook.com/"); }}
+                      className="font-bold text-[var(--text)] hover:text-[var(--accent)] transition-colors underline decoration-[var(--accent-soft)] underline-offset-4 decoration-2"
+                    >
+                      Calibre
+                    </a>
                     <p className="text-[var(--text-muted)] mt-1">A free, open-source desktop application that handles offline conversions perfectly.</p>
                   </div>
                 </li>
                 <li className="flex items-start gap-4">
                   <div className="mt-[11px] h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--accent)]" />
                   <div className="text-sm leading-7">
-                    <a href="https://cloudconvert.com/" target="_blank" rel="noopener noreferrer" className="font-bold text-[var(--text)] hover:text-[var(--accent)] transition-colors underline decoration-[var(--accent-soft)] underline-offset-4 decoration-2">CloudConvert</a>
+                    <a
+                      href="https://cloudconvert.com/"
+                      onClick={(e) => { e.preventDefault(); api.openUrl("https://cloudconvert.com/"); }}
+                      className="font-bold text-[var(--text)] hover:text-[var(--accent)] transition-colors underline decoration-[var(--accent-soft)] underline-offset-4 decoration-2"
+                    >
+                      CloudConvert
+                    </a>
                     <p className="text-[var(--text-muted)] mt-1">A quick web-based tool if you don't want to install software, though local conversion yields cleaner text formatting.</p>
                   </div>
                 </li>
               </ul>
             </section>
           </div>
-          
+
           <div className="pt-2">
             <Button className="w-full h-12 rounded-2xl text-sm font-bold tracking-wide" onClick={onClose}>Got it</Button>
           </div>
@@ -662,7 +725,7 @@ function CoverManagementModal({
               <CoverImage path={book.coverPath} />
             ) : (
               <div className="flex h-full w-full items-center justify-center text-[var(--text-muted)]">
-                <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
+                <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="18" x="3" y="3" rx="2" ry="2" /><circle cx="9" cy="9" r="2" /><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" /></svg>
               </div>
             )}
           </div>
@@ -672,7 +735,7 @@ function CoverManagementModal({
           <Button onClick={onUpload} className="h-12 w-full rounded-2xl font-bold">
             Upload New Cover
           </Button>
-          
+
           {book.coverPath && (
             <Button variant="ghost" onClick={onAdjust} className="h-12 w-full rounded-2xl">
               Adjust Current Crop
@@ -761,7 +824,7 @@ function CoverEditorModal({
             onClick={onClose}
             className="rounded-full p-2 text-[var(--text-muted)] hover:bg-[var(--accent-soft)] hover:text-[var(--text)] transition-colors"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>
           </button>
         </div>
 
