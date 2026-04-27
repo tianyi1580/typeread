@@ -185,12 +185,35 @@ export function LibraryView({
                       {book.coverPath ? (
                         <CoverImage path={book.coverPath} />
                       ) : (
-                        <div
-                          className="h-full w-full"
-                          style={{
-                            background: `linear-gradient(145deg, ${theme.accentSoft}, ${theme.panelSoft})`,
-                          }}
-                        />
+                        <div className="relative h-full w-full overflow-hidden bg-[var(--panel-soft)]">
+                          {/* Mesh Gradient Background */}
+                          <div
+                            className="absolute inset-0 opacity-40"
+                            style={{
+                              background: `
+                                radial-gradient(at 0% 0%, ${theme.accent} 0px, transparent 50%),
+                                radial-gradient(at 100% 0%, ${theme.accentSoft} 0px, transparent 50%),
+                                radial-gradient(at 100% 100%, ${theme.accent} 0px, transparent 50%),
+                                radial-gradient(at 0% 100%, ${theme.accentSoft} 0px, transparent 50%)
+                              `,
+                              filter: "blur(40px)",
+                            }}
+                          />
+                          
+                          {/* Elegant Initial */}
+                          <div className="absolute inset-0 flex items-center justify-center">
+                            <span 
+                              className="text-[120px] font-black leading-none opacity-10 transition-transform duration-700 group-hover:scale-110 group-hover:opacity-20"
+                              style={{ color: theme.accent }}
+                            >
+                              {book.title.charAt(0).toUpperCase()}
+                            </span>
+                          </div>
+
+                          {/* Grain Texture Overlay */}
+                          <div className="absolute inset-0 opacity-[0.03] mix-blend-overlay pointer-events-none" 
+                               style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")` }} />
+                        </div>
                       )}
                       <div className="absolute inset-0 bg-[linear-gradient(180deg,transparent,rgba(0,0,0,0.4))] opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
                       
