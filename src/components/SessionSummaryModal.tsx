@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo } from "react";
-import { cn } from "../lib/utils";
+import { cn, formatDuration } from "../lib/utils";
 import type { SessionSummaryResponse, WpmSample } from "../types";
 import { Button } from "./ui/button";
 import { InfoTooltip } from "./ui/InfoTooltip";
@@ -13,6 +13,7 @@ const METRIC_DESCRIPTIONS: Record<string, string> = {
   "Rhythm": "Consistency of your inter-character timing. Higher is better.",
   "Focus": "Ability to maintain speed without sudden pauses or long hesitations.",
   "Consistency": "Coefficient of Variation for rhythm. Lower values mean more stable typing.",
+  "Time": "Active duration spent typing during this session.",
 };
 
 interface SessionSummaryModalProps {
@@ -166,10 +167,11 @@ export function SessionSummaryModal({ summary, onClose }: SessionSummaryModalPro
           </div>
 
           {/* Secondary Metrics */}
-          <motion.div variants={itemVariants} className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 mb-12">
+          <motion.div variants={itemVariants} className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 mb-12">
             <SummaryMetric label="Words" value={(summary.sessionPoint?.wordsTyped || 0).toLocaleString()} />
             {!isTypeTest && (
               <>
+                <SummaryMetric label="Time" value={formatDuration(summary.deepAnalytics?.activeTypingSeconds || 0)} />
                 <SummaryMetric label="Rhythm" value={`${(summary.deepAnalytics?.rhythmScore || 0).toFixed(0)}%`} />
                 <SummaryMetric label="Focus" value={`${(summary.deepAnalytics?.focusScore || 0).toFixed(0)}%`} />
                 <SummaryMetric label="Consistency" value={(summary.deepAnalytics?.cadenceCv || 0).toFixed(2)} />
