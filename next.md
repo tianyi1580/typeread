@@ -1,4 +1,3 @@
 sound effects
 progression unlocks
-change AI descriptions
-default book with download
+add active typing time to session end screen 
