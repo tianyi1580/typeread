@@ -107,7 +107,7 @@ export function SessionSummaryModal({ summary, onClose }: SessionSummaryModalPro
   };
 
   return (
-    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-[rgba(6,8,14,0.85)] px-4 py-6 backdrop-blur-2xl">
+    <div className="fixed inset-0 z-[70] flex items-start justify-center overflow-y-auto bg-[rgba(6,8,14,0.85)] px-4 py-8 backdrop-blur-2xl md:items-center md:py-12">
       <motion.button 
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
@@ -122,7 +122,7 @@ export function SessionSummaryModal({ summary, onClose }: SessionSummaryModalPro
         initial="hidden"
         animate="visible"
         className={cn(
-          "relative w-full overflow-hidden rounded-[40px] border border-white/10 bg-[color-mix(in_srgb,var(--panel)_92%,transparent)] shadow-[0_32px_120px_rgba(0,0,0,0.6)] backdrop-blur-3xl max-h-[95vh] overflow-y-auto",
+          "relative w-full rounded-[40px] border border-white/10 bg-[color-mix(in_srgb,var(--panel)_92%,transparent)] shadow-[0_32px_120px_rgba(0,0,0,0.6)] backdrop-blur-3xl",
           isTypeTest ? "max-w-3xl" : "max-w-5xl"
         )}
       >

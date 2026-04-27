@@ -366,7 +366,7 @@ export function PracticeView({
   return (
     <>
       <div className="space-y-5">
-        <Card className="overflow-hidden p-6">
+        <Card className="p-6">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex flex-wrap items-center gap-3">
               {mode === "type-test" ? (
@@ -405,11 +405,11 @@ export function PracticeView({
                     >
                       i
                     </button>
-                    <div className="absolute bottom-full right-0 mb-3 w-64 translate-y-2 opacity-0 transition group-hover:translate-y-0 group-hover:opacity-100 pointer-events-none z-[60]">
+                    <div className="absolute top-full right-0 mt-3 w-64 -translate-y-2 opacity-0 transition group-hover:translate-y-0 group-hover:opacity-100 pointer-events-none z-[60]">
                       <div className="rounded-2xl border border-[var(--border)] bg-[var(--panel)] p-4 shadow-2xl backdrop-blur-xl">
                         <p className="text-xs font-semibold uppercase tracking-widest text-[var(--accent)]">Word Bank Difficulty</p>
                         <div className="mt-3 space-y-2 text-xs leading-5 text-[var(--text-muted)]">
-                          <p><span className="text-[var(--text)] font-medium">Easy:</span> 3,000 most common words. Great for speed training.</p>
+                          <p><span className="text-[var(--text)] font-medium">Easy:</span> Weighted towards the 200 most common words. 4-5 letter average.</p>
                           <p><span className="text-[var(--text)] font-medium">Medium:</span> Intermediate vocabulary with more complex patterns.</p>
                           <p><span className="text-[var(--text)] font-medium">Hard:</span> Rare and complex words to test precision.</p>
                         </div>
