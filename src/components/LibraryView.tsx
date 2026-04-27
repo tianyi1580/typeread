@@ -35,6 +35,7 @@ export function LibraryView({
 }: LibraryViewProps) {
   const theme = themeMap[themeName];
   const [menuBookId, setMenuBookId] = useState<number | null>(null);
+  const [showTips, setShowTips] = useState(false);
   const [editingBook, setEditingBook] = useState<BookRecord | null>(null);
   const [draftTitle, setDraftTitle] = useState("");
   const menuRef = useRef<HTMLDivElement>(null);
@@ -109,6 +110,27 @@ export function LibraryView({
               <Button onClick={onImportBooks} disabled={!desktopReady}>
                 Import Books
               </Button>
+              <button
+                type="button"
+                onClick={() => setShowTips(true)}
+                className="flex h-10 w-10 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--panel)] text-[var(--text-muted)] transition hover:border-[var(--accent)] hover:text-[var(--text)]"
+                title="Library Tips"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="h-5 w-5"
+                >
+                  <circle cx="12" cy="12" r="10" />
+                  <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
+                  <path d="M12 17h.01" />
+                </svg>
+              </button>
             </div>
           </div>
         </Card>
@@ -124,7 +146,12 @@ export function LibraryView({
 
       <div className="mt-5">
         {emptyState ? (
-          <EmptyLibraryState draggingFiles={draggingFiles} desktopReady={desktopReady} onImportBooks={onImportBooks} />
+          <EmptyLibraryState
+            draggingFiles={draggingFiles}
+            desktopReady={desktopReady}
+            onImportBooks={onImportBooks}
+            onShowTips={() => setShowTips(true)}
+          />
         ) : books.length === 0 && normalizedSearchQuery ? (
           <EmptySearchState query={normalizedSearchQuery} />
         ) : (
@@ -267,6 +294,10 @@ export function LibraryView({
         )}
       </div>
 
+      {showTips && (
+        <LibraryTipsModal onClose={() => setShowTips(false)} />
+      )}
+
       {editingBook && (
         <div 
           className="fixed inset-0 z-40 flex items-center justify-center bg-black/45 px-4"
@@ -305,14 +336,109 @@ export function LibraryView({
   );
 }
 
+function LibraryTipsModal({ onClose }: { onClose: () => void }) {
+  return (
+    <div 
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 backdrop-blur-sm animate-fade-in"
+      onClick={(event) => {
+        if (event.target === event.currentTarget) {
+          onClose();
+        }
+      }}
+    >
+      <div className="relative w-full max-w-xl max-h-[90vh] overflow-y-auto rounded-[32px] border border-[var(--border)] bg-[var(--panel)] p-8 shadow-2xl backdrop-blur-2xl animate-in zoom-in-95 duration-200 no-scrollbar">
+        <button
+          onClick={onClose}
+          className="absolute right-6 top-6 rounded-full p-2 text-[var(--text-muted)] hover:bg-[var(--accent-soft)] hover:text-[var(--text)] transition-colors"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+        </button>
+
+        <div className="space-y-10">
+          <div>
+            <p className="text-[10px] uppercase tracking-[0.3em] text-[var(--accent)] font-bold">Resources</p>
+            <h2 className="mt-3 text-4xl font-semibold tracking-tight">Library Tips</h2>
+          </div>
+
+          <div className="space-y-8">
+            <section className="space-y-3">
+              <h3 className="text-lg font-semibold text-[var(--text)]">Need a book to type?</h3>
+              <p className="text-sm leading-7 text-[var(--text-muted)]">
+                This app runs locally and requires <strong className="text-[var(--text)]">DRM-free</strong> files to parse your text correctly. Books purchased directly through Kindle or Apple Books are encrypted and will not work.
+              </p>
+            </section>
+
+            <section className="space-y-5">
+              <h3 className="text-lg font-semibold text-[var(--text)]">Where to find high-quality, free books:</h3>
+              <ul className="space-y-5">
+                <li className="flex items-start gap-4">
+                  <div className="mt-[11px] h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--accent)]" />
+                  <div className="text-sm leading-7">
+                    <a href="https://standardebooks.org/" target="_blank" rel="noopener noreferrer" className="font-bold text-[var(--text)] hover:text-[var(--accent)] transition-colors underline decoration-[var(--accent-soft)] underline-offset-4 decoration-2">Standard Ebooks</a>
+                    <p className="text-[var(--text-muted)] mt-1">The absolute best source. They take public domain classics and professionally format them into pristine <code className="rounded bg-[var(--panel-soft)] px-1.5 py-0.5 text-[10px] text-[var(--text)] font-mono">.epub</code> files.</p>
+                  </div>
+                </li>
+                <li className="flex items-start gap-4">
+                  <div className="mt-[11px] h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--accent)]" />
+                  <div className="text-sm leading-7">
+                    <a href="https://www.gutenberg.org/" target="_blank" rel="noopener noreferrer" className="font-bold text-[var(--text)] hover:text-[var(--accent)] transition-colors underline decoration-[var(--accent-soft)] underline-offset-4 decoration-2">Project Gutenberg</a>
+                    <p className="text-[var(--text-muted)] mt-1">A massive library of over 70,000 free, public domain books available in both <code className="rounded bg-[var(--panel-soft)] px-1.5 py-0.5 text-[10px] text-[var(--text)] font-mono">.epub</code> and <code className="rounded bg-[var(--panel-soft)] px-1.5 py-0.5 text-[10px] text-[var(--text)] font-mono">.txt</code>.</p>
+                  </div>
+                </li>
+                <li className="flex items-start gap-4">
+                  <div className="mt-[11px] h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--accent)]" />
+                  <div className="text-sm leading-7">
+                    <strong className="text-[var(--text)]">Indie Platforms</strong>
+                    <p className="text-[var(--text-muted)] mt-1">Stores like Smashwords, Itch.io, and Gumroad allow authors to sell their books completely DRM-free.</p>
+                  </div>
+                </li>
+              </ul>
+            </section>
+
+            <section className="space-y-5">
+              <h3 className="text-lg font-semibold text-[var(--text)]">Have a PDF?</h3>
+              <p className="text-sm leading-7 text-[var(--text-muted)]">
+                PDFs are built for visual printing, not text extraction. To get the best typing experience, convert your PDFs to <code className="rounded bg-[var(--panel-soft)] px-1.5 py-0.5 text-[10px] text-[var(--text)] font-mono">.epub</code> or <code className="rounded bg-[var(--panel-soft)] px-1.5 py-0.5 text-[10px] text-[var(--text)] font-mono">.txt</code> first:
+              </p>
+              <ul className="space-y-5">
+                <li className="flex items-start gap-4">
+                  <div className="mt-[11px] h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--accent)]" />
+                  <div className="text-sm leading-7">
+                    <a href="https://calibre-ebook.com/" target="_blank" rel="noopener noreferrer" className="font-bold text-[var(--text)] hover:text-[var(--accent)] transition-colors underline decoration-[var(--accent-soft)] underline-offset-4 decoration-2">Calibre (Recommended)</a>
+                    <p className="text-[var(--text-muted)] mt-1">A free, open-source desktop application that handles offline conversions perfectly.</p>
+                  </div>
+                </li>
+                <li className="flex items-start gap-4">
+                  <div className="mt-[11px] h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--accent)]" />
+                  <div className="text-sm leading-7">
+                    <a href="https://cloudconvert.com/" target="_blank" rel="noopener noreferrer" className="font-bold text-[var(--text)] hover:text-[var(--accent)] transition-colors underline decoration-[var(--accent-soft)] underline-offset-4 decoration-2">CloudConvert</a>
+                    <p className="text-[var(--text-muted)] mt-1">A quick web-based tool if you don't want to install software, though local conversion yields cleaner text formatting.</p>
+                  </div>
+                </li>
+              </ul>
+            </section>
+          </div>
+          
+          <div className="pt-2">
+            <Button className="w-full h-12 rounded-2xl text-sm font-bold tracking-wide" onClick={onClose}>Got it</Button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
 function EmptyLibraryState({
   draggingFiles,
   desktopReady,
   onImportBooks,
+  onShowTips,
 }: {
   draggingFiles: boolean;
   desktopReady: boolean;
   onImportBooks: () => void;
+  onShowTips: () => void;
 }) {
   return (
     <Card
@@ -330,6 +456,27 @@ function EmptyLibraryState({
         <Button onClick={onImportBooks} disabled={!desktopReady}>
           Choose Files
         </Button>
+        <button
+          type="button"
+          onClick={onShowTips}
+          className="flex h-10 w-10 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--panel)] text-[var(--text-muted)] transition hover:border-[var(--accent)] hover:text-[var(--text)]"
+          title="Library Tips"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="h-5 w-5"
+          >
+            <circle cx="12" cy="12" r="10" />
+            <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
+            <path d="M12 17h.01" />
+          </svg>
+        </button>
         <div className="rounded-full border border-[var(--border)] px-4 py-2 text-sm text-[var(--text-muted)]">
           {desktopReady ? "Or drop files anywhere in the window" : "Drag and drop requires the desktop app"}
         </div>
