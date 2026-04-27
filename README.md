@@ -21,7 +21,25 @@
 - **Database**: SQLite (Local persistence)
 - **Styling**: Vanilla CSS + TailwindCSS Design System
 
-## 🚀 Getting Started
+## 🚀 Download & Installation
+
+### macOS (Recommended)
+
+```bash
+brew tap tianyi1580/tap
+brew install --cask typeread
+```
+
+### Manual Download
+You can download the latest installers for macOS and Windows from the [Releases](https://github.com/tianyi1580/typeread/releases) page.
+
+> [!IMPORTANT]
+> **macOS Security Note:** If you download the `.dmg` manually and see a message saying the app is "damaged" or "cannot be opened," this is a macOS security feature for unsigned apps. To fix it, run this command in your Terminal:
+> `xattr -cr /Applications/TypeRead.app`
+
+---
+
+## 🛠️ Development Setup
 
 ### Prerequisites
 
