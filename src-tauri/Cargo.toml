@@ -25,6 +25,7 @@ zip = "2.2.2"
 base64 = "0.22.1"
 tauri-plugin-fs = "2.0.0"
 tauri-plugin-opener = "2"
+pdf-extract = "0.10.0"
 
 [features]
 default = ["custom-protocol"]

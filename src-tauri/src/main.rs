@@ -33,7 +33,7 @@ struct AppState {
 #[tauri::command]
 fn import_books(state: tauri::State<'_, AppState>) -> Result<Vec<models::BookRecord>, String> {
     let files = rfd::FileDialog::new()
-        .add_filter("Books", &["epub", "md", "txt"])
+        .add_filter("Books", &["epub", "md", "txt", "pdf"])
         .pick_files()
         .unwrap_or_default();
 
@@ -487,6 +487,7 @@ mod tests {
                 expected: Some("a".to_string()),
                 is_correct: Some(true),
                 layout: Some("qwerty-us".to_string()),
+                chapter_index: None,
                 cursor_index: Some(0),
                 skipped_word: Some(false),
                 correct_chars: Some(1),

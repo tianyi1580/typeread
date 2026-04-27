@@ -554,7 +554,7 @@ function LibraryTipsModal({ onClose }: { onClose: () => void }) {
             <section className="space-y-5">
               <h3 className="text-lg font-semibold text-[var(--text)]">Have a PDF?</h3>
               <p className="text-sm leading-7 text-[var(--text-muted)]">
-                PDFs are built for visual printing, not text extraction. To get the best typing experience, convert your PDFs to <code className="rounded bg-[var(--panel-soft)] px-1.5 py-0.5 text-[10px] text-[var(--text)] font-mono">.epub</code> or <code className="rounded bg-[var(--panel-soft)] px-1.5 py-0.5 text-[10px] text-[var(--text)] font-mono">.txt</code> first:
+                PDFs are now supported directly! You can drop your <code className="rounded bg-[var(--panel-soft)] px-1.5 py-0.5 text-[10px] text-[var(--text)] font-mono">.pdf</code> files here and we'll extract the text for you. If a PDF has complex formatting, you might still get better results by converting to <code className="rounded bg-[var(--panel-soft)] px-1.5 py-0.5 text-[10px] text-[var(--text)] font-mono">.epub</code> or <code className="rounded bg-[var(--panel-soft)] px-1.5 py-0.5 text-[10px] text-[var(--text)] font-mono">.txt</code> using:
               </p>
               <ul className="space-y-5">
                 <li className="flex items-start gap-4">
@@ -618,7 +618,7 @@ function EmptyLibraryState({
       <p className="text-xs uppercase tracking-[0.28em] text-[var(--text-muted)]">Dropzone</p>
       <h2 className="mt-4 max-w-3xl text-5xl font-semibold leading-tight">Drop your books here.</h2>
       <p className="mt-4 max-w-2xl text-sm leading-7 text-[var(--text-muted)]">
-        Drag and drop EPUB, Markdown, or TXT files to start building your library.
+        Drag and drop EPUB, PDF, Markdown, or TXT files to start building your library.
       </p>
       <div className="mt-8 flex flex-wrap justify-center gap-3">
         <Button onClick={onImportBooks} disabled={!desktopReady}>

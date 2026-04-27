@@ -28,6 +28,7 @@ pub fn parse_file(path: &Path, covers_dir: &Path) -> Result<ParsedImport> {
         "txt" => parse_txt(path),
         "md" => parse_markdown(path),
         "epub" => parse_epub(path, covers_dir),
+        "pdf" => parse_pdf(path),
         other => bail!("unsupported file type: {other}"),
     }
 }
@@ -106,6 +107,27 @@ fn parse_markdown(path: &Path) -> Result<ParsedImport> {
         title: fallback,
         author: None,
         format: "md".to_string(),
+        cover_path: None,
+        total_chars: chapters
+            .iter()
+            .map(|chapter| chapter.text.len() as i64)
+            .sum(),
+        chapters,
+    })
+}
+
+fn parse_pdf(path: &Path) -> Result<ParsedImport> {
+    let bytes = fs::read(path).with_context(|| format!("failed to read PDF {}", path.display()))?;
+    let text = pdf_extract::extract_text_from_mem(&bytes)
+        .with_context(|| format!("failed to extract text from PDF {}", path.display()))?;
+    
+    let title = fallback_title(path);
+    let chapters = chapters_from_text(&text, &title);
+    
+    Ok(ParsedImport {
+        title,
+        author: None,
+        format: "pdf".to_string(),
         cover_path: None,
         total_chars: chapters
             .iter()
