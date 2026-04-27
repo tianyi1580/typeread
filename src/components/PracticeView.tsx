@@ -409,9 +409,9 @@ export function PracticeView({
                       <div className="rounded-2xl border border-[var(--border)] bg-[var(--panel)] p-4 shadow-2xl backdrop-blur-xl">
                         <p className="text-xs font-semibold uppercase tracking-widest text-[var(--accent)]">Word Bank Difficulty</p>
                         <div className="mt-3 space-y-2 text-xs leading-5 text-[var(--text-muted)]">
-                          <p><span className="text-[var(--text)] font-medium">Easy:</span> Weighted towards the 200 most common words. 4-5 letter average.</p>
-                          <p><span className="text-[var(--text)] font-medium">Medium:</span> Intermediate vocabulary with more complex patterns.</p>
-                          <p><span className="text-[var(--text)] font-medium">Hard:</span> Rare and complex words to test precision.</p>
+                          <p><span className="text-[var(--text)] font-medium">Easy:</span> Top 200 words repeated. Mostly 4-5 letters. Clean & fast.</p>
+                          <p><span className="text-[var(--text)] font-medium">Medium:</span> Top 2,000 words. Balanced length (2-10 letters).</p>
+                          <p><span className="text-[var(--text)] font-medium">Hard:</span> 10,000 words including rare and complex patterns.</p>
                         </div>
                       </div>
                     </div>
