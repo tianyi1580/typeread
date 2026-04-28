@@ -9,9 +9,10 @@ import type { BookRecord, ThemeName } from "../types";
 
 interface LibraryViewProps {
   books: BookRecord[];
-  loadingBook: boolean;
+  loadingBookId: number | null;
   desktopReady: boolean;
   draggingFiles: boolean;
+  pendingImports: string[];
   searchQuery: string;
   themeName: ThemeName;
   onImportBooks: () => void;
@@ -24,9 +25,10 @@ interface LibraryViewProps {
 
 export function LibraryView({
   books,
-  loadingBook,
+  loadingBookId,
   desktopReady,
   draggingFiles,
+  pendingImports,
   searchQuery,
   themeName,
   onImportBooks,
@@ -216,6 +218,12 @@ export function LibraryView({
                         </div>
                       )}
                       <div className="absolute inset-0 bg-[linear-gradient(180deg,transparent,rgba(0,0,0,0.4))] opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
+                      
+                      {loadingBookId === book.id && (
+                        <div className="absolute inset-0 z-20 flex items-center justify-center bg-[var(--bg)]/50 backdrop-blur-sm">
+                          <div className="h-10 w-10 animate-spin rounded-full border-4 border-[var(--accent-soft)] border-t-[var(--accent)]" />
+                        </div>
+                      )}
 
                       <div className="absolute left-4 top-4 flex gap-2">
                         {book.pinned && (
@@ -327,11 +335,34 @@ export function LibraryView({
                 </article>
               );
             })}
-          </div>
-        )}
 
-        {loadingBook && (
-          <p className="mt-4 text-sm text-[var(--text-muted)]">Loading book…</p>
+            {pendingImports.map((path) => (
+              <article
+                key={path}
+                className="group relative isolate overflow-hidden rounded-[22px] border border-dashed border-[var(--border)] bg-[var(--panel-soft)]/30 text-left shadow-sm"
+              >
+                <div className="relative flex h-full flex-col overflow-hidden rounded-[22px]">
+                  <div className="relative aspect-[3/4] w-full overflow-hidden rounded-t-[22px] bg-[var(--panel-soft)]/50">
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <div className="h-10 w-10 animate-spin rounded-full border-4 border-[var(--accent-soft)] border-t-[var(--accent)]" />
+                    </div>
+                  </div>
+                  <div className="absolute inset-x-0 bottom-0 z-10 p-1">
+                    <div className="space-y-3 rounded-[18px] border border-white/5 bg-[var(--panel)]/40 p-4 shadow-xl backdrop-blur-md">
+                      <div className="min-w-0 animate-pulse">
+                        <div className="h-3 w-3/4 rounded bg-[var(--text-muted)]/20" />
+                        <div className="mt-2 h-2 w-1/2 rounded bg-[var(--text-muted)]/10" />
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <div className="h-2 w-1/4 rounded bg-[var(--text-muted)]/10" />
+                        <div className="h-2 w-1/4 rounded bg-[var(--text-muted)]/10" />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </article>
+            ))}
+          </div>
         )}
       </div>
 

@@ -64,12 +64,13 @@ export default function App() {
   const clearChapterProgress = useAppStore((state) => state.clearChapterProgress);
   const chapterProgressMap = useAppStore((state) => state.chapterProgress);
 
-  const [loadingBook, setLoadingBook] = useState(false);
+  const [loadingBookId, setLoadingBookId] = useState<number | null>(null);
   const [busyAction, setBusyAction] = useState<string | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [draggingFiles, setDraggingFiles] = useState(false);
+  const [pendingImports, setPendingImports] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [confirmation, setConfirmation] = useState<{
     title: string;
@@ -108,6 +109,17 @@ export default function App() {
 
     let cancelled = false;
     let unlisten: (() => void) | undefined;
+    let unlistenStarted: (() => void) | undefined;
+    let unlistenFinished: (() => void) | undefined;
+
+    void (async () => {
+      unlistenStarted = await getCurrentWebview().listen<string>("import-started", (event) => {
+        setPendingImports((prev) => [...prev, event.payload]);
+      });
+      unlistenFinished = await getCurrentWebview().listen<string>("import-finished", (event) => {
+        setPendingImports((prev) => prev.filter((p) => p !== event.payload));
+      });
+    })();
 
     void getCurrentWebview()
       .onDragDropEvent((event) => {
@@ -139,6 +151,8 @@ export default function App() {
       cancelled = true;
       setDraggingFiles(false);
       unlisten?.();
+      unlistenStarted?.();
+      unlistenFinished?.();
     };
   }, [desktopReady]);
 
@@ -194,22 +208,21 @@ export default function App() {
   }
 
   async function loadBook(bookId: number, switchToReader = true) {
-    setSelectedBookId(bookId);
-    if (switchToReader) {
-      setActiveTab("reader");
-    }
-
     if (!desktopReady) {
       if (bookId === demoBook.id) {
         setCurrentBook(demoBook);
+        setSelectedBookId(bookId);
         setSelectedChapterIndex(demoBook.currentChapter);
+        if (switchToReader) {
+          setActiveTab("reader");
+        }
       }
       return;
     }
 
     try {
       setError(null);
-      setLoadingBook(true);
+      setLoadingBookId(bookId);
       clearChapterProgress();
       const book = await api.loadBook(bookId);
       startTransition(() => {
@@ -217,14 +230,14 @@ export default function App() {
         setSelectedBookId(book.id);
         const resumeChapter = book.currentChapter >= book.readChapter ? book.currentChapter : book.readChapter;
         setSelectedChapterIndex(resumeChapter);
+        if (switchToReader) {
+          setActiveTab("reader");
+        }
       });
     } catch (caught) {
-      if (switchToReader) {
-        setActiveTab("library");
-      }
       setError(caught instanceof Error ? caught.message : "Failed to load book.");
     } finally {
-      setLoadingBook(false);
+      setLoadingBookId(null);
     }
   }
 
@@ -509,9 +522,10 @@ export default function App() {
           {activeTab === "library" && (
             <LibraryView
               books={filteredBooks}
-              loadingBook={loadingBook}
+              loadingBookId={loadingBookId}
               desktopReady={desktopReady}
               draggingFiles={draggingFiles}
+              pendingImports={pendingImports}
               searchQuery={searchQuery}
               themeName={settings?.theme ?? "catppuccin-macchiato"}
               onImportBooks={handleImportBooks}
@@ -548,7 +562,7 @@ export default function App() {
               settings={settings}
               analytics={analytics}
               desktopReady={desktopReady}
-              loadingBook={loadingBook}
+              loadingBook={loadingBookId !== null}
               chapterProgressMap={chapterProgressMap}
               onBackToLibrary={() => setActiveTab("library")}
               onChapterChange={setSelectedChapterIndex}

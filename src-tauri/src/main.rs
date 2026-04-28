@@ -15,12 +15,12 @@ use analytics::{FinalizedAnalytics, LiveSessionAnalytics};
 use anyhow::{Context, Result};
 use db::Database;
 use models::{
-    AnalyticsSummary, AppSettings, DeepAnalytics, KeyboardLayoutDefinition, ParsedBook,
+    AnalyticsSummary, AppSettings, DeepAnalytics, KeyboardLayoutDefinition,
     ProcessKeystrokeBatchInput, ProcessKeystrokeBatchResult, SessionContext, TransitionGroups,
     TypingSessionInput,
 };
 use parser::parse_file;
-use tauri::Manager;
+use tauri::{Emitter, Manager};
 
 #[derive(Clone)]
 struct AppState {
@@ -28,25 +28,30 @@ struct AppState {
     covers_dir: std::path::PathBuf,
     app_data_dir: std::path::PathBuf,
     live_sessions: Arc<Mutex<HashMap<String, LiveSessionAnalytics>>>,
+    parsed_cache: Arc<Mutex<HashMap<std::path::PathBuf, models::ParsedImport>>>,
 }
 
 #[tauri::command]
-fn import_books(state: tauri::State<'_, AppState>) -> Result<Vec<models::BookRecord>, String> {
+async fn import_books(
+    window: tauri::Window,
+    state: tauri::State<'_, AppState>,
+) -> Result<Vec<models::BookRecord>, String> {
     let files = rfd::FileDialog::new()
         .add_filter("Books", &["epub", "md", "txt", "pdf"])
         .pick_files()
         .unwrap_or_default();
 
-    import_book_files(files, &state)
+    import_book_files(Some(window), files, state.inner().clone()).await
 }
 
 #[tauri::command]
-fn import_book_paths(
+async fn import_book_paths(
+    window: tauri::Window,
     paths: Vec<String>,
     state: tauri::State<'_, AppState>,
 ) -> Result<Vec<models::BookRecord>, String> {
     let resolved = paths.into_iter().map(PathBuf::from).collect::<Vec<_>>();
-    import_book_files(resolved, &state)
+    import_book_files(Some(window), resolved, state.inner().clone()).await
 }
 
 #[tauri::command]
@@ -55,15 +60,46 @@ fn list_books(state: tauri::State<'_, AppState>) -> Result<Vec<models::BookRecor
 }
 
 #[tauri::command]
-fn load_book(book_id: i64, state: tauri::State<'_, AppState>) -> Result<ParsedBook, String> {
+async fn load_book(
+    book_id: i64,
+    state: tauri::State<'_, AppState>,
+) -> Result<models::ParsedBook, String> {
     let record = state
         .db
         .get_book(book_id)
         .map_err(to_message)?
         .ok_or_else(|| "Book not found.".to_string())?;
-    let parsed =
-        parse_file(std::path::Path::new(&record.path), &state.covers_dir).map_err(to_message)?;
-    Ok(ParsedBook {
+
+    let path = PathBuf::from(&record.path);
+
+    // Check cache first
+    {
+        let cache = state.parsed_cache.lock().unwrap();
+        if let Some(parsed) = cache.get(&path) {
+            return Ok(models::ParsedBook {
+                record,
+                chapters: parsed.chapters.clone(),
+            });
+        }
+    }
+
+    // Parse in background if not cached
+    let state_inner = state.inner().clone();
+    let path_clone = path.clone();
+    let parsed = tauri::async_runtime::spawn_blocking(move || {
+        parser::parse_file(&path_clone, &state_inner.covers_dir)
+    })
+    .await
+    .map_err(|e| e.to_string())?
+    .map_err(to_message)?;
+
+    // Cache the result
+    {
+        let mut cache = state.parsed_cache.lock().unwrap();
+        cache.insert(path, parsed.clone());
+    }
+
+    Ok(models::ParsedBook {
         record,
         chapters: parsed.chapters,
     })
@@ -120,10 +156,19 @@ fn set_book_pinned(
 }
 
 #[tauri::command]
-fn delete_book(book_id: i64, state: tauri::State<'_, AppState>) -> Result<(), String> {
-    state.db.delete_book(book_id).map_err(to_message)?;
-    let _ = ensure_default_book(&state, &state.app_data_dir);
-    Ok(())
+async fn delete_book(book_id: i64, state: tauri::State<'_, AppState>) -> Result<(), String> {
+    let state_inner = state.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        state_inner.db.delete_book(book_id).map_err(to_message)?;
+        tauri::async_runtime::block_on(ensure_default_book(
+            &state_inner,
+            &state_inner.app_data_dir,
+        ))
+        .map_err(|e| e.to_string())?;
+        Ok::<(), String>(())
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 #[tauri::command]
@@ -225,10 +270,19 @@ fn clear_session_history(state: tauri::State<'_, AppState>) -> Result<(), String
 }
 
 #[tauri::command]
-fn delete_library(state: tauri::State<'_, AppState>) -> Result<(), String> {
-    state.db.delete_library().map_err(to_message)?;
-    let _ = ensure_default_book(&state, &state.app_data_dir);
-    Ok(())
+async fn delete_library(state: tauri::State<'_, AppState>) -> Result<(), String> {
+    let state_inner = state.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        state_inner.db.delete_library().map_err(to_message)?;
+        tauri::async_runtime::block_on(ensure_default_book(
+            &state_inner,
+            &state_inner.app_data_dir,
+        ))
+        .map_err(|e| e.to_string())?;
+        Ok::<(), String>(())
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 #[tauri::command]
@@ -250,21 +304,24 @@ fn prepare_state(app: &tauri::AppHandle) -> Result<AppState> {
         covers_dir,
         app_data_dir: app_data_dir.clone(),
         live_sessions: Arc::new(Mutex::new(HashMap::new())),
+        parsed_cache: Arc::new(Mutex::new(HashMap::new())),
     };
 
-    ensure_default_book(&state, &app_data_dir)?;
+    tauri::async_runtime::block_on(ensure_default_book(&state, &app_data_dir))?;
 
     Ok(state)
 }
 
-fn ensure_default_book(state: &AppState, app_data_dir: &std::path::Path) -> Result<()> {
+async fn ensure_default_book(state: &AppState, app_data_dir: &std::path::Path) -> Result<()> {
     let existing = state.db.list_books()?;
     if existing.is_empty() {
         let welcome_path = app_data_dir.join("Welcome to TypeRead.md");
         // Always overwrite the default file to ensure content updates in welcome.rs are reflected
         fs::write(&welcome_path, WELCOME_BOOK_CONTENT)
             .context("failed to write default welcome book")?;
-        import_book_files(vec![welcome_path], state).map_err(|e| anyhow::anyhow!(e))?;
+        import_book_files(None, vec![welcome_path], state.clone())
+            .await
+            .map_err(|e| anyhow::anyhow!(e))?;
     }
     Ok(())
 }
@@ -281,9 +338,10 @@ fn to_message(error: anyhow::Error) -> String {
     message
 }
 
-fn import_book_files(
+async fn import_book_files(
+    window: Option<tauri::Window>,
     paths: Vec<PathBuf>,
-    state: &AppState,
+    state: AppState,
 ) -> Result<Vec<models::BookRecord>, String> {
     let existing = state.db.list_books().map_err(to_message)?;
     if existing.len() >= 10 {
@@ -294,23 +352,51 @@ fn import_book_files(
     }
 
     let mut imported = Vec::new();
-    for path in paths
-        .into_iter()
-        .take(10usize.saturating_sub(existing.len()))
-    {
-        let parsed = parse_file(&path, &state.covers_dir).map_err(to_message)?;
-        let record = state
-            .db
-            .upsert_book(
+    let remaining_slots = 10usize.saturating_sub(existing.len());
+    
+    for path in paths.into_iter().take(remaining_slots) {
+        let path_str = path.to_string_lossy().to_string();
+        if let Some(ref w) = window {
+            let _ = w.emit("import-started", &path_str);
+        }
+        
+        let state_clone = state.clone();
+        let path_clone = path.clone();
+        
+        let result = tauri::async_runtime::spawn_blocking(move || {
+            let parsed = parse_file(&path_clone, &state_clone.covers_dir)?;
+            
+            // Populate cache during import to speed up initial open
+            {
+                let mut cache = state_clone.parsed_cache.lock().unwrap();
+                cache.insert(path_clone.clone(), parsed.clone());
+            }
+
+            let record = state_clone.db.upsert_book(
                 &parsed.title,
                 parsed.author.as_deref(),
-                &path.to_string_lossy(),
+                &path_clone.to_string_lossy(),
                 &parsed.format,
                 parsed.cover_path.as_deref(),
                 parsed.total_chars,
-            )
-            .map_err(to_message)?;
-        imported.push(record);
+            )?;
+            Ok::<models::BookRecord, anyhow::Error>(record)
+        }).await.map_err(|e| e.to_string())?;
+
+        match result {
+            Ok(record) => {
+                imported.push(record);
+                if let Some(ref w) = window {
+                    let _ = w.emit("import-finished", &path_str);
+                }
+            }
+            Err(e) => {
+                if let Some(ref w) = window {
+                    let _ = w.emit("import-finished", &path_str);
+                }
+                return Err(to_message(e));
+            }
+        }
     }
 
     Ok(imported)
