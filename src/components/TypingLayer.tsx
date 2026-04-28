@@ -51,7 +51,7 @@ export function TypingLayer({
 
   // Buffered windowing to prevent shifting the DOM on every single word.
   useEffect(() => {
-    if (visibleRange || noScroll) return;
+    if (visibleRange || noScroll || interactionMode === "read") return;
     const current = snapshot.currentWordIndex;
     if (current < windowStart + BUFFER || current > windowStart + WINDOW_SIZE - BUFFER) {
       const newStart = Math.max(0, current - Math.floor(WINDOW_SIZE / 2));
@@ -63,7 +63,7 @@ export function TypingLayer({
         setWindowStart(newStart);
       }
     }
-  }, [snapshot.currentWordIndex, windowStart, visibleRange, noScroll]);
+  }, [snapshot.currentWordIndex, windowStart, visibleRange, noScroll, interactionMode]);
 
   // Premium Spring Physics State
   const springRef = useRef({
@@ -117,13 +117,17 @@ export function TypingLayer({
         .map((token, index) => ({ token, index: startIndex + index }));
     }
 
+    if (interactionMode === "read") {
+      return tokens.map((token, index) => ({ token, index }));
+    }
+
     const start = windowStart;
     const end = Math.min(tokens.length, start + WINDOW_SIZE);
 
     return tokens
       .slice(start, end)
       .map((token, index) => ({ token, index: start + index }));
-  }, [tokens, visibleRange, windowStart]);
+  }, [tokens, visibleRange, windowStart, interactionMode]);
 
   // Immediate jump for initial mount or manual jumps to prevent sliding from top
   React.useLayoutEffect(() => {
@@ -170,7 +174,7 @@ export function TypingLayer({
   // Smooth spring-based scroll logic for line changes
   useEffect(() => {
     const el = currentWordRef.current;
-    if (noScroll || visibleRange || !el) return;
+    if (noScroll || visibleRange || !el || interactionMode === "read") return;
 
     const currentIndex = snapshot.currentWordIndex;
     const isManualJump = lastWordIndex.current === -1 || Math.abs(currentIndex - lastWordIndex.current) > 1;
@@ -225,7 +229,7 @@ export function TypingLayer({
       }
       springRef.current.isActive = false;
     };
-  }, [snapshot.currentWordIndex, visibleRange, noScroll]);
+  }, [snapshot.currentWordIndex, visibleRange, noScroll, interactionMode]);
 
   const animate = (time: number) => {
     const state = springRef.current;
@@ -318,7 +322,7 @@ export function TypingLayer({
       ref={containerRef}
       style={{
         paddingTop: noScroll ? undefined : "0",
-        paddingBottom: noScroll ? undefined : "50vh",
+        paddingBottom: noScroll ? undefined : (interactionMode === "read" ? "100vh" : "50vh"),
       }}
       className={cn(
         "relative whitespace-pre-wrap text-[var(--text)]",
