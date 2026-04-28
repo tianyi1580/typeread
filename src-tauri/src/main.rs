@@ -391,7 +391,16 @@ async fn import_book_files(
                 final_path = txt_path;
             }
 
-            let parsed = parse_file(&final_path, &state_clone.covers_dir)?;
+            let mut parsed = parse_file(&final_path, &state_clone.covers_dir)?;
+            
+            if extension.as_deref() == Some("pdf") {
+                let original_stem = path_clone.file_stem()
+                    .and_then(|value| value.to_str())
+                    .unwrap_or("Untitled")
+                    .replace(['_', '-'], " ");
+                parsed.title = original_stem;
+                parsed.author = Some("Unknown".to_string());
+            }
             
             // Populate cache during import to speed up initial open
             {
