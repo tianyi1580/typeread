@@ -13,6 +13,7 @@ import { api } from "./lib/tauri";
 import { cn } from "./lib/utils";
 import { applyTheme, themeMap } from "./theme";
 import { useAppStore } from "./store/app-store";
+import { OnboardingTutorial } from "./components/OnboardingTutorial";
 import type { ActiveTab, AppSettings, BookRecord, ParsedBook, ProcessKeystrokeBatchInput, ProcessKeystrokeBatchResult } from "./types";
 
 function resolveBookToLoad(
@@ -466,6 +467,7 @@ export default function App() {
           setError(null);
           setBusyAction("Clearing session history…");
           await api.clearSessionHistory();
+          localStorage.removeItem("typeread_tutorial_completed");
           await refreshAll({ preferredBookId: selectedBookId });
         } catch (caught) {
           setError(caught instanceof Error ? caught.message : "Failed to clear session history.");
@@ -487,6 +489,7 @@ export default function App() {
           setError(null);
           setBusyAction("Deleting library…");
           await api.deleteLibrary();
+          localStorage.removeItem("typeread_tutorial_completed");
           setCurrentBook(null);
           setSelectedBookId(null);
           setSelectedChapterIndex(0);
@@ -653,6 +656,7 @@ export default function App() {
           isLoading={!!busyAction}
         />
       )}
+      <OnboardingTutorial />
     </div>
   );
 }
@@ -757,6 +761,7 @@ function WindowShell({
             {busyAction && <span className="text-xs uppercase tracking-[0.2em] text-[var(--text-muted)]">{busyAction}</span>}
             <button
               type="button"
+              id="tutorial-menu-button"
               onClick={onToggleMenu}
               aria-label="Open navigation menu"
               aria-expanded={menuOpen}

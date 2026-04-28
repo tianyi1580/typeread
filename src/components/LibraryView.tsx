@@ -122,6 +122,7 @@ export function LibraryView({
               </Button>
               <button
                 type="button"
+                id="tutorial-tips-btn-header"
                 onClick={() => setShowTips(true)}
                 className="flex h-10 w-10 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--panel)] text-[var(--text-muted)] transition hover:border-[var(--accent)] hover:text-[var(--text)]"
                 title="Library Tips"
@@ -771,6 +772,7 @@ function EmptyLibraryState({
         </Button>
         <button
           type="button"
+          id="tutorial-tips-btn-empty"
           onClick={onShowTips}
           className="flex h-10 w-10 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--panel)] text-[var(--text-muted)] transition hover:border-[var(--accent)] hover:text-[var(--text)]"
           title="Library Tips"
