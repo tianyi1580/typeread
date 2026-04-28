@@ -218,7 +218,7 @@ export function LibraryView({
                         </div>
                       )}
                       <div className="absolute inset-0 bg-[linear-gradient(180deg,transparent,rgba(0,0,0,0.4))] opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
-                      
+
                       {loadingBookId === book.id && (
                         <div className="absolute inset-0 z-20 flex items-center justify-center bg-[var(--bg)]/50 backdrop-blur-sm">
                           <div className="h-10 w-10 animate-spin rounded-full border-4 border-[var(--accent-soft)] border-t-[var(--accent)]" />
@@ -473,6 +473,11 @@ export function LibraryView({
 }
 
 function LibraryTipsModal({ onClose }: { onClose: () => void }) {
+  const [expandedSection, setExpandedSection] = useState<string | null>("resources");
+
+  const toggleSection = (id: string) => {
+    setExpandedSection(expandedSection === id ? null : id);
+  };
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 backdrop-blur-sm animate-fade-in"
@@ -490,132 +495,200 @@ function LibraryTipsModal({ onClose }: { onClose: () => void }) {
           <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>
         </button>
 
-        <div className="space-y-10">
+        <div className="space-y-6">
           <div>
             <p className="text-[10px] uppercase tracking-[0.3em] text-[var(--accent)] font-bold">Resources</p>
             <h2 className="mt-3 text-4xl font-semibold tracking-tight">Library Tips</h2>
           </div>
 
-          <div className="space-y-8">
-            <section className="space-y-3">
-              <h3 className="text-lg font-semibold text-[var(--text)]">Need a book to type?</h3>
-              <p className="text-sm leading-7 text-[var(--text-muted)]">
-                This app runs locally and requires <strong className="text-[var(--text)]">DRM-free</strong> files to parse your text correctly. Books purchased directly through Kindle or Apple Books are encrypted and will not work.
-              </p>
-            </section>
+          <div className="space-y-2 mt-4">
+            {/* Section 1: Need a Book */}
+            <div className="border-b border-white/5 py-3">
+              <button
+                onClick={() => toggleSection("need_book")}
+                className="flex w-full items-center justify-between text-left font-bold text-[var(--text)] py-2 text-base hover:text-[var(--accent)] transition-colors"
+              >
+                <span>Need a book to type?</span>
+                <span className="text-xs transition-transform duration-200 text-[var(--text-muted)]">
+                  {expandedSection === "need_book" ? "▲" : "▼"}
+                </span>
+              </button>
+              {expandedSection === "need_book" && (
+                <div className="mt-2 pb-2 text-sm leading-7 text-[var(--text-muted)] animate-fade-in">
+                  This app runs locally and requires <strong className="text-[var(--text)]">DRM-free</strong> files to parse your text correctly. Books purchased directly through Kindle or Apple Books are encrypted and will not work.
+                </div>
+              )}
+            </div>
 
-            <section className="space-y-5">
-              <h3 className="text-lg font-semibold text-[var(--text)]">Where to find high-quality, free books:</h3>
-              <ul className="space-y-5">
-                <li className="flex items-start gap-4">
-                  <div className="mt-[11px] h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--accent)]" />
-                  <div className="text-sm leading-7">
-                    <a
-                      href="https://standardebooks.org/"
-                      onClick={(e) => { e.preventDefault(); api.openUrl("https://standardebooks.org/"); }}
-                      className="font-bold text-[var(--text)] hover:text-[var(--accent)] transition-colors underline decoration-[var(--accent-soft)] underline-offset-4 decoration-2"
-                    >
-                      Standard Ebooks
-                    </a>
-                    <p className="text-[var(--text-muted)] mt-1">The absolute best source. They take public domain classics and professionally format them into pristine <code className="rounded bg-[var(--panel-soft)] px-1.5 py-0.5 text-[10px] text-[var(--text)] font-mono">.epub</code> files.</p>
-                  </div>
-                </li>
-                <li className="flex items-start gap-4">
-                  <div className="mt-[11px] h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--accent)]" />
-                  <div className="text-sm leading-7">
-                    <a
-                      href="https://www.gutenberg.org/"
-                      onClick={(e) => { e.preventDefault(); api.openUrl("https://www.gutenberg.org/"); }}
-                      className="font-bold text-[var(--text)] hover:text-[var(--accent)] transition-colors underline decoration-[var(--accent-soft)] underline-offset-4 decoration-2"
-                    >
-                      Project Gutenberg
-                    </a>
-                    <p className="text-[var(--text-muted)] mt-1">A massive library of over 70,000 free, public domain books available in both <code className="rounded bg-[var(--panel-soft)] px-1.5 py-0.5 text-[10px] text-[var(--text)] font-mono">.epub</code> and <code className="rounded bg-[var(--panel-soft)] px-1.5 py-0.5 text-[10px] text-[var(--text)] font-mono">.txt</code>.</p>
-                  </div>
-                </li>
-                <li className="flex items-start gap-4">
-                  <div className="mt-[11px] h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--accent)]" />
-                  <div className="text-sm leading-7">
-                    <a
-                      href="https://archive.org/"
-                      onClick={(e) => { e.preventDefault(); api.openUrl("https://archive.org/"); }}
-                      className="font-bold text-[var(--text)] hover:text-[var(--accent)] transition-colors underline decoration-[var(--accent-soft)] underline-offset-4 decoration-2"
-                    >
-                      Internet Archive
-                    </a>
-                    <p className="text-[var(--text-muted)] mt-1">A non-profit library of millions of free books, movies, software, music, websites, and more.</p>
-                  </div>
-                </li>
-                <li className="flex items-start gap-4">
-                  <div className="mt-[11px] h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--accent)]" />
-                  <div className="text-sm leading-7">
-                    <a
-                      href="https://openlibrary.org/"
-                      onClick={(e) => { e.preventDefault(); api.openUrl("https://openlibrary.org/"); }}
-                      className="font-bold text-[var(--text)] hover:text-[var(--accent)] transition-colors underline decoration-[var(--accent-soft)] underline-offset-4 decoration-2"
-                    >
-                      Open Library
-                    </a>
-                    <p className="text-[var(--text-muted)] mt-1">An initiative of the Internet Archive, a web page for every book ever published.</p>
-                  </div>
-                </li>
-                <li className="flex items-start gap-4">
-                  <div className="mt-[11px] h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--accent)]" />
-                  <div className="text-sm leading-7">
-                    <a
-                      href="https://google.com/"
-                      onClick={(e) => { e.preventDefault(); api.openUrl("https://google.com/"); }}
-                      className="font-bold text-[var(--text)] hover:text-[var(--accent)] transition-colors underline decoration-[var(--accent-soft)] underline-offset-4 decoration-2"
-                    >
-                      Google Search
-                    </a>
-                    <p className="text-[var(--text-muted)] mt-1">You can often find DRM-free books by simply searching for them on google or appending "filetype:epub" or "filetype:txt" to your Google search query. Be careful when downloading from suspicious websites.</p>
-                  </div>
-                </li>
-                <li className="flex items-start gap-4">
-                  <div className="mt-[11px] h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--accent)]" />
-                  <div className="text-sm leading-7">
-                    <strong className="text-[var(--text)]">Indie Platforms</strong>
-                    <p className="text-[var(--text-muted)] mt-1">Stores like Smashwords, Itch.io, and Gumroad allow authors to sell their books completely DRM-free.</p>
-                  </div>
-                </li>
-              </ul>
-            </section>
+            {/* Section 2: Filetypes */}
+            <div className="border-b border-white/5 py-3">
+              <button
+                onClick={() => toggleSection("filetypes")}
+                className="flex w-full items-center justify-between text-left font-bold text-[var(--text)] py-2 text-base hover:text-[var(--accent)] transition-colors"
+              >
+                <span>Supported Filetypes & Formats</span>
+                <span className="text-xs transition-transform duration-200 text-[var(--text-muted)]">
+                  {expandedSection === "filetypes" ? "▲" : "▼"}
+                </span>
+              </button>
+              {expandedSection === "filetypes" && (
+                <div className="mt-2 pb-2 text-sm leading-7 text-[var(--text-muted)] space-y-4 animate-fade-in">
+                  <p>The system seamlessly accepts the following standard offline file types:</p>
+                  <ul className="grid grid-cols-2 gap-3 text-xs">
+                    <li className="rounded-[16px] border border-white/5 bg-white/[0.02] p-3">
+                      <strong className="block text-[var(--text)] mb-1 font-mono text-[11px] text-[var(--accent)]">.epub</strong>
+                      Full ebooks with structural chapters and layout logic.
+                    </li>
+                    <li className="rounded-[16px] border border-white/5 bg-white/[0.02] p-3">
+                      <strong className="block text-[var(--text)] mb-1 font-mono text-[11px] text-[var(--accent)]">.pdf</strong>
+                      Converted to .txt on upload. Results may vary.
+                    </li>
+                    <li className="rounded-[16px] border border-white/5 bg-white/[0.02] p-3">
+                      <strong className="block text-[var(--text)] mb-1 font-mono text-[11px] text-[var(--accent)]">.txt</strong>
+                      Simplistic raw texts stripped clean of metadata rules.
+                    </li>
+                    <li className="rounded-[16px] border border-white/5 bg-white/[0.02] p-3">
+                      <strong className="block text-[var(--text)] mb-1 font-mono text-[11px] text-[var(--accent)]">.md</strong>
+                      Standard Markdown configurations and headers.
+                    </li>
+                  </ul>
+                </div>
+              )}
+            </div>
 
-            <section className="space-y-5">
-              <h3 className="text-lg font-semibold text-[var(--text)]">Have a PDF?</h3>
-              <p className="text-sm leading-7 text-[var(--text-muted)]">
-                PDFs are now supported directly! You can drop your <code className="rounded bg-[var(--panel-soft)] px-1.5 py-0.5 text-[10px] text-[var(--text)] font-mono">.pdf</code> files here and we'll extract the text for you. If a PDF has complex formatting, you might still get better results by converting to <code className="rounded bg-[var(--panel-soft)] px-1.5 py-0.5 text-[10px] text-[var(--text)] font-mono">.epub</code> or <code className="rounded bg-[var(--panel-soft)] px-1.5 py-0.5 text-[10px] text-[var(--text)] font-mono">.txt</code> using:
-              </p>
-              <ul className="space-y-5">
-                <li className="flex items-start gap-4">
-                  <div className="mt-[11px] h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--accent)]" />
-                  <div className="text-sm leading-7">
-                    <a
-                      href="https://calibre-ebook.com/"
-                      onClick={(e) => { e.preventDefault(); api.openUrl("https://calibre-ebook.com/"); }}
-                      className="font-bold text-[var(--text)] hover:text-[var(--accent)] transition-colors underline decoration-[var(--accent-soft)] underline-offset-4 decoration-2"
-                    >
-                      Calibre
-                    </a>
-                    <p className="text-[var(--text-muted)] mt-1">A free, open-source desktop application that handles offline conversions perfectly.</p>
-                  </div>
-                </li>
-                <li className="flex items-start gap-4">
-                  <div className="mt-[11px] h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--accent)]" />
-                  <div className="text-sm leading-7">
-                    <a
-                      href="https://cloudconvert.com/"
-                      onClick={(e) => { e.preventDefault(); api.openUrl("https://cloudconvert.com/"); }}
-                      className="font-bold text-[var(--text)] hover:text-[var(--accent)] transition-colors underline decoration-[var(--accent-soft)] underline-offset-4 decoration-2"
-                    >
-                      CloudConvert
-                    </a>
-                    <p className="text-[var(--text-muted)] mt-1">A quick web-based tool if you don't want to install software, though local conversion yields cleaner text formatting.</p>
-                  </div>
-                </li>
-              </ul>
-            </section>
+            {/* Section 3: Where to Find */}
+            <div className="border-b border-white/5 py-3">
+              <button
+                onClick={() => toggleSection("resources")}
+                className="flex w-full items-center justify-between text-left font-bold text-[var(--text)] py-2 text-base hover:text-[var(--accent)] transition-colors"
+              >
+                <span>Where to find high-quality, free books</span>
+                <span className="text-xs transition-transform duration-200 text-[var(--text-muted)]">
+                  {expandedSection === "resources" ? "▲" : "▼"}
+                </span>
+              </button>
+              {expandedSection === "resources" && (
+                <div className="mt-3 pb-2 animate-fade-in">
+                  <ul className="space-y-4">
+                    <li className="flex items-start gap-4">
+                      <div className="mt-[11px] h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--accent)]" />
+                      <div className="text-sm leading-7">
+                        <a
+                          href="https://standardebooks.org/"
+                          onClick={(e) => { e.preventDefault(); api.openUrl("https://standardebooks.org/"); }}
+                          className="font-bold text-[var(--text)] hover:text-[var(--accent)] transition-colors underline decoration-[var(--accent-soft)] underline-offset-4 decoration-2"
+                        >
+                          Standard Ebooks
+                        </a>
+                        <p className="text-[var(--text-muted)] mt-1">Take public domain classics professionally formatted into pristine EPUBs.</p>
+                      </div>
+                    </li>
+                    <li className="flex items-start gap-4">
+                      <div className="mt-[11px] h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--accent)]" />
+                      <div className="text-sm leading-7">
+                        <a
+                          href="https://www.gutenberg.org/"
+                          onClick={(e) => { e.preventDefault(); api.openUrl("https://www.gutenberg.org/"); }}
+                          className="font-bold text-[var(--text)] hover:text-[var(--accent)] transition-colors underline decoration-[var(--accent-soft)] underline-offset-4 decoration-2"
+                        >
+                          Project Gutenberg
+                        </a>
+                        <p className="text-[var(--text-muted)] mt-1">A massive public archive library of over 70,000 files.</p>
+                      </div>
+                    </li>
+                    <li className="flex items-start gap-4">
+                      <div className="mt-[11px] h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--accent)]" />
+                      <div className="text-sm leading-7">
+                        <a
+                          href="https://archive.org/"
+                          onClick={(e) => { e.preventDefault(); api.openUrl("https://archive.org/"); }}
+                          className="font-bold text-[var(--text)] hover:text-[var(--accent)] transition-colors underline decoration-[var(--accent-soft)] underline-offset-4 decoration-2"
+                        >
+                          Internet Archive
+                        </a>
+                        <p className="text-[var(--text-muted)] mt-1">Vast indices of digital cultural media.</p>
+                      </div>
+                    </li>
+                    <li className="flex items-start gap-4">
+                      <div className="mt-[11px] h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--accent)]" />
+                      <div className="text-sm leading-7">
+                        <a
+                          href="https://openlibrary.org/"
+                          onClick={(e) => { e.preventDefault(); api.openUrl("https://openlibrary.org/"); }}
+                          className="font-bold text-[var(--text)] hover:text-[var(--accent)] transition-colors underline decoration-[var(--accent-soft)] underline-offset-4 decoration-2"
+                        >
+                          Open Library
+                        </a>
+                        <p className="text-[var(--text-muted)] mt-1">A unified repository mapping open data files.</p>
+                      </div>
+                    </li>
+                    <li className="flex items-start gap-4">
+                      <div className="mt-[11px] h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--accent)]" />
+                      <div className="text-sm leading-7">
+                        <a
+                          href="https://google.com/"
+                          onClick={(e) => { e.preventDefault(); api.openUrl("https://google.com/"); }}
+                          className="font-bold text-[var(--text)] hover:text-[var(--accent)] transition-colors underline decoration-[var(--accent-soft)] underline-offset-4 decoration-2"
+                        >
+                          Google Search
+                        </a>
+                        <p className="text-[var(--text-muted)] mt-1">
+                          You can books by searching for them on Google or appending <code className="rounded bg-[var(--panel-soft)] px-1.5 py-0.5 text-[10px] text-[var(--text)] font-mono">filetype:epub</code> or <code className="rounded bg-[var(--panel-soft)] px-1.5 py-0.5 text-[10px] text-[var(--text)] font-mono">filetype:txt</code> to your search. Be careful when downloading from suspicious websites.
+                        </p>
+                      </div>
+                    </li>
+                  </ul>
+                </div>
+              )}
+            </div>
+
+            {/* Section 4: Converters */}
+            <div className="border-b border-white/5 py-3">
+              <button
+                onClick={() => toggleSection("converters")}
+                className="flex w-full items-center justify-between text-left font-bold text-[var(--text)] py-2 text-base hover:text-[var(--accent)] transition-colors"
+              >
+                <span>Need to convert file formats?</span>
+                <span className="text-xs transition-transform duration-200 text-[var(--text-muted)]">
+                  {expandedSection === "converters" ? "▲" : "▼"}
+                </span>
+              </button>
+              {expandedSection === "converters" && (
+                <div className="mt-2 pb-2 text-sm leading-7 text-[var(--text-muted)] space-y-4 animate-fade-in">
+                  <p>
+                    If you need to convert formats or deal with severe nested outlines:
+                  </p>
+                  <ul className="space-y-4">
+                    <li className="flex items-start gap-4">
+                      <div className="mt-[11px] h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--accent)]" />
+                      <div className="text-sm leading-7">
+                        <a
+                          href="https://calibre-ebook.com/"
+                          onClick={(e) => { e.preventDefault(); api.openUrl("https://calibre-ebook.com/"); }}
+                          className="font-bold text-[var(--text)] hover:text-[var(--accent)] transition-colors underline decoration-[var(--accent-soft)] underline-offset-4 decoration-2"
+                        >
+                          Calibre
+                        </a>
+                        <p className="text-[var(--text-muted)] mt-1">The standard desktop software solution offline.</p>
+                      </div>
+                    </li>
+                    <li className="flex items-start gap-4">
+                      <div className="mt-[11px] h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--accent)]" />
+                      <div className="text-sm leading-7">
+                        <a
+                          href="https://cloudconvert.com/"
+                          onClick={(e) => { e.preventDefault(); api.openUrl("https://cloudconvert.com/"); }}
+                          className="font-bold text-[var(--text)] hover:text-[var(--accent)] transition-colors underline decoration-[var(--accent-soft)] underline-offset-4 decoration-2"
+                        >
+                          CloudConvert
+                        </a>
+                        <p className="text-[var(--text-muted)] mt-1">Lightweight rapid converter tools on browser URLs.</p>
+                      </div>
+                    </li>
+                  </ul>
+                </div>
+              )}
+            </div>
           </div>
 
           <div className="pt-2">
