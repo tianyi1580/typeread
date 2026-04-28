@@ -1,5 +1,6 @@
 import { type MouseEvent, type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import Cropper, { type Area } from "react-easy-crop";
+import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "./ui/button";
 import { Card } from "./ui/card";
 import { api } from "../lib/tauri";
@@ -513,11 +514,21 @@ function LibraryTipsModal({ onClose }: { onClose: () => void }) {
                   {expandedSection === "need_book" ? "▲" : "▼"}
                 </span>
               </button>
-              {expandedSection === "need_book" && (
-                <div className="mt-2 pb-2 text-sm leading-7 text-[var(--text-muted)] animate-fade-in">
-                  This app runs locally and requires <strong className="text-[var(--text)]">DRM-free</strong> files to parse your text correctly. Books purchased directly through Kindle or Apple Books are encrypted and will not work.
-                </div>
-              )}
+              <AnimatePresence>
+                {expandedSection === "need_book" && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: "auto", opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.25, ease: "easeInOut" }}
+                    className="overflow-hidden"
+                  >
+                    <div className="mt-2 pb-2 text-sm leading-7 text-[var(--text-muted)]">
+                      This app runs locally and requires <strong className="text-[var(--text)]">DRM-free</strong> files to parse your text correctly. Books purchased directly through Kindle or Apple Books are encrypted and will not work.
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
 
             {/* Section 2: Filetypes */}
@@ -531,29 +542,39 @@ function LibraryTipsModal({ onClose }: { onClose: () => void }) {
                   {expandedSection === "filetypes" ? "▲" : "▼"}
                 </span>
               </button>
-              {expandedSection === "filetypes" && (
-                <div className="mt-2 pb-2 text-sm leading-7 text-[var(--text-muted)] space-y-4 animate-fade-in">
-                  <p>The system seamlessly accepts the following standard offline file types:</p>
-                  <ul className="grid grid-cols-2 gap-3 text-xs">
-                    <li className="rounded-[16px] border border-white/5 bg-white/[0.02] p-3">
-                      <strong className="block text-[var(--text)] mb-1 font-mono text-[11px] text-[var(--accent)]">.epub</strong>
-                      Full ebooks with structural chapters and layout logic.
-                    </li>
-                    <li className="rounded-[16px] border border-white/5 bg-white/[0.02] p-3">
-                      <strong className="block text-[var(--text)] mb-1 font-mono text-[11px] text-[var(--accent)]">.pdf</strong>
-                      Converted to .txt on upload. Results may vary.
-                    </li>
-                    <li className="rounded-[16px] border border-white/5 bg-white/[0.02] p-3">
-                      <strong className="block text-[var(--text)] mb-1 font-mono text-[11px] text-[var(--accent)]">.txt</strong>
-                      Simplistic raw texts stripped clean of metadata rules.
-                    </li>
-                    <li className="rounded-[16px] border border-white/5 bg-white/[0.02] p-3">
-                      <strong className="block text-[var(--text)] mb-1 font-mono text-[11px] text-[var(--accent)]">.md</strong>
-                      Standard Markdown configurations and headers.
-                    </li>
-                  </ul>
-                </div>
-              )}
+              <AnimatePresence>
+                {expandedSection === "filetypes" && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: "auto", opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.25, ease: "easeInOut" }}
+                    className="overflow-hidden"
+                  >
+                    <div className="mt-2 pb-2 text-sm leading-7 text-[var(--text-muted)] space-y-4">
+                      <p>The system seamlessly accepts the following standard offline file types:</p>
+                      <ul className="grid grid-cols-2 gap-3 text-xs">
+                        <li className="rounded-[16px] border border-white/5 bg-white/[0.02] p-3">
+                          <strong className="block text-[var(--text)] mb-1 font-mono text-[11px] text-[var(--accent)]">.epub</strong>
+                          Full ebooks with structural chapters and layout logic.
+                        </li>
+                        <li className="rounded-[16px] border border-white/5 bg-white/[0.02] p-3">
+                          <strong className="block text-[var(--text)] mb-1 font-mono text-[11px] text-[var(--accent)]">.pdf</strong>
+                          Converted to .txt on upload. Results may vary.
+                        </li>
+                        <li className="rounded-[16px] border border-white/5 bg-white/[0.02] p-3">
+                          <strong className="block text-[var(--text)] mb-1 font-mono text-[11px] text-[var(--accent)]">.txt</strong>
+                          Simplistic raw texts stripped clean of metadata rules.
+                        </li>
+                        <li className="rounded-[16px] border border-white/5 bg-white/[0.02] p-3">
+                          <strong className="block text-[var(--text)] mb-1 font-mono text-[11px] text-[var(--accent)]">.md</strong>
+                          Standard Markdown configurations and headers.
+                        </li>
+                      </ul>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
 
             {/* Section 3: Where to Find */}
@@ -567,79 +588,89 @@ function LibraryTipsModal({ onClose }: { onClose: () => void }) {
                   {expandedSection === "resources" ? "▲" : "▼"}
                 </span>
               </button>
-              {expandedSection === "resources" && (
-                <div className="mt-3 pb-2 animate-fade-in">
-                  <ul className="space-y-4">
-                    <li className="flex items-start gap-4">
-                      <div className="mt-[11px] h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--accent)]" />
-                      <div className="text-sm leading-7">
-                        <a
-                          href="https://standardebooks.org/"
-                          onClick={(e) => { e.preventDefault(); api.openUrl("https://standardebooks.org/"); }}
-                          className="font-bold text-[var(--text)] hover:text-[var(--accent)] transition-colors underline decoration-[var(--accent-soft)] underline-offset-4 decoration-2"
-                        >
-                          Standard Ebooks
-                        </a>
-                        <p className="text-[var(--text-muted)] mt-1">Take public domain classics professionally formatted into pristine EPUBs.</p>
-                      </div>
-                    </li>
-                    <li className="flex items-start gap-4">
-                      <div className="mt-[11px] h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--accent)]" />
-                      <div className="text-sm leading-7">
-                        <a
-                          href="https://www.gutenberg.org/"
-                          onClick={(e) => { e.preventDefault(); api.openUrl("https://www.gutenberg.org/"); }}
-                          className="font-bold text-[var(--text)] hover:text-[var(--accent)] transition-colors underline decoration-[var(--accent-soft)] underline-offset-4 decoration-2"
-                        >
-                          Project Gutenberg
-                        </a>
-                        <p className="text-[var(--text-muted)] mt-1">A massive public archive library of over 70,000 files.</p>
-                      </div>
-                    </li>
-                    <li className="flex items-start gap-4">
-                      <div className="mt-[11px] h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--accent)]" />
-                      <div className="text-sm leading-7">
-                        <a
-                          href="https://archive.org/"
-                          onClick={(e) => { e.preventDefault(); api.openUrl("https://archive.org/"); }}
-                          className="font-bold text-[var(--text)] hover:text-[var(--accent)] transition-colors underline decoration-[var(--accent-soft)] underline-offset-4 decoration-2"
-                        >
-                          Internet Archive
-                        </a>
-                        <p className="text-[var(--text-muted)] mt-1">Vast indices of digital cultural media.</p>
-                      </div>
-                    </li>
-                    <li className="flex items-start gap-4">
-                      <div className="mt-[11px] h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--accent)]" />
-                      <div className="text-sm leading-7">
-                        <a
-                          href="https://openlibrary.org/"
-                          onClick={(e) => { e.preventDefault(); api.openUrl("https://openlibrary.org/"); }}
-                          className="font-bold text-[var(--text)] hover:text-[var(--accent)] transition-colors underline decoration-[var(--accent-soft)] underline-offset-4 decoration-2"
-                        >
-                          Open Library
-                        </a>
-                        <p className="text-[var(--text-muted)] mt-1">A unified repository mapping open data files.</p>
-                      </div>
-                    </li>
-                    <li className="flex items-start gap-4">
-                      <div className="mt-[11px] h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--accent)]" />
-                      <div className="text-sm leading-7">
-                        <a
-                          href="https://google.com/"
-                          onClick={(e) => { e.preventDefault(); api.openUrl("https://google.com/"); }}
-                          className="font-bold text-[var(--text)] hover:text-[var(--accent)] transition-colors underline decoration-[var(--accent-soft)] underline-offset-4 decoration-2"
-                        >
-                          Google Search
-                        </a>
-                        <p className="text-[var(--text-muted)] mt-1">
-                          You can books by searching for them on Google or appending <code className="rounded bg-[var(--panel-soft)] px-1.5 py-0.5 text-[10px] text-[var(--text)] font-mono">filetype:epub</code> or <code className="rounded bg-[var(--panel-soft)] px-1.5 py-0.5 text-[10px] text-[var(--text)] font-mono">filetype:txt</code> to your search. Be careful when downloading from suspicious websites.
-                        </p>
-                      </div>
-                    </li>
-                  </ul>
-                </div>
-              )}
+              <AnimatePresence>
+                {expandedSection === "resources" && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: "auto", opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.25, ease: "easeInOut" }}
+                    className="overflow-hidden"
+                  >
+                    <div className="mt-3 pb-2">
+                      <ul className="space-y-4">
+                        <li className="flex items-start gap-4">
+                          <div className="mt-[11px] h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--accent)]" />
+                          <div className="text-sm leading-7">
+                            <a
+                              href="https://standardebooks.org/"
+                              onClick={(e) => { e.preventDefault(); api.openUrl("https://standardebooks.org/"); }}
+                              className="font-bold text-[var(--text)] hover:text-[var(--accent)] transition-colors underline decoration-[var(--accent-soft)] underline-offset-4 decoration-2"
+                            >
+                              Standard Ebooks
+                            </a>
+                            <p className="text-[var(--text-muted)] mt-1">Take public domain classics professionally formatted into pristine EPUBs.</p>
+                          </div>
+                        </li>
+                        <li className="flex items-start gap-4">
+                          <div className="mt-[11px] h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--accent)]" />
+                          <div className="text-sm leading-7">
+                            <a
+                              href="https://www.gutenberg.org/"
+                              onClick={(e) => { e.preventDefault(); api.openUrl("https://www.gutenberg.org/"); }}
+                              className="font-bold text-[var(--text)] hover:text-[var(--accent)] transition-colors underline decoration-[var(--accent-soft)] underline-offset-4 decoration-2"
+                            >
+                              Project Gutenberg
+                            </a>
+                            <p className="text-[var(--text-muted)] mt-1">A massive public archive library of over 70,000 files.</p>
+                          </div>
+                        </li>
+                        <li className="flex items-start gap-4">
+                          <div className="mt-[11px] h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--accent)]" />
+                          <div className="text-sm leading-7">
+                            <a
+                              href="https://archive.org/"
+                              onClick={(e) => { e.preventDefault(); api.openUrl("https://archive.org/"); }}
+                              className="font-bold text-[var(--text)] hover:text-[var(--accent)] transition-colors underline decoration-[var(--accent-soft)] underline-offset-4 decoration-2"
+                            >
+                              Internet Archive
+                            </a>
+                            <p className="text-[var(--text-muted)] mt-1">Vast indices of digital cultural media.</p>
+                          </div>
+                        </li>
+                        <li className="flex items-start gap-4">
+                          <div className="mt-[11px] h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--accent)]" />
+                          <div className="text-sm leading-7">
+                            <a
+                              href="https://openlibrary.org/"
+                              onClick={(e) => { e.preventDefault(); api.openUrl("https://openlibrary.org/"); }}
+                              className="font-bold text-[var(--text)] hover:text-[var(--accent)] transition-colors underline decoration-[var(--accent-soft)] underline-offset-4 decoration-2"
+                            >
+                              Open Library
+                            </a>
+                            <p className="text-[var(--text-muted)] mt-1">A unified repository mapping open data files.</p>
+                          </div>
+                        </li>
+                        <li className="flex items-start gap-4">
+                          <div className="mt-[11px] h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--accent)]" />
+                          <div className="text-sm leading-7">
+                            <a
+                              href="https://google.com/"
+                              onClick={(e) => { e.preventDefault(); api.openUrl("https://google.com/"); }}
+                              className="font-bold text-[var(--text)] hover:text-[var(--accent)] transition-colors underline decoration-[var(--accent-soft)] underline-offset-4 decoration-2"
+                            >
+                              Google Search
+                            </a>
+                            <p className="text-[var(--text-muted)] mt-1">
+                              You can books by searching for them on Google or appending <code className="rounded bg-[var(--panel-soft)] px-1.5 py-0.5 text-[10px] text-[var(--text)] font-mono">filetype:epub</code> or <code className="rounded bg-[var(--panel-soft)] px-1.5 py-0.5 text-[10px] text-[var(--text)] font-mono">filetype:txt</code> to your search. Be careful when downloading from suspicious websites.
+                            </p>
+                          </div>
+                        </li>
+                      </ul>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
 
             {/* Section 4: Converters */}
@@ -653,41 +684,51 @@ function LibraryTipsModal({ onClose }: { onClose: () => void }) {
                   {expandedSection === "converters" ? "▲" : "▼"}
                 </span>
               </button>
-              {expandedSection === "converters" && (
-                <div className="mt-2 pb-2 text-sm leading-7 text-[var(--text-muted)] space-y-4 animate-fade-in">
-                  <p>
-                    If you need to convert formats or deal with severe nested outlines:
-                  </p>
-                  <ul className="space-y-4">
-                    <li className="flex items-start gap-4">
-                      <div className="mt-[11px] h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--accent)]" />
-                      <div className="text-sm leading-7">
-                        <a
-                          href="https://calibre-ebook.com/"
-                          onClick={(e) => { e.preventDefault(); api.openUrl("https://calibre-ebook.com/"); }}
-                          className="font-bold text-[var(--text)] hover:text-[var(--accent)] transition-colors underline decoration-[var(--accent-soft)] underline-offset-4 decoration-2"
-                        >
-                          Calibre
-                        </a>
-                        <p className="text-[var(--text-muted)] mt-1">The standard desktop software solution offline.</p>
-                      </div>
-                    </li>
-                    <li className="flex items-start gap-4">
-                      <div className="mt-[11px] h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--accent)]" />
-                      <div className="text-sm leading-7">
-                        <a
-                          href="https://cloudconvert.com/"
-                          onClick={(e) => { e.preventDefault(); api.openUrl("https://cloudconvert.com/"); }}
-                          className="font-bold text-[var(--text)] hover:text-[var(--accent)] transition-colors underline decoration-[var(--accent-soft)] underline-offset-4 decoration-2"
-                        >
-                          CloudConvert
-                        </a>
-                        <p className="text-[var(--text-muted)] mt-1">Lightweight rapid converter tools on browser URLs.</p>
-                      </div>
-                    </li>
-                  </ul>
-                </div>
-              )}
+              <AnimatePresence>
+                {expandedSection === "converters" && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: "auto", opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.25, ease: "easeInOut" }}
+                    className="overflow-hidden"
+                  >
+                    <div className="mt-2 pb-2 text-sm leading-7 text-[var(--text-muted)] space-y-4">
+                      <p>
+                        If you need to convert formats or deal with severe nested outlines:
+                      </p>
+                      <ul className="space-y-4">
+                        <li className="flex items-start gap-4">
+                          <div className="mt-[11px] h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--accent)]" />
+                          <div className="text-sm leading-7">
+                            <a
+                              href="https://calibre-ebook.com/"
+                              onClick={(e) => { e.preventDefault(); api.openUrl("https://calibre-ebook.com/"); }}
+                              className="font-bold text-[var(--text)] hover:text-[var(--accent)] transition-colors underline decoration-[var(--accent-soft)] underline-offset-4 decoration-2"
+                            >
+                              Calibre
+                            </a>
+                            <p className="text-[var(--text-muted)] mt-1">The standard desktop software solution offline.</p>
+                          </div>
+                        </li>
+                        <li className="flex items-start gap-4">
+                          <div className="mt-[11px] h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--accent)]" />
+                          <div className="text-sm leading-7">
+                            <a
+                              href="https://cloudconvert.com/"
+                              onClick={(e) => { e.preventDefault(); api.openUrl("https://cloudconvert.com/"); }}
+                              className="font-bold text-[var(--text)] hover:text-[var(--accent)] transition-colors underline decoration-[var(--accent-soft)] underline-offset-4 decoration-2"
+                            >
+                              CloudConvert
+                            </a>
+                            <p className="text-[var(--text-muted)] mt-1">Lightweight rapid converter tools on browser URLs.</p>
+                          </div>
+                        </li>
+                      </ul>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
           </div>
 
