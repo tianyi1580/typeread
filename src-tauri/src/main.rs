@@ -364,18 +364,45 @@ async fn import_book_files(
         let path_clone = path.clone();
         
         let result = tauri::async_runtime::spawn_blocking(move || {
-            let parsed = parse_file(&path_clone, &state_clone.covers_dir)?;
+            let mut final_path = path_clone.clone();
+            
+            let extension = path_clone
+                .extension()
+                .and_then(|value| value.to_str())
+                .map(|value| value.to_ascii_lowercase());
+                
+            if extension.as_deref() == Some("pdf") {
+                let bytes = fs::read(&path_clone).with_context(|| format!("failed to read PDF {}", path_clone.display()))?;
+                let text = pdf_extract::extract_text_from_mem(&bytes)
+                    .with_context(|| format!("failed to extract text from PDF {}", path_clone.display()))?;
+                    
+                let extracted_dir = state_clone.app_data_dir.join("extracted_books");
+                fs::create_dir_all(&extracted_dir).context("failed to create extracted books dir")?;
+                
+                let mut hasher = std::collections::hash_map::DefaultHasher::new();
+                use std::hash::{Hash, Hasher};
+                path_clone.hash(&mut hasher);
+                let hash = hasher.finish();
+                
+                let txt_name = format!("{}_{}.txt", path_clone.file_stem().unwrap_or_default().to_string_lossy(), hash);
+                let txt_path = extracted_dir.join(txt_name);
+                
+                fs::write(&txt_path, &text).with_context(|| format!("failed to write extracted text to {}", txt_path.display()))?;
+                final_path = txt_path;
+            }
+
+            let parsed = parse_file(&final_path, &state_clone.covers_dir)?;
             
             // Populate cache during import to speed up initial open
             {
                 let mut cache = state_clone.parsed_cache.lock().unwrap();
-                cache.insert(path_clone.clone(), parsed.clone());
+                cache.insert(final_path.clone(), parsed.clone());
             }
 
             let record = state_clone.db.upsert_book(
                 &parsed.title,
                 parsed.author.as_deref(),
-                &path_clone.to_string_lossy(),
+                &final_path.to_string_lossy(),
                 &parsed.format,
                 parsed.cover_path.as_deref(),
                 parsed.total_chars,

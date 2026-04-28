@@ -817,15 +817,15 @@ impl Database {
     pub fn delete_book(&self, book_id: i64) -> Result<()> {
         let mut conn = self.connection()?;
         let tx = conn.transaction()?;
-        let cover_path: Option<String> = tx
+        let (cover_path, book_path): (Option<String>, Option<String>) = tx
             .query_row(
-                "SELECT cover_path FROM books WHERE id = ?1",
+                "SELECT cover_path, path FROM books WHERE id = ?1",
                 params![book_id],
-                |row| row.get(0),
+                |row| Ok((row.get::<_, Option<String>>(0)?, row.get::<_, Option<String>>(1)?)),
             )
             .optional()
-            .context("failed to read book cover before deletion")?
-            .flatten();
+            .context("failed to read book path and cover before deletion")?
+            .unwrap_or((None, None));
 
         tx.execute(
             r#"
@@ -847,6 +847,15 @@ impl Database {
             let cover = PathBuf::from(path);
             if cover.exists() {
                 let _ = fs::remove_file(cover);
+            }
+        }
+
+        if let Some(path) = book_path {
+            if path.contains("extracted_books") {
+                let book_file = PathBuf::from(path);
+                if book_file.exists() {
+                    let _ = fs::remove_file(book_file);
+                }
             }
         }
 
