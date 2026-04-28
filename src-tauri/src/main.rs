@@ -189,11 +189,25 @@ async fn set_book_pinned(
 async fn delete_book(book_id: i64, state: tauri::State<'_, AppState>) -> Result<(), String> {
     let state_inner = state.inner().clone();
     let db_clone = state_inner.db.clone();
+    
+    let book = tauri::async_runtime::spawn_blocking(move || {
+        db_clone.get_book(book_id).map_err(to_message)
+    })
+    .await
+    .map_err(|e| e.to_string())??;
+
+    let db_clone = state_inner.db.clone();
     tauri::async_runtime::spawn_blocking(move || {
         db_clone.delete_book(book_id).map_err(to_message)
     })
     .await
     .map_err(|e| e.to_string())??;
+
+    if let Some(record) = book {
+        let path = PathBuf::from(&record.path);
+        let mut cache = state_inner.parsed_cache.lock().unwrap();
+        cache.remove(&path);
+    }
 
     ensure_default_book(&state_inner, &state_inner.app_data_dir)
         .await
@@ -350,6 +364,11 @@ async fn delete_library(state: tauri::State<'_, AppState>) -> Result<(), String>
     .await
     .map_err(|e| e.to_string())??;
 
+    {
+        let mut cache = state_inner.parsed_cache.lock().unwrap();
+        cache.clear();
+    }
+
     ensure_default_book(&state_inner, &state_inner.app_data_dir)
         .await
         .map_err(|e| e.to_string())?;
@@ -459,6 +478,8 @@ async fn import_book_files(
                 let bytes = fs::read(&path_clone).with_context(|| format!("failed to read PDF {}", path_clone.display()))?;
                 let text = pdf_extract::extract_text_from_mem(&bytes)
                     .with_context(|| format!("failed to extract text from PDF {}", path_clone.display()))?;
+                
+                let fixed_text = parser::fix_separated_words(&text);
                     
                 let extracted_dir = state_clone.app_data_dir.join("extracted_books");
                 fs::create_dir_all(&extracted_dir).context("failed to create extracted books dir")?;
@@ -471,7 +492,7 @@ async fn import_book_files(
                 let txt_name = format!("{}_{}.txt", path_clone.file_stem().unwrap_or_default().to_string_lossy(), hash);
                 let txt_path = extracted_dir.join(txt_name);
                 
-                fs::write(&txt_path, &text).with_context(|| format!("failed to write extracted text to {}", txt_path.display()))?;
+                fs::write(&txt_path, &fixed_text).with_context(|| format!("failed to write extracted text to {}", txt_path.display()))?;
                 final_path = txt_path;
             }
 

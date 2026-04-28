@@ -1,5 +1,5 @@
 use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     fs,
     io::Read,
     path::{Component, Path, PathBuf},
@@ -122,7 +122,8 @@ fn parse_pdf(path: &Path) -> Result<ParsedImport> {
         .with_context(|| format!("failed to extract text from PDF {}", path.display()))?;
     
     let title = fallback_title(path);
-    let chapters = chapters_from_text(&text, &title);
+    let fixed_text = fix_separated_words(&text);
+    let chapters = chapters_from_text(&fixed_text, &title);
     
     Ok(ParsedImport {
         title,
@@ -714,6 +715,129 @@ fn fallback_title(path: &Path) -> String {
         .replace(['_', '-'], " ")
 }
 
+static WORD_SET: OnceLock<HashSet<String>> = OnceLock::new();
+
+fn get_word_set() -> &'static HashSet<String> {
+    WORD_SET.get_or_init(|| {
+        let words_str = include_str!("words.txt");
+        words_str
+            .lines()
+            .map(|line| line.trim().to_lowercase())
+            .filter(|line| !line.is_empty())
+            .collect()
+    })
+}
+
+pub fn fix_separated_words(text: &str) -> String {
+    let word_set = get_word_set();
+    let mut fixed_text = String::with_capacity(text.len());
+    
+    for line in text.lines() {
+        let words: Vec<&str> = line.split_whitespace().collect();
+        if words.is_empty() {
+            fixed_text.push('\n');
+            continue;
+        }
+        
+        let mut i = 0;
+        let mut new_words = Vec::new();
+        
+        while i < words.len() {
+            if i + 1 < words.len() {
+                let w1 = words[i];
+                let w2 = words[i + 1];
+                
+                let clean_w1 = to_alpha_only(w1);
+                let clean_w2 = to_alpha_only(w2);
+                
+                if !clean_w1.is_empty() && !clean_w2.is_empty() {
+                    let joined = format!("{}{}", clean_w1, clean_w2);
+                    let joined_lower = joined.to_lowercase();
+                    let w1_lower = clean_w1.to_lowercase();
+                    let w2_lower = clean_w2.to_lowercase();
+                    
+                    let is_w1_valid = is_word_valid(&w1_lower, word_set);
+                    let is_w2_valid = is_word_valid(&w2_lower, word_set);
+                    let is_joined_valid = word_set.contains(&joined_lower) 
+                        || is_contraction(&joined_lower);
+                    
+                    if is_joined_valid && (!is_w1_valid || !is_w2_valid) {
+                        let merged = format!("{}{}", w1, w2);
+                        new_words.push(merged);
+                        i += 2;
+                        continue;
+                    }
+                }
+            }
+            new_words.push(words[i].to_string());
+            i += 1;
+        }
+        
+        fixed_text.push_str(&new_words.join(" "));
+        fixed_text.push('\n');
+    }
+    
+    if !text.ends_with('\n') && fixed_text.ends_with('\n') {
+        fixed_text.pop();
+    }
+    
+    fixed_text
+}
+
+fn to_alpha_only(word: &str) -> String {
+    word.chars().filter(|c| c.is_alphanumeric()).collect()
+}
+
+fn is_word_valid(word: &str, word_set: &HashSet<String>) -> bool {
+    if word.len() == 1 {
+        return word == "a" || word == "i" || word == "o";
+    }
+    word_set.contains(word)
+}
+
+fn is_contraction(word: &str) -> bool {
+    matches!(
+        word,
+        "cant"
+            | "didnt"
+            | "couldnt"
+            | "shouldnt"
+            | "wouldnt"
+            | "isnt"
+            | "arent"
+            | "wasnt"
+            | "werent"
+            | "hasnt"
+            | "havent"
+            | "hadnt"
+            | "dont"
+            | "doesnt"
+            | "im"
+            | "youre"
+            | "hes"
+            | "shes"
+            | "its"
+            | "were"
+            | "theyre"
+            | "ive"
+            | "youve"
+            | "weve"
+            | "theyve"
+            | "id"
+            | "youd"
+            | "hed"
+            | "shed"
+            | "wed"
+            | "theyd"
+            | "ill"
+            | "youll"
+            | "hell"
+            | "shell"
+            | "well"
+            | "theyll"
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use std::{
@@ -725,7 +849,14 @@ mod tests {
 
     use zip::write::FileOptions;
 
-    use super::{chapters_from_text, chunk_text, markdown_to_text, normalize_text, parse_file};
+    use super::{chapters_from_text, chunk_text, markdown_to_text, normalize_text, parse_file, fix_separated_words};
+
+    #[test]
+    fn test_fix_separated_words() {
+        let text = "This is a hun g man. The co mputer is oi ly.";
+        let fixed = fix_separated_words(text);
+        assert_eq!(fixed, "This is a hung man. The computer is oily.");
+    }
 
     #[test]
     fn markdown_blocks_preserve_paragraphs() {
