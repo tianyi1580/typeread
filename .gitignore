@@ -3,3 +3,9 @@ src-tauri/target/
 dist/assets/
 .DS_Store
 npm-debug.log*
+
+# Local data & books
+*.sqlite
+*.db
+*.epub
+*.pdf
