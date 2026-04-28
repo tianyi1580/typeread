@@ -349,13 +349,13 @@ export function LibraryView({
                   </div>
                   <div className="absolute inset-x-0 bottom-0 z-10 p-1">
                     <div className="space-y-3 rounded-[18px] border border-white/5 bg-[var(--panel)]/40 p-4 shadow-xl backdrop-blur-md">
-                      <div className="min-w-0 animate-pulse">
-                        <div className="h-3 w-3/4 rounded bg-[var(--text-muted)]/20" />
-                        <div className="mt-2 h-2 w-1/2 rounded bg-[var(--text-muted)]/10" />
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <div className="h-2 w-1/4 rounded bg-[var(--text-muted)]/10" />
-                        <div className="h-2 w-1/4 rounded bg-[var(--text-muted)]/10" />
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-bold leading-tight tracking-tight text-[var(--text)]">
+                          {fileNameFromPath(path)}
+                        </p>
+                        <p className="mt-1 animate-pulse text-[10px] font-semibold text-[var(--accent)] uppercase tracking-wider">
+                          Processing file...
+                        </p>
                       </div>
                     </div>
                   </div>
