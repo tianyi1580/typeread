@@ -170,6 +170,7 @@ export function ReaderView({
   const chapterMenuRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [scrollReadIndex, setScrollReadIndex] = useState<number | null>(null);
+  const [isHoveringHud, setIsHoveringHud] = useState(false);
 
   snapshotRef.current = snapshot;
   eventsRef.current = events;
@@ -668,7 +669,7 @@ export function ReaderView({
     onChapterChange(nextIndex);
   }
 
-  const headerVisible = clock - lastMouseAt < 1600;
+  const headerVisible = (clock - lastMouseAt < 1600) || isHoveringHud;
   const readerFontClass = "font-[var(--font-main)]";
   const visibleLeft = pageRanges[pageIndex];
   const visibleRight = pageRanges[pageIndex + 1];
@@ -693,6 +694,8 @@ export function ReaderView({
               animate={{ y: 0, z: 0, opacity: 1 }}
               exit={{ y: -20, opacity: 0 }}
               transition={READER_CHROME_TRANSITION}
+              onMouseEnter={() => setIsHoveringHud(true)}
+              onMouseLeave={() => setIsHoveringHud(false)}
               className={cn(
                 "fixed left-4 right-4 top-4 z-40 mx-auto flex max-w-[1360px] items-center justify-between gap-4 rounded-full px-4 py-3 md:left-6 md:right-6 pointer-events-auto",
                 "border border-[var(--border)] bg-[color-mix(in_srgb,var(--bg)_95%,transparent)] shadow-[0_8px_32px_rgba(0,0,0,0.3)] backdrop-blur-3xl transform-gpu",
@@ -881,6 +884,8 @@ export function ReaderView({
                 animate={{ x: 0, y: "-50%", z: 0, opacity: pageIndex === 0 ? 0.2 : 1 }}
                 exit={{ x: -20, y: "-50%", opacity: 0 }}
                 transition={READER_CHROME_TRANSITION}
+                onMouseEnter={() => setIsHoveringHud(true)}
+                onMouseLeave={() => setIsHoveringHud(false)}
                 onClick={() => setPageIndex((current) => Math.max(0, current - 2))}
                 disabled={pageIndex === 0}
                 className={cn(
@@ -898,6 +903,8 @@ export function ReaderView({
                 animate={{ x: 0, y: "-50%", z: 0, opacity: pageIndex >= pages.length - 2 ? 0.2 : 1 }}
                 exit={{ x: 20, y: "-50%", opacity: 0 }}
                 transition={READER_CHROME_TRANSITION}
+                onMouseEnter={() => setIsHoveringHud(true)}
+                onMouseLeave={() => setIsHoveringHud(false)}
                 onClick={() => setPageIndex((current) => Math.min(Math.max(pages.length - 2, 0), current + 2))}
                 disabled={pageIndex >= pages.length - 2}
                 className={cn(
@@ -1002,6 +1009,8 @@ export function ReaderView({
                     initial={false}
                     animate={{ opacity: 1 }}
                     transition={READER_CHROME_TRANSITION}
+                    onMouseEnter={() => setIsHoveringHud(true)}
+                    onMouseLeave={() => setIsHoveringHud(false)}
                     className={cn(
                       "pointer-events-auto relative col-span-2 justify-self-center overflow-hidden rounded-full px-5 py-2.5 text-sm font-medium text-[var(--text)] sm:col-span-1 sm:col-start-2 sm:row-start-1 sm:px-6",
                       READER_CHROME_SURFACE_CLASS,
@@ -1024,6 +1033,8 @@ export function ReaderView({
                   initial={false}
                   animate={{ opacity: headerVisible ? (chapterIndex === 0 ? 0.5 : 1) : 0 }}
                   transition={READER_CHROME_TRANSITION}
+                  onMouseEnter={() => setIsHoveringHud(true)}
+                  onMouseLeave={() => setIsHoveringHud(false)}
                   className={cn(
                     "justify-self-start whitespace-nowrap px-5 py-2 text-sm sm:col-start-1 sm:row-start-1 sm:px-6",
                     READER_CHROME_SURFACE_CLASS,
@@ -1041,6 +1052,8 @@ export function ReaderView({
                   initial={false}
                   animate={{ opacity: headerVisible ? (chapterIndex >= book.chapters.length - 1 ? 0.5 : 1) : 0 }}
                   transition={READER_CHROME_TRANSITION}
+                  onMouseEnter={() => setIsHoveringHud(true)}
+                  onMouseLeave={() => setIsHoveringHud(false)}
                   className={cn(
                     "justify-self-end whitespace-nowrap px-5 py-2 text-sm sm:col-start-3 sm:row-start-1 sm:px-6",
                     READER_CHROME_SURFACE_CLASS,
