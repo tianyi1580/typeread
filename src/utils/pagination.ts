@@ -41,7 +41,7 @@ export function paginateText(
   // Sanity check for inputs
   // We use a slightly more conservative charsPerLine internally to account for 
   // proportional font variance and potential browser wrapping differences.
-  const safeMaxLines = Math.max(2, maxLines);
+  const safeMaxLines = Math.max(1, maxLines);
   const safeCharsPerLine = Math.max(10, charsPerLine);
 
   const ranges: PageRange[] = [];

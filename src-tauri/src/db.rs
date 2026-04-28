@@ -92,8 +92,11 @@ impl Database {
     }
 
     pub fn connection(&self) -> Result<Connection> {
-        Connection::open(&self.path)
-            .with_context(|| format!("failed to open database at {}", self.path.display()))
+        let conn = Connection::open(&self.path)
+            .with_context(|| format!("failed to open database at {}", self.path.display()))?;
+        conn.busy_timeout(std::time::Duration::from_secs(5))
+            .context("failed to set sqlite busy timeout")?;
+        Ok(conn)
     }
 
     fn init(&self) -> Result<()> {

@@ -64,6 +64,8 @@ export function PracticeView({
   const [showSummary, setShowSummary] = useState(false);
   const [botCursorIndex, setBotCursorIndex] = useState(0);
 
+  const [prevTokens, setPrevTokens] = useState(tokens);
+
   const snapshotRef = useRef(snapshot);
   const eventsRef = useRef(events);
   const sessionStartRef = useRef<number | null>(sessionStartAt);
@@ -72,6 +74,20 @@ export function PracticeView({
   const botCursorRef = useRef(botCursorIndex);
   const statusRef = useRef(status);
   const runVersionRef = useRef(0);
+
+  if (tokens !== prevTokens) {
+    setPrevTokens(tokens);
+    setSnapshot(createTypingSnapshot(tokens, 0));
+    setEvents([]);
+    setMetrics(EMPTY_METRICS);
+    setSessionStartAt(null);
+    setLastInputAt(null);
+    setBotCursorIndex(0);
+    setSummary(null);
+    setShowSummary(false);
+    setStatus("idle");
+    statusRef.current = "idle";
+  }
 
   snapshotRef.current = snapshot;
   eventsRef.current = events;
@@ -99,20 +115,9 @@ export function PracticeView({
   });
 
   useEffect(() => {
-    // Invalidate any in-flight flush so an old session cannot write stale summary state after a restart.
     runVersionRef.current += 1;
-    const nextSnapshot = createTypingSnapshot(tokens, 0);
-    setSnapshot(nextSnapshot);
-    setEvents([]);
-    setMetrics(EMPTY_METRICS);
-    setSessionStartAt(null);
-    setLastInputAt(null);
-    setBotCursorIndex(0);
     botCursorRef.current = 0;
     botPausedRef.current = false;
-    setSummary(null);
-    setShowSummary(false);
-    setStatus("idle");
     transport.resetTransport();
   }, [tokens, transport]);
 
@@ -162,10 +167,10 @@ export function PracticeView({
       return;
     }
 
-    let frame = 0;
-    let lastTick = performance.now();
+    let lastTick = Date.now();
 
-    const tick = (now: number) => {
+    const tick = () => {
+      const now = Date.now();
       const elapsedMs = now - lastTick;
       lastTick = now;
       const currentSnapshot = snapshotRef.current;
@@ -184,12 +189,10 @@ export function PracticeView({
         botCursorRef.current = nextCursor;
         setBotCursorIndex(nextCursor);
       }
-
-      frame = window.requestAnimationFrame(tick);
     };
 
-    frame = window.requestAnimationFrame(tick);
-    return () => window.cancelAnimationFrame(frame);
+    const interval = window.setInterval(tick, 100);
+    return () => window.clearInterval(interval);
   }, [mode, practiceText.length, status, sessionStartAt, settings.versusBotCpm, tokens]);
 
   useEffect(() => {
@@ -322,6 +325,7 @@ export function PracticeView({
     if (result.wordsTyped < 5) {
       transport.resetTransport();
       setStatus("idle");
+      statusRef.current = "idle";
       return;
     }
 

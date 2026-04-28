@@ -1,81 +1,109 @@
-# Codebase Review Plan
+# Parallelizable Codebase Review Plan
 
-This document outlines the strategy for a comprehensive review of the `typeread` codebase. The objective is to identify and resolve inefficiencies, logical errors, design flaws, and suboptimal coding practices across all layers.
+This plan breaks down the TypeRead codebase into distinct, non-overlapping sections for review.
 
-## Review Sections (Parallelizable)
+## Section 1: Backend Core & Database
+Overview: The Rust-based backend initialization and data persistence layer.
+Context (files to look at):
+- [src-tauri/src/main.rs](file:///Users/tianyima/Downloads/Projects/typeread/src-tauri/src/main.rs)
+- [src-tauri/src/db.rs](file:///Users/tianyima/Downloads/Projects/typeread/src-tauri/src/db.rs)
+- [src-tauri/src/models.rs](file:///Users/tianyima/Downloads/Projects/typeread/src-tauri/src/models.rs)
+Intended function of these files: Sets up the Tauri application context, manages the SQLite database lifecycle (migrations, connections), and defines the Rust structs mapping to database tables.
 
-### 1. Data Persistence & Backend Infrastructure (Rust)
-- **Overview**: Review the core backend architecture and database interaction layer.
-- **Context (files)**: 
-  - `src-tauri/src/db.rs`
-  - `src-tauri/src/models.rs`
-  - `src-tauri/src/main.rs`
-- **Intended Function**: Manages the SQLite database (schema, migrations, CRUD), defines data models, and sets up the Tauri command handlers.
+## Section 2: Backend Parser & Analytics
+Overview: Book ingestion and statistical analysis engine.
+Context (files to look at):
+- [src-tauri/src/parser.rs](file:///Users/tianyima/Downloads/Projects/typeread/src-tauri/src/parser.rs)
+- [src-tauri/src/analytics.rs](file:///Users/tianyima/Downloads/Projects/typeread/src-tauri/src/analytics.rs)
+- [src-tauri/src/welcome.rs](file:///Users/tianyima/Downloads/Projects/typeread/src-tauri/src/welcome.rs)
+Intended function of these files: Handles parsing logic for EPUB and TXT files, processes typing speed/accuracy metrics for persistence, and manages default data for new users.
 
-### 2. Content Processing & Analytical Logic (Rust)
-- **Overview**: Audit the complexity and correctness of book parsing and server-side metric calculations.
-- **Context (files)**: 
-  - `src-tauri/src/parser.rs`
-  - `src-tauri/src/analytics.rs`
-- **Intended Function**: Parses EPUB files into structured chapters/text and performs heavy-duty calculations for typing speed, accuracy, and session trends.
+## Section 3: Frontend State & Theming
+Overview: Global application state and styling definitions.
+Context (files to look at):
+- [src/store/app-store.ts](file:///Users/tianyima/Downloads/Projects/typeread/src/store/app-store.ts)
+- [src/theme.ts](file:///Users/tianyima/Downloads/Projects/typeread/src/theme.ts)
+- [src/types.ts](file:///Users/tianyima/Downloads/Projects/typeread/src/types.ts)
+- [src/lib/tauri.ts](file:///Users/tianyima/Downloads/Projects/typeread/src/lib/tauri.ts)
+Intended function of these files: Manages React state via Zustand, defines the application's color palettes, provides TypeScript interfaces, and wraps Tauri's `invoke` calls for frontend safety.
 
-### 3. Global State & Type Definitions (Frontend)
-- **Overview**: Inspect the single source of truth for the frontend and its type safety.
-- **Context (files)**: 
-  - `src/store/app-store.ts`
-  - `src/types.ts`
-  - `src/theme.ts`
-- **Intended Function**: Manages application-wide state using Zustand, defines global TypeScript interfaces, and stores design tokens/theme configurations.
+## Section 4: Frontend Typing & Pagination Logic
+Overview: Core algorithms driving the typing experience.
+Context (files to look at):
+- [src/utils/typing.ts](file:///Users/tianyima/Downloads/Projects/typeread/src/utils/typing.ts)
+- [src/utils/pagination.ts](file:///Users/tianyima/Downloads/Projects/typeread/src/utils/pagination.ts)
+- [src/hooks/useBufferedKeystrokeTransport.ts](file:///Users/tianyima/Downloads/Projects/typeread/src/hooks/useBufferedKeystrokeTransport.ts)
+Intended function of these files: Implements character-by-character validation, WPM calculation, text segmenting for reading, and performance-optimized keyboard event listeners.
 
-### 4. Core Logic, Bridge & Shared Hooks
-- **Overview**: Review the non-UI business logic and the communication layer between JS and Rust.
-- **Context (files)**: 
-  - `src/lib/` (e.g., `tauri.ts`, `progression.ts`, `achievements.ts`)
-  - `src/hooks/` (e.g., `useBufferedKeystrokeTransport.ts`)
-  - `src/utils/` (e.g., `typing.ts`, `pagination.ts`)
-- **Intended Function**: Provides custom React hooks for specialized behavior, general utility functions, and the `tauri.ts` wrapper for backend calls.
+## Section 5: Frontend Data Libraries
+Overview: Static assets and application constants.
+Context (files to look at):
+- [src/lib/achievements.ts](file:///Users/tianyima/Downloads/Projects/typeread/src/lib/achievements.ts)
+- [src/lib/demo.ts](file:///Users/tianyima/Downloads/Projects/typeread/src/lib/demo.ts)
+- [src/lib/keyboard-layouts.ts](file:///Users/tianyima/Downloads/Projects/typeread/src/lib/keyboard-layouts.ts)
+- [src/lib/progression.ts](file:///Users/tianyima/Downloads/Projects/typeread/src/lib/progression.ts)
+- [src/lib/utils.ts](file:///Users/tianyima/Downloads/Projects/typeread/src/lib/utils.ts)
+- [src/lib/word-bank.ts](file:///Users/tianyima/Downloads/Projects/typeread/src/lib/word-bank.ts)
+Intended function of these files: Provides read-only data for achievements, default content, keyboard layout maps, leveling math, and word pools.
 
-### 5. Application Entry & Navigation Flow
-- **Overview**: Evaluate the mounting process and top-level view switching.
-- **Context (files)**: 
-  - `src/App.tsx`
-  - `src/main.tsx`
-- **Intended Function**: Handles the main application lifecycle, initializes the store, and manages the conditional rendering of primary views (Library, Reader, Analytics, etc.).
+## Section 6: Frontend Views - Library & Settings
+Overview: User interfaces for content management and customization.
+Context (files to look at):
+- [src/components/LibraryView.tsx](file:///Users/tianyima/Downloads/Projects/typeread/src/components/LibraryView.tsx)
+- [src/components/SettingsView.tsx](file:///Users/tianyima/Downloads/Projects/typeread/src/components/SettingsView.tsx)
+- [src/components/ui/color-picker.tsx](file:///Users/tianyima/Downloads/Projects/typeread/src/components/ui/color-picker.tsx)
+Intended function of these files: Renders the book library shelf and the configuration screens for user preferences.
 
-### 6. Typing Engine & Reader Interface
-- **Overview**: Focus on the most performance-critical part of the app: the live typing experience.
-- **Context (files)**: 
-  - `src/components/ReaderView.tsx`
-  - `src/components/TypingLayer.tsx`
-  - `src/components/Hud.tsx`
-- **Intended Function**: Displays book content, tracks real-time keystrokes, manages the typing caret, and renders the "Heads-Up Display" for live feedback.
+## Section 7: Frontend Views - Reader & Core Typing
+Overview: The primary user interaction surface.
+Context (files to look at):
+- [src/components/ReaderView.tsx](file:///Users/tianyima/Downloads/Projects/typeread/src/components/ReaderView.tsx)
+- [src/components/TypingLayer.tsx](file:///Users/tianyima/Downloads/Projects/typeread/src/components/TypingLayer.tsx)
+- [src/components/Hud.tsx](file:///Users/tianyima/Downloads/Projects/typeread/src/components/Hud.tsx)
+Intended function of these files: Displays the book text, captures typing input visually, and updates the real-time stats overlay.
 
-### 7. Library Management & Import Flow
-- **Overview**: Review how books are listed, searched, and added to the database.
-- **Context (files)**: 
-  - `src/components/LibraryView.tsx`
-- **Intended Function**: Provides the interface for browsing the user's book collection and initiating the EPUB import process.
+## Section 8: Frontend Views - Practice & Multiplayer
+Overview: Alternative interactive modes.
+Context (files to look at):
+- [src/components/PracticeView.tsx](file:///Users/tianyima/Downloads/Projects/typeread/src/components/PracticeView.tsx)
+- [src/components/VersusConfigModal.tsx](file:///Users/tianyima/Downloads/Projects/typeread/src/components/VersusConfigModal.tsx)
+Intended function of these files: Manages isolated typing drills and competitive mode setups.
 
-### 8. Analytics Visualizations & Session Feedback
-- **Overview**: Audit the data visualization and session summary components.
-- **Context (files)**: 
-  - `src/components/AnalyticsView.tsx`
-  - `src/components/SessionSummaryModal.tsx`
-  - `src/components/AchievementsView.tsx`
-- **Intended Function**: Renders charts (e.g., Recharts), historical session data, and achievement milestones after typing sessions.
+## Section 9: Frontend Views - Analytics & Achievements
+Overview: Post-session feedback and progress tracking.
+Context (files to look at):
+- [src/components/AnalyticsView.tsx](file:///Users/tianyima/Downloads/Projects/typeread/src/components/AnalyticsView.tsx)
+- [src/components/AchievementsView.tsx](file:///Users/tianyima/Downloads/Projects/typeread/src/components/AchievementsView.tsx)
+- [src/components/SessionSummaryModal.tsx](file:///Users/tianyima/Downloads/Projects/typeread/src/components/SessionSummaryModal.tsx)
+Intended function of these files: Renders graphs, achievement badges, and the summary popup after a chapter is finished.
 
-### 9. User Preferences & Practice Modes
-- **Overview**: Review the settings and auxiliary typing modes.
-- **Context (files)**: 
-  - `src/components/SettingsView.tsx`
-  - `src/components/PracticeView.tsx`
-  - `src/components/VersusConfigModal.tsx`
-- **Intended Function**: Allows users to customize the UI/typing experience and participate in non-book-related typing exercises.
+## Section 10: App Shell & UI Kit
+Overview: Application framework and atomic components.
+Context (files to look at):
+- [src/App.tsx](file:///Users/tianyima/Downloads/Projects/typeread/src/App.tsx)
+- [src/main.tsx](file:///Users/tianyima/Downloads/Projects/typeread/src/main.tsx)
+- [src/index.css](file:///Users/tianyima/Downloads/Projects/typeread/src/index.css)
+- [src/components/ui/button.tsx](file:///Users/tianyima/Downloads/Projects/typeread/src/components/ui/button.tsx)
+- [src/components/ui/card.tsx](file:///Users/tianyima/Downloads/Projects/typeread/src/components/ui/card.tsx)
+- [src/components/ui/InfoTooltip.tsx](file:///Users/tianyima/Downloads/Projects/typeread/src/components/ui/InfoTooltip.tsx)
+- [index.html](file:///Users/tianyima/Downloads/Projects/typeread/index.html)
+Intended function of these files: Bootstraps the React application, applies global styles, and defines shared design primitives.
 
-### 10. Design System & Global Styles
-- **Overview**: Check the atomicity and consistency of the UI components and CSS.
-- **Context (files)**: 
-  - `src/components/ui/` (Shared components)
-  - `src/index.css`
-  - `tailwind.config.ts`
-- **Intended Function**: Defines the look and feel through reusable UI elements and global Tailwind/CSS rules.
+## Section 11: Build & Project Configuration
+Overview: Tooling, dependencies, and deployment settings.
+Context (files to look at):
+- [package.json](file:///Users/tianyima/Downloads/Projects/typeread/package.json)
+- [tauri.conf.json](file:///Users/tianyima/Downloads/Projects/typeread/tauri.conf.json)
+- [vite.config.ts](file:///Users/tianyima/Downloads/Projects/typeread/vite.config.ts)
+- [tsconfig.json](file:///Users/tianyima/Downloads/Projects/typeread/tsconfig.json)
+- [tsconfig.node.json](file:///Users/tianyima/Downloads/Projects/typeread/tsconfig.node.json)
+- [Cargo.toml](file:///Users/tianyima/Downloads/Projects/typeread/Cargo.toml)
+- [build.rs](file:///Users/tianyima/Downloads/Projects/typeread/build.rs)
+- [.gitignore](file:///Users/tianyima/Downloads/Projects/typeread/.gitignore)
+- [postcss.config.js](file:///Users/tianyima/Downloads/Projects/typeread/postcss.config.js)
+- [tailwind.config.ts](file:///Users/tianyima/Downloads/Projects/typeread/tailwind.config.ts)
+- [src-tauri/capabilities/default.json](file:///Users/tianyima/Downloads/Projects/typeread/src-tauri/capabilities/default.json)
+- [scripts/generate_cask.cjs](file:///Users/tianyima/Downloads/Projects/typeread/scripts/generate_cask.cjs)
+- [.github/workflows/release.yml](file:///Users/tianyima/Downloads/Projects/typeread/.github/workflows/release.yml)
+- [src/vite-env.d.ts](file:///Users/tianyima/Downloads/Projects/typeread/src/vite-env.d.ts)
+Intended function of these files: Defines build pipelines, external dependencies, and environment configurations for both frontend and backend.

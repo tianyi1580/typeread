@@ -343,8 +343,19 @@ export function ReaderView({
       if (!botPausedRef.current) {
         const cps = (settings.versusBotCpm || 200) / 60;
         const next = Math.min(botCursorRef.current + cps * delta, normalizedText.length);
+        
+        const prevFloor = Math.floor(botCursorRef.current);
+        const nextFloor = Math.floor(next);
+        
         botCursorRef.current = next;
-        setBotCursorIndex(next);
+        
+        if (nextFloor !== prevFloor) {
+          setBotCursorIndex(next);
+        }
+
+        if (next >= normalizedText.length) {
+          return;
+        }
       }
 
       frameId = window.requestAnimationFrame(animate);
@@ -507,7 +518,7 @@ export function ReaderView({
 
     const words = Array.from(layer.children) as HTMLElement[];
     // Find the first word whose bottom is below the top of the container
-    const topWord = words.find((word) => word.offsetTop + word.offsetHeight > scrollTop);
+    const topWord = words.find((word) => word.hasAttribute("data-word-index") && word.offsetTop + word.offsetHeight > scrollTop);
     
     if (topWord) {
       const indexAttr = topWord.getAttribute("data-word-index");

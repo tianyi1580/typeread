@@ -113,12 +113,35 @@ export default function App() {
     let unlistenFinished: (() => void) | undefined;
 
     void (async () => {
-      unlistenStarted = await getCurrentWebview().listen<string>("import-started", (event) => {
-        setPendingImports((prev) => [...prev, event.payload]);
-      });
-      unlistenFinished = await getCurrentWebview().listen<string>("import-finished", (event) => {
-        setPendingImports((prev) => prev.filter((p) => p !== event.payload));
-      });
+      try {
+        const uStarted = await getCurrentWebview().listen<string>("import-started", (event) => {
+          if (cancelled) return;
+          setPendingImports((prev) => [...prev, event.payload]);
+        });
+        if (cancelled) {
+          uStarted();
+        } else {
+          unlistenStarted = uStarted;
+        }
+      } catch (caught) {
+        console.error("Failed to attach import-started listener:", caught);
+      }
+    })();
+
+    void (async () => {
+      try {
+        const uFinished = await getCurrentWebview().listen<string>("import-finished", (event) => {
+          if (cancelled) return;
+          setPendingImports((prev) => prev.filter((p) => p !== event.payload));
+        });
+        if (cancelled) {
+          uFinished();
+        } else {
+          unlistenFinished = uFinished;
+        }
+      } catch (caught) {
+        console.error("Failed to attach import-finished listener:", caught);
+      }
     })();
 
     void getCurrentWebview()
@@ -141,10 +164,16 @@ export default function App() {
         setDraggingFiles(false);
       })
       .then((listener) => {
-        unlisten = listener;
+        if (cancelled) {
+          listener();
+        } else {
+          unlisten = listener;
+        }
       })
       .catch(() => {
-        setDraggingFiles(false);
+        if (!cancelled) {
+          setDraggingFiles(false);
+        }
       });
 
     return () => {

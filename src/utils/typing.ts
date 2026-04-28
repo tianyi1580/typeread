@@ -12,7 +12,7 @@ interface TypingInput {
   ctrlKey?: boolean;
 }
 
-export const DEFAULT_IGNORED_CHARACTERS = `"\"", "'", "“", "”", "‘", "’"`;
+export const DEFAULT_IGNORED_CHARACTERS = '"\'“”‘’';
 
 export function normalizeTypingChar(input: string) {
   return input
@@ -325,6 +325,10 @@ export function applyTypingInput(
     const expected = currentExpectedCharacter(current, token);
     const cursorIndex = token.start + current.typed.length;
     const inputChar = isEnter ? "\n" : normalizeTypingChar(input.key);
+
+    if (charIsIgnored(inputChar, options.ignoredCharacterSet)) {
+      return { snapshot };
+    }
     const isCorrect =
       normalizeForCompare(inputChar, options.ignoredCharacterSet) ===
       normalizeForCompare(expected ?? "", options.ignoredCharacterSet);
@@ -438,7 +442,7 @@ function summarizeSessionEvents(events: KeystrokeEvent[]) {
   const firstAttempts = new Map<string, boolean>();
 
   for (const event of events) {
-    if ((event.type === "char" || event.type === "space") && event.cursorIndex !== undefined) {
+    if ((event.type === "char" || event.type === "space" || event.type === "enter") && event.cursorIndex !== undefined) {
       const key = `${event.chapterIndex ?? 0}:${event.cursorIndex}`;
       if (!firstAttempts.has(key)) {
         firstAttempts.set(key, !!event.isCorrect);

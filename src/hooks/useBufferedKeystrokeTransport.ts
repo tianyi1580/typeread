@@ -31,19 +31,10 @@ export function useBufferedKeystrokeTransport({
 
   useEffect(() => {
     desktopReadyRef.current = desktopReady;
-  }, [desktopReady]);
-
-  useEffect(() => {
     contextRef.current = context;
-  }, [context]);
-
-  useEffect(() => {
     processBatchRef.current = processBatch;
-  }, [processBatch]);
-
-  useEffect(() => {
     onErrorRef.current = onError;
-  }, [onError]);
+  }, [desktopReady, context, processBatch, onError]);
 
   const ensureSessionKey = useCallback(() => {
     if (!sessionKeyRef.current) {

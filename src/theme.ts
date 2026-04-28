@@ -1,4 +1,5 @@
 import type { AppFont, AppSettings, ThemeName } from "./types";
+import { defaultSettings } from "./store/app-store";
 
 export interface ThemeDefinition {
   name: string;
@@ -164,8 +165,15 @@ export function applyTheme(settings: AppSettings) {
   root.style.setProperty("--text-muted", theme.textMuted);
   root.style.setProperty("--accent", theme.accent);
   root.style.setProperty("--accent-soft", theme.accentSoft);
-  root.style.setProperty("--success", settings.successColor || theme.success);
-  root.style.setProperty("--danger", settings.errorColor || theme.danger);
+  const successColor = settings.successColor && settings.successColor !== defaultSettings.successColor
+    ? settings.successColor
+    : theme.success;
+  const errorColor = settings.errorColor && settings.errorColor !== defaultSettings.errorColor
+    ? settings.errorColor
+    : theme.danger;
+
+  root.style.setProperty("--success", successColor);
+  root.style.setProperty("--danger", errorColor);
   root.style.setProperty("--shadow", theme.shadow);
   root.style.setProperty("--font-size-base", `${settings.baseFontSize}px`);
   root.style.setProperty("--line-height-base", settings.lineHeight.toString());

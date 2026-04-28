@@ -467,27 +467,39 @@ fn rdp(points: &[WpmSample], epsilon: f64) -> Vec<WpmSample> {
     if points.len() < 3 {
         return points.to_vec();
     }
-
-    let (index, distance) = points[1..points.len() - 1]
+    let mut kept = vec![false; points.len()];
+    kept[0] = true;
+    kept[points.len() - 1] = true;
+    rdp_helper(points, 0, points.len() - 1, epsilon, &mut kept);
+    
+    points
         .iter()
         .enumerate()
-        .map(|(index, point)| {
-            (
-                index + 1,
-                perpendicular_distance(point, &points[0], &points[points.len() - 1]),
-            )
-        })
-        .max_by(|left, right| left.1.partial_cmp(&right.1).unwrap_or(Ordering::Equal))
-        .unwrap_or((0, 0.0));
+        .filter(|(i, _)| kept[*i])
+        .map(|(_, p)| p.clone())
+        .collect()
+}
 
-    if distance <= epsilon {
-        return vec![points[0].clone(), points[points.len() - 1].clone()];
+fn rdp_helper(points: &[WpmSample], start: usize, end: usize, epsilon: f64, kept: &mut [bool]) {
+    if end - start < 2 {
+        return;
     }
-
-    let mut left = rdp(&points[..=index], epsilon);
-    let right = rdp(&points[index..], epsilon);
-    left.pop();
-    left.into_iter().chain(right).collect()
+    let mut max_distance = 0.0;
+    let mut max_index = start;
+    
+    for i in (start + 1)..end {
+        let distance = perpendicular_distance(&points[i], &points[start], &points[end]);
+        if distance > max_distance {
+            max_distance = distance;
+            max_index = i;
+        }
+    }
+    
+    if max_distance > epsilon {
+        kept[max_index] = true;
+        rdp_helper(points, start, max_index, epsilon, kept);
+        rdp_helper(points, max_index, end, epsilon, kept);
+    }
 }
 
 fn perpendicular_distance(point: &WpmSample, line_start: &WpmSample, line_end: &WpmSample) -> f64 {

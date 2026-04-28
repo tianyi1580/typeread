@@ -39,7 +39,7 @@ export function SettingsView({
 }: SettingsViewProps) {
   const [section, setSection] = useState<SettingsSection>("appearance");
   const themeEntries = useMemo(() => Object.entries(themeMap) as Array<[ThemeName, (typeof themeMap)[ThemeName]]>, []);
-  const unlocks = profile?.unlocks ?? {
+  const defaultUnlocks = {
     draculaTheme: false,
     nordTheme: false,
     smoothCaret: false,
@@ -47,6 +47,7 @@ export function SettingsView({
     customErrorColors: false,
     customSuccessColors: false,
   };
+  const unlocks = { ...defaultUnlocks, ...profile?.unlocks };
 
   useEffect(() => {
     if (!isOpen) {
@@ -291,7 +292,7 @@ export function SettingsView({
                     Enter one row per line. The analytics view uses this to compute directional drift arrows.
                   </p>
                   <textarea
-                    value={settings.customKeyboardLayout}
+                    value={settings.customKeyboardLayout || ""}
                     onChange={(event) => onChange({ ...settings, customKeyboardLayout: event.target.value })}
                     rows={4}
                     placeholder={"1234567890-=\nqwertyuiop[]\\\nasdfghjkl;'\nzxcvbnm,./"}
@@ -306,7 +307,7 @@ export function SettingsView({
                   Enter characters to auto-skip while typing. Use the format <code>"a", "b", "c"</code>. They remain visible in the text but do not count as correct or incorrect input.
                 </p>
                 <textarea
-                  value={settings.ignoredCharacters}
+                  value={settings.ignoredCharacters || ""}
                   onChange={(event) => onChange({ ...settings, ignoredCharacters: event.target.value })}
                   rows={3}
                   placeholder={`"${'"'}", "'", "“", "”"`}

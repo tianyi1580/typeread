@@ -399,19 +399,20 @@ fn split_text_on_sentence_boundaries(source: &str, target: usize) -> Vec<String>
 
     static SENTENCE_REGEX: OnceLock<Regex> = OnceLock::new();
     let sentence_regex = SENTENCE_REGEX.get_or_init(|| {
-        Regex::new(r#"(?s).*?[.!?](?:["')\]]+)?(?:\s+|$)"#).expect("valid sentence regex")
+        Regex::new(r#"[.!?](?:["')\]]+)?(?:\s+|$)"#).expect("valid sentence regex")
     });
 
     let mut sentences = Vec::new();
-    let mut matched_len = 0;
-    for sentence in sentence_regex.find_iter(&normalized) {
-        let trimmed = sentence.as_str().trim();
+    let mut last_end = 0;
+    for mat in sentence_regex.find_iter(&normalized) {
+        let sentence = &normalized[last_end..mat.end()];
+        let trimmed = sentence.trim();
         if !trimmed.is_empty() {
             sentences.push(trimmed.to_string());
         }
-        matched_len = sentence.end();
+        last_end = mat.end();
     }
-    let tail = normalized[matched_len..].trim();
+    let tail = normalized[last_end..].trim();
     if !tail.is_empty() {
         sentences.push(tail.to_string());
     }

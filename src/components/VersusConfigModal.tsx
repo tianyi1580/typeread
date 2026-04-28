@@ -43,12 +43,15 @@ export function VersusConfigModal({
       if (event.key === "Escape") {
         event.preventDefault();
         onClose();
+      } else if (event.key === "Enter") {
+        event.preventDefault();
+        onStart(clampBotCpm(cpm));
       }
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isOpen, onClose]);
+  }, [isOpen, onClose, onStart, cpm]);
 
   if (!isOpen) return null;
 

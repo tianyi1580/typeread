@@ -6,9 +6,10 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 export function formatDuration(totalSeconds: number) {
-  const hours = Math.floor(totalSeconds / 3600);
-  const minutes = Math.floor((totalSeconds % 3600) / 60);
-  const seconds = totalSeconds % 60;
+  const roundedSeconds = Math.max(0, Math.floor(totalSeconds));
+  const hours = Math.floor(roundedSeconds / 3600);
+  const minutes = Math.floor((roundedSeconds % 3600) / 60);
+  const seconds = roundedSeconds % 60;
   if (hours > 0) {
     return `${hours}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
   }
@@ -16,6 +17,9 @@ export function formatDuration(totalSeconds: number) {
 }
 
 export function formatPercent(value: number) {
+  if (isNaN(value)) {
+    return "0.0%";
+  }
   return `${value.toFixed(1)}%`;
 }
 

@@ -69,9 +69,11 @@ export function AnalyticsView({
 
   const filteredSessionPoints = useMemo(() => {
     if (!analytics) return [];
-    return analytics.sessionPoints.filter(
-      (s) => (s.source as string) !== "reader" && (s.source as string) !== "read" && s.wordsTyped >= 5
-    );
+    return analytics.sessionPoints
+      .filter(
+        (s) => (s.source as string) !== "reader" && (s.source as string) !== "read" && s.wordsTyped >= 5
+      )
+      .sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime());
   }, [analytics]);
 
   // Prepare graph points based on active toggles
@@ -872,12 +874,12 @@ function TransitionTable({
 
 function buildKeyPositions(layout: KeyboardLayoutDefinition) {
   const positions = new Map<string, { x: number; y: number }>();
-  const offsets = [18, 36, 50, 64];
+  const offsets = [0, 8, 14, 24];
   layout.rows.forEach((row, rowIndex) => {
     [...row].forEach((key, keyIndex) => {
       positions.set(key, {
-        x: 20 + (offsets[rowIndex] ?? 0) + keyIndex * 16,
-        y: 30 + rowIndex * 32,
+        x: 25 + (offsets[rowIndex] ?? 0) + keyIndex * 13,
+        y: 35 + rowIndex * 30,
       });
     });
   });

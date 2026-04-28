@@ -55,8 +55,13 @@ async fn import_book_paths(
 }
 
 #[tauri::command]
-fn list_books(state: tauri::State<'_, AppState>) -> Result<Vec<models::BookRecord>, String> {
-    state.db.list_books().map_err(to_message)
+async fn list_books(state: tauri::State<'_, AppState>) -> Result<Vec<models::BookRecord>, String> {
+    let state_inner = state.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        state_inner.db.list_books().map_err(to_message)
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 #[tauri::command]
@@ -64,11 +69,16 @@ async fn load_book(
     book_id: i64,
     state: tauri::State<'_, AppState>,
 ) -> Result<models::ParsedBook, String> {
-    let record = state
-        .db
-        .get_book(book_id)
-        .map_err(to_message)?
-        .ok_or_else(|| "Book not found.".to_string())?;
+    let state_inner = state.inner().clone();
+    let record = tauri::async_runtime::spawn_blocking(move || {
+        state_inner
+            .db
+            .get_book(book_id)
+            .map_err(to_message)
+    })
+    .await
+    .map_err(|e| e.to_string())??
+    .ok_or_else(|| "Book not found.".to_string())?;
 
     let path = PathBuf::from(&record.path);
 
@@ -106,33 +116,43 @@ async fn load_book(
 }
 
 #[tauri::command]
-fn update_progress(
+async fn update_progress(
     book_id: i64,
     current_index: i64,
     current_chapter: i64,
     state: tauri::State<'_, AppState>,
 ) -> Result<(), String> {
-    state
-        .db
-        .update_progress(book_id, current_index, current_chapter)
-        .map_err(to_message)
+    let state_inner = state.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        state_inner
+            .db
+            .update_progress(book_id, current_index, current_chapter)
+            .map_err(to_message)
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 #[tauri::command]
-fn update_read_progress(
+async fn update_read_progress(
     book_id: i64,
     read_index: i64,
     read_chapter: i64,
     state: tauri::State<'_, AppState>,
 ) -> Result<(), String> {
-    state
-        .db
-        .update_read_progress(book_id, read_index, read_chapter)
-        .map_err(to_message)
+    let state_inner = state.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        state_inner
+            .db
+            .update_read_progress(book_id, read_index, read_chapter)
+            .map_err(to_message)
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 #[tauri::command]
-fn rename_book(
+async fn rename_book(
     book_id: i64,
     title: String,
     state: tauri::State<'_, AppState>,
@@ -140,107 +160,143 @@ fn rename_book(
     if title.trim().is_empty() {
         return Err("Book title cannot be empty.".to_string());
     }
-    state.db.rename_book(book_id, &title).map_err(to_message)
-}
-
-#[tauri::command]
-fn set_book_pinned(
-    book_id: i64,
-    pinned: bool,
-    state: tauri::State<'_, AppState>,
-) -> Result<(), String> {
-    state
-        .db
-        .set_book_pinned(book_id, pinned)
-        .map_err(to_message)
-}
-
-#[tauri::command]
-async fn delete_book(book_id: i64, state: tauri::State<'_, AppState>) -> Result<(), String> {
     let state_inner = state.inner().clone();
     tauri::async_runtime::spawn_blocking(move || {
-        state_inner.db.delete_book(book_id).map_err(to_message)?;
-        tauri::async_runtime::block_on(ensure_default_book(
-            &state_inner,
-            &state_inner.app_data_dir,
-        ))
-        .map_err(|e| e.to_string())?;
-        Ok::<(), String>(())
+        state_inner.db.rename_book(book_id, &title).map_err(to_message)
     })
     .await
     .map_err(|e| e.to_string())?
 }
 
 #[tauri::command]
-fn save_session(
+async fn set_book_pinned(
+    book_id: i64,
+    pinned: bool,
+    state: tauri::State<'_, AppState>,
+) -> Result<(), String> {
+    let state_inner = state.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        state_inner
+            .db
+            .set_book_pinned(book_id, pinned)
+            .map_err(to_message)
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+async fn delete_book(book_id: i64, state: tauri::State<'_, AppState>) -> Result<(), String> {
+    let state_inner = state.inner().clone();
+    let db_clone = state_inner.db.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        db_clone.delete_book(book_id).map_err(to_message)
+    })
+    .await
+    .map_err(|e| e.to_string())??;
+
+    ensure_default_book(&state_inner, &state_inner.app_data_dir)
+        .await
+        .map_err(|e| e.to_string())?;
+
+    Ok(())
+}
+
+#[tauri::command]
+async fn save_session(
     session: TypingSessionInput,
     state: tauri::State<'_, AppState>,
 ) -> Result<(), String> {
-    let fallback_context = SessionContext {
-        book_id: session.book_id,
-        source: session.source.clone(),
-        source_label: session.source_label.clone(),
-        keyboard_layout: KeyboardLayoutDefinition {
-            id: "qwerty-us".to_string(),
-            name: "QWERTY (US)".to_string(),
-            rows: vec![
-                "1234567890-=".to_string(),
-                "qwertyuiop[]\\".to_string(),
-                "asdfghjkl;'".to_string(),
-                "zxcvbnm,./".to_string(),
-            ],
-        },
-    };
-    let fallback_finalized = FinalizedAnalytics {
-        deep_analytics: DeepAnalytics {
-            macro_wpm: Vec::new(),
-            macro_accuracy: Vec::new(),
-            recent_wpm: Vec::new(),
-            confusion_pairs: Vec::new(),
-            transitions: TransitionGroups::default(),
-            rhythm_score: 0.0,
-            cadence_cv: 0.0,
-            focus_score: 100.0,
-            active_typing_seconds: session.duration_seconds,
-        },
-        transition_stats: Vec::new(),
-        endurance_segments: 0,
-    };
-    state
-        .db
-        .finalize_session(&session, &fallback_context, &fallback_finalized)
-        .map(|_| ())
-        .map_err(to_message)
+    let state_inner = state.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let fallback_context = SessionContext {
+            book_id: session.book_id,
+            source: session.source.clone(),
+            source_label: session.source_label.clone(),
+            keyboard_layout: KeyboardLayoutDefinition {
+                id: "qwerty-us".to_string(),
+                name: "QWERTY (US)".to_string(),
+                rows: vec![
+                    "1234567890-=".to_string(),
+                    "qwertyuiop[]\\".to_string(),
+                    "asdfghjkl;'".to_string(),
+                    "zxcvbnm,./".to_string(),
+                ],
+            },
+        };
+        let fallback_finalized = FinalizedAnalytics {
+            deep_analytics: DeepAnalytics {
+                macro_wpm: Vec::new(),
+                macro_accuracy: Vec::new(),
+                recent_wpm: Vec::new(),
+                confusion_pairs: Vec::new(),
+                transitions: TransitionGroups::default(),
+                rhythm_score: 0.0,
+                cadence_cv: 0.0,
+                focus_score: 100.0,
+                active_typing_seconds: session.duration_seconds,
+            },
+            transition_stats: Vec::new(),
+            endurance_segments: 0,
+        };
+        state_inner
+            .db
+            .finalize_session(&session, &fallback_context, &fallback_finalized)
+            .map(|_| ())
+            .map_err(to_message)
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 #[tauri::command]
-fn get_analytics(state: tauri::State<'_, AppState>) -> Result<AnalyticsSummary, String> {
-    state.db.analytics().map_err(to_message)
+async fn get_analytics(state: tauri::State<'_, AppState>) -> Result<AnalyticsSummary, String> {
+    let state_inner = state.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        state_inner.db.analytics().map_err(to_message)
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 #[tauri::command]
-fn process_keystroke_batch(
+async fn process_keystroke_batch(
     payload: ProcessKeystrokeBatchInput,
     state: tauri::State<'_, AppState>,
 ) -> Result<ProcessKeystrokeBatchResult, String> {
-    process_keystroke_batch_inner(&state.live_sessions, &state.db, payload)
+    let state_inner = state.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        process_keystroke_batch_inner(&state_inner.live_sessions, &state_inner.db, payload)
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 #[tauri::command]
-fn get_settings(state: tauri::State<'_, AppState>) -> Result<AppSettings, String> {
-    state.db.get_settings().map_err(to_message)
+async fn get_settings(state: tauri::State<'_, AppState>) -> Result<AppSettings, String> {
+    let state_inner = state.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        state_inner.db.get_settings().map_err(to_message)
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 #[tauri::command]
-fn save_settings(
+async fn save_settings(
     settings: AppSettings,
     state: tauri::State<'_, AppState>,
 ) -> Result<AppSettings, String> {
-    state.db.save_settings(&settings).map_err(to_message)
+    let state_inner = state.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        state_inner.db.save_settings(&settings).map_err(to_message)
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 #[tauri::command]
-fn export_database(state: tauri::State<'_, AppState>) -> Result<(), String> {
+async fn export_database(state: tauri::State<'_, AppState>) -> Result<(), String> {
     let Some(path) = rfd::FileDialog::new()
         .add_filter("SQLite", &["sqlite", "db"])
         .set_file_name("typeread-backup.sqlite")
@@ -249,11 +305,16 @@ fn export_database(state: tauri::State<'_, AppState>) -> Result<(), String> {
         return Ok(());
     };
 
-    state.db.export_to(&path).map_err(to_message)
+    let state_inner = state.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        state_inner.db.export_to(&path).map_err(to_message)
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 #[tauri::command]
-fn import_database(state: tauri::State<'_, AppState>) -> Result<(), String> {
+async fn import_database(state: tauri::State<'_, AppState>) -> Result<(), String> {
     let Some(path) = rfd::FileDialog::new()
         .add_filter("SQLite", &["sqlite", "db"])
         .pick_file()
@@ -261,33 +322,49 @@ fn import_database(state: tauri::State<'_, AppState>) -> Result<(), String> {
         return Ok(());
     };
 
-    state.db.import_from(&path).map_err(to_message)
-}
-
-#[tauri::command]
-fn clear_session_history(state: tauri::State<'_, AppState>) -> Result<(), String> {
-    state.db.clear_session_history().map_err(to_message)
-}
-
-#[tauri::command]
-async fn delete_library(state: tauri::State<'_, AppState>) -> Result<(), String> {
     let state_inner = state.inner().clone();
     tauri::async_runtime::spawn_blocking(move || {
-        state_inner.db.delete_library().map_err(to_message)?;
-        tauri::async_runtime::block_on(ensure_default_book(
-            &state_inner,
-            &state_inner.app_data_dir,
-        ))
-        .map_err(|e| e.to_string())?;
-        Ok::<(), String>(())
+        state_inner.db.import_from(&path).map_err(to_message)
     })
     .await
     .map_err(|e| e.to_string())?
 }
 
 #[tauri::command]
-fn gain_one_level(state: tauri::State<'_, AppState>) -> Result<(), String> {
-    state.db.gain_one_level().map_err(to_message)
+async fn clear_session_history(state: tauri::State<'_, AppState>) -> Result<(), String> {
+    let state_inner = state.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        state_inner.db.clear_session_history().map_err(to_message)
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+async fn delete_library(state: tauri::State<'_, AppState>) -> Result<(), String> {
+    let state_inner = state.inner().clone();
+    let db_clone = state_inner.db.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        db_clone.delete_library().map_err(to_message)
+    })
+    .await
+    .map_err(|e| e.to_string())??;
+
+    ensure_default_book(&state_inner, &state_inner.app_data_dir)
+        .await
+        .map_err(|e| e.to_string())?;
+
+    Ok(())
+}
+
+#[tauri::command]
+async fn gain_one_level(state: tauri::State<'_, AppState>) -> Result<(), String> {
+    let state_inner = state.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        state_inner.db.gain_one_level().map_err(to_message)
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 fn prepare_state(app: &tauri::AppHandle) -> Result<AppState> {
@@ -343,7 +420,14 @@ async fn import_book_files(
     paths: Vec<PathBuf>,
     state: AppState,
 ) -> Result<Vec<models::BookRecord>, String> {
-    let existing = state.db.list_books().map_err(to_message)?;
+    let state_inner = state.clone();
+    let existing = tauri::async_runtime::spawn_blocking(move || {
+        state_inner.db.list_books()
+    })
+    .await
+    .map_err(|e| e.to_string())?
+    .map_err(to_message)?;
+
     if existing.len() >= 10 {
         return Err(
             "The library is capped at 10 active books. Remove something before importing more."
@@ -527,41 +611,50 @@ async fn update_book_cover(
     use base64::{engine::general_purpose, Engine as _};
     use std::io::Write;
 
-    if image_data_base64.is_empty() {
-        state.db.update_book_cover(book_id, None).map_err(to_message)?;
-        return Ok(());
-    }
+    let state_inner = state.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        if image_data_base64.is_empty() {
+            state_inner.db.update_book_cover(book_id, None).map_err(to_message)?;
+            return Ok(());
+        }
 
-    let data = general_purpose::STANDARD
-        .decode(image_data_base64)
-        .map_err(|e| format!("Failed to decode base64: {}", e))?;
+        let data = general_purpose::STANDARD
+            .decode(image_data_base64)
+            .map_err(|e| format!("Failed to decode base64: {}", e))?;
 
-    let file_name = format!("cover_{}_{}.png", book_id, chrono::Utc::now().timestamp());
-    let cover_path = state.covers_dir.join(&file_name);
+        let file_name = format!("cover_{}_{}.png", book_id, chrono::Utc::now().timestamp());
+        let cover_path = state_inner.covers_dir.join(&file_name);
 
-    let mut file = std::fs::File::create(&cover_path)
-        .map_err(|e| format!("Failed to create cover file: {}", e))?;
-    file.write_all(&data)
-        .map_err(|e| format!("Failed to write cover data: {}", e))?;
+        let mut file = std::fs::File::create(&cover_path)
+            .map_err(|e| format!("Failed to create cover file: {}", e))?;
+        file.write_all(&data)
+            .map_err(|e| format!("Failed to write cover data: {}", e))?;
 
-    state
-        .db
-        .update_book_cover(book_id, Some(&cover_path.to_string_lossy()))
-        .map_err(to_message)?;
+        state_inner
+            .db
+            .update_book_cover(book_id, Some(&cover_path.to_string_lossy()))
+            .map_err(to_message)?;
 
-    Ok(())
+        Ok::<(), String>(())
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 #[tauri::command]
-fn get_book_cover(path: String) -> Result<String, String> {
-    use std::io::Read;
+async fn get_book_cover(path: String) -> Result<String, String> {
     use base64::{engine::general_purpose, Engine as _};
 
-    let mut file = std::fs::File::open(path).map_err(|e| e.to_string())?;
-    let mut buffer = Vec::new();
-    file.read_to_end(&mut buffer).map_err(|e| e.to_string())?;
+    tauri::async_runtime::spawn_blocking(move || {
+        use std::io::Read;
+        let mut file = std::fs::File::open(path).map_err(|e| e.to_string())?;
+        let mut buffer = Vec::new();
+        file.read_to_end(&mut buffer).map_err(|e| e.to_string())?;
 
-    Ok(format!("data:image/png;base64,{}", general_purpose::STANDARD.encode(buffer)))
+        Ok::<String, String>(format!("data:image/png;base64,{}", general_purpose::STANDARD.encode(buffer)))
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 #[cfg(test)]

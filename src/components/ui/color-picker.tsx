@@ -35,62 +35,65 @@ export function ColorPicker({
 }: ColorPickerProps) {
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
-  const isInteracting = useRef(false);
   
-  // Use local state for HSV to avoid jitter and wrap-around jumps during dragging
-  const [localHsv, setLocalHsv] = useState(() => hexToHsv(value));
-  const [localHex, setLocalHex] = useState(value);
+  // Use local state for HSV and Hex to avoid jitter and wrap-around jumps during dragging
+  const [localState, setLocalState] = useState(() => {
+    const hsv = hexToHsv(value);
+    return { hsv, hex: value };
+  });
 
-  // Sync with external value when not interacting
+  const lastSentValueRef = useRef<string | null>(null);
+
+  // Sync with external value when it changes externally
   useEffect(() => {
-    if (isInteracting.current) return;
+    if (value.toUpperCase() === lastSentValueRef.current) {
+      return;
+    }
 
     const incomingHsv = hexToHsv(value);
-    const currentHex = hsvToHex(localHsv.h, localHsv.s, localHsv.v);
-
-    if (value.toUpperCase() !== currentHex) {
+    setLocalState(prev => {
       // Preserve local hue for grayscale/black to prevent jumping
-      // Use a small epsilon to handle precision loss
       if (incomingHsv.s < 0.1 || incomingHsv.v < 0.1) {
-        incomingHsv.h = localHsv.h;
+        incomingHsv.h = prev.hsv.h;
       }
-      
-      setLocalHsv(incomingHsv);
-      setLocalHex(value);
-    }
-  }, [value, localHsv.h]);
+      return { hsv: incomingHsv, hex: value };
+    });
+    lastSentValueRef.current = value.toUpperCase();
+  }, [value]);
 
   const updateHsv = useCallback((newHsv: Partial<{ h: number; s: number; v: number }>) => {
-    isInteracting.current = true;
-    
-    setLocalHsv(prev => {
-      const updated = { ...prev, ...newHsv };
-      updated.h = Math.max(1, Math.min(360, updated.h));
-      updated.s = Math.max(0, Math.min(100, updated.s));
-      updated.v = Math.max(0, Math.min(100, updated.v));
+    setLocalState(prev => {
+      const updatedHsv = { ...prev.hsv, ...newHsv };
+      updatedHsv.h = Math.max(1, Math.min(360, updatedHsv.h));
+      updatedHsv.s = Math.max(0, Math.min(100, updatedHsv.s));
+      updatedHsv.v = Math.max(0, Math.min(100, updatedHsv.v));
       
-      const newHex = hsvToHex(updated.h, updated.s, updated.v);
-      setLocalHex(newHex);
+      const newHex = hsvToHex(updatedHsv.h, updatedHsv.s, updatedHsv.v);
       
-      // Notify parent of the change
-      onChange(newHex);
+      // Schedule side effects after state update to avoid React warnings
+      setTimeout(() => {
+        lastSentValueRef.current = newHex.toUpperCase();
+        onChange(newHex);
+      }, 0);
       
-      return updated;
+      return { hsv: updatedHsv, hex: newHex };
     });
-
-    // Reset the interaction flag after a short delay to allow parent state to propagate back
-    setTimeout(() => {
-      isInteracting.current = false;
-    }, 100);
   }, [onChange]);
 
   const handleHexChange = (newHex: string) => {
-    setLocalHex(newHex);
-    if (/^#[0-9A-F]{6}$/i.test(newHex) || /^#[0-9A-F]{3}$/i.test(newHex)) {
-      const hsv = hexToHsv(newHex);
-      setLocalHsv(hsv);
-      onChange(newHex.toUpperCase());
-    }
+    setLocalState(prev => {
+      if (/^#[0-9A-F]{6}$/i.test(newHex) || /^#[0-9A-F]{3}$/i.test(newHex)) {
+        const hsv = hexToHsv(newHex);
+        
+        setTimeout(() => {
+          lastSentValueRef.current = newHex.toUpperCase();
+          onChange(newHex.toUpperCase());
+        }, 0);
+        
+        return { hsv, hex: newHex };
+      }
+      return { ...prev, hex: newHex };
+    });
   };
 
   const handleEyeDropper = async () => {
@@ -100,7 +103,12 @@ export function ColorPicker({
       // @ts-ignore
       const eyeDropper = new window.EyeDropper();
       const result = await eyeDropper.open();
-      onChange(result.sRGBHex.toUpperCase());
+      const hex = result.sRGBHex.toUpperCase();
+      const hsv = hexToHsv(hex);
+      
+      setLocalState({ hsv, hex });
+      lastSentValueRef.current = hex;
+      onChange(hex);
     } catch (e) {
       console.error("EyeDropper failed:", e);
     }
@@ -155,7 +163,7 @@ export function ColorPicker({
         <div className="relative flex-1">
           <input
             type="text"
-            value={localHex}
+            value={localState.hex}
             disabled={disabled}
             onKeyDown={stopProp}
             onChange={(e) => handleHexChange(e.target.value)}
@@ -186,18 +194,18 @@ export function ColorPicker({
           >
             <div className="space-y-5">
               <SaturationValuePicker
-                h={localHsv.h}
-                s={localHsv.s}
-                v={localHsv.v}
+                h={localState.hsv.h}
+                s={localState.hsv.s}
+                v={localState.hsv.v}
                 onChange={(s, v) => updateHsv({ s, v })}
               />
               
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <span className="text-[10px] uppercase tracking-widest text-[var(--text-muted)]">Hue</span>
-                  <span className="text-[10px] font-mono text-[var(--text-muted)]">{Math.round(localHsv.h)}°</span>
+                  <span className="text-[10px] font-mono text-[var(--text-muted)]">{Math.round(localState.hsv.h)}°</span>
                 </div>
-                <HueSlider h={localHsv.h} onChange={(h) => updateHsv({ h })} />
+                <HueSlider h={localState.hsv.h} onChange={(h) => updateHsv({ h })} />
               </div>
 
               <div className="space-y-3">
@@ -207,7 +215,12 @@ export function ColorPicker({
                     <button
                       key={color}
                       type="button"
-                      onClick={() => onChange(color)}
+                      onClick={() => {
+                        const hsv = hexToHsv(color);
+                        setLocalState({ hsv, hex: color });
+                        lastSentValueRef.current = color.toUpperCase();
+                        onChange(color);
+                      }}
                       className={cn(
                         "h-8 w-full rounded-lg border border-white/10 transition hover:scale-110 active:scale-90",
                         value === color && "ring-2 ring-[var(--accent)] ring-offset-2 ring-offset-[var(--panel)]"
@@ -223,7 +236,7 @@ export function ColorPicker({
                   <span className="text-[10px] uppercase tracking-widest text-[var(--text-muted)]">Hex</span>
                   <input
                     type="text"
-                    value={localHex}
+                    value={localState.hex}
                     onKeyDown={stopProp}
                     onChange={(e) => handleHexChange(e.target.value)}
                     className="w-full rounded-xl border border-[var(--border)] bg-[var(--panel-soft)] px-3 py-2 font-mono text-xs uppercase outline-none focus:border-[var(--accent)]"

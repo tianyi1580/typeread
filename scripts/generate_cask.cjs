@@ -9,25 +9,35 @@ const path = require('path');
  */
 
 const PACKAGE_JSON_PATH = path.join(__dirname, '../package.json');
-const DMG_DIR = path.join(__dirname, '../src-tauri/target/release/bundle/dmg');
+const TARGET_DIR = path.join(__dirname, '../src-tauri/target');
 
 function getVersion() {
     const pkg = JSON.parse(fs.readFileSync(PACKAGE_JSON_PATH, 'utf8'));
     return pkg.version;
 }
 
+function findDmgRecursively(dir, version) {
+    if (!fs.existsSync(dir)) return null;
+    const files = fs.readdirSync(dir, { withFileTypes: true });
+    for (const file of files) {
+        const fullPath = path.join(dir, file.name);
+        if (file.isDirectory()) {
+            const found = findDmgRecursively(fullPath, version);
+            if (found) return found;
+        } else if (file.name.endsWith('.dmg') && file.name.includes(version)) {
+            return fullPath;
+        }
+    }
+    return null;
+}
+
 function getLatestDmg(version) {
-    if (!fs.existsSync(DMG_DIR)) {
-        console.error(`Error: DMG directory not found at ${DMG_DIR}. Did you run 'npm run tauri build'?`);
+    const dmgPath = findDmgRecursively(TARGET_DIR, version);
+    if (!dmgPath) {
+        console.error(`Error: No DMG found for version ${version} in ${TARGET_DIR}`);
         process.exit(1);
     }
-    const files = fs.readdirSync(DMG_DIR);
-    const dmg = files.find(f => f.endsWith('.dmg') && f.includes(version));
-    if (!dmg) {
-        console.error(`Error: No DMG found for version ${version} in ${DMG_DIR}`);
-        process.exit(1);
-    }
-    return path.join(DMG_DIR, dmg);
+    return dmgPath;
 }
 
 function calculateSha256(filePath) {

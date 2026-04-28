@@ -75,7 +75,7 @@ export function SessionSummaryModal({ summary, onClose }: SessionSummaryModalPro
 
       return () => clearInterval(interval);
     }
-  }, [summary]);
+  }, [summary?.sessionId]);
 
   const graphPoints = useMemo(() => {
     if (!summary || !summary.deepAnalytics) return [];
@@ -212,15 +212,21 @@ export function SessionSummaryModal({ summary, onClose }: SessionSummaryModalPro
                     <div className="h-2 w-2 rounded-full bg-[var(--accent)] animate-pulse" />
                   </div>
                   <div className="mt-4 space-y-4">
-                    <MultiplierRow label="Accuracy" value={summary.accuracyMultiplier} />
-                    <MultiplierRow label="Cadence" value={summary.cadenceMultiplier} />
-                    <MultiplierRow label="Endurance" value={summary.enduranceMultiplier} />
-                    {summary.restedBonusXp > 0 && (
-                      <MultiplierRow
-                        label="Rested Bonus"
-                        value={summary.xpGained / Math.max(1, summary.xpGained - summary.restedBonusXp)}
-                        success
-                      />
+                    {summary.accuracyMultiplier !== 1 || summary.cadenceMultiplier !== 1 || summary.enduranceMultiplier !== 1 || summary.restedBonusXp > 0 ? (
+                      <>
+                        <MultiplierRow label="Accuracy" value={summary.accuracyMultiplier} />
+                        <MultiplierRow label="Cadence" value={summary.cadenceMultiplier} />
+                        <MultiplierRow label="Endurance" value={summary.enduranceMultiplier} />
+                        {summary.restedBonusXp > 0 && (
+                          <MultiplierRow
+                            label="Rested Bonus"
+                            value={summary.xpGained / Math.max(1, summary.xpGained - summary.restedBonusXp)}
+                            success
+                          />
+                        )}
+                      </>
+                    ) : (
+                      <p className="text-xs text-[var(--text-muted)] italic">No multipliers active</p>
                     )}
                   </div>
                 </motion.div>
@@ -403,11 +409,11 @@ function SimpleGraph({ points, unit }: { points: WpmSample[]; unit: string }) {
         </>
       )}
 
-      {chartPoints.map((p, i) => (
+      {chartPoints.length <= 60 && chartPoints.map((p, i) => (
         <motion.circle 
           initial={{ scale: 0 }}
           animate={{ scale: 1 }}
-          transition={{ delay: 1 + i * 0.05, type: "spring" as const }}
+          transition={{ delay: 1 + i * 0.02, type: "spring" as const }}
           key={i} 
           cx={p.x} 
           cy={p.y} 

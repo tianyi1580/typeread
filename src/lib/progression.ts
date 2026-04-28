@@ -18,7 +18,7 @@ export function xpThresholdForLevel(level: number) {
 
 export function levelFromXp(totalXp: number) {
   let level = 1;
-  while (xpThresholdForLevel(level + 1) <= totalXp) {
+  while (level < 10000 && xpThresholdForLevel(level + 1) <= totalXp) {
     level += 1;
   }
   return level;

@@ -52,7 +52,7 @@ jobs:
         if: matrix.platform == 'macos-latest'
         run: |
           VERSION=$(node -p "require('./src-tauri/tauri.conf.json').version")
-          DMG_PATH=$(find src-tauri/target/release/bundle/dmg -name "*.dmg" | head -n 1)
+          DMG_PATH=$(find src-tauri/target -name "*$VERSION*.dmg" | head -n 1)
           DMG_NAME=$(basename "$DMG_PATH")
           SHA256=$(shasum -a 256 "$DMG_PATH" | awk '{ print $1 }')
           

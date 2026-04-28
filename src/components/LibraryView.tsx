@@ -906,12 +906,18 @@ function CoverImage({ path }: { path: string }) {
   const [url, setUrl] = useState<string | null>(null);
 
   useEffect(() => {
+    let active = true;
     if (!path) return;
     if (path.startsWith("http") || path.startsWith("data:")) {
       setUrl(path);
     } else {
-      api.getBookCover(path).then(setUrl).catch(console.error);
+      api.getBookCover(path).then((result) => {
+        if (active) setUrl(result);
+      }).catch(console.error);
     }
+    return () => {
+      active = false;
+    };
   }, [path]);
 
   if (!url) return <div className="h-full w-full animate-pulse bg-white/5" />;

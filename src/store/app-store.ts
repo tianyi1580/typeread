@@ -130,23 +130,29 @@ export const useAppStore = create<AppState>((set) => ({
   setBooks: (books) => set({ books }),
   setCurrentBook: (currentBook) => set({ currentBook }),
   setSelectedBookId: (selectedBookId) => set({ selectedBookId }),
-  setSelectedChapterIndex: (selectedChapterIndex) => set({ selectedChapterIndex }),
+  setSelectedChapterIndex: (selectedChapterIndex) => set({ selectedChapterIndex: Math.max(0, selectedChapterIndex) }),
   setReaderMode: (readerMode) =>
-    set((state) => ({
-      readerMode,
-      settings: {
-        ...state.settings,
-        readerMode,
-      },
-    })),
+    set((state) => {
+      const validMode = isOneOf(readerMode, READER_MODES) ? readerMode : defaultSettings.readerMode;
+      return {
+        readerMode: validMode,
+        settings: {
+          ...state.settings,
+          readerMode: validMode,
+        },
+      };
+    }),
   setInteractionMode: (interactionMode) =>
-    set((state) => ({
-      interactionMode,
-      settings: {
-        ...state.settings,
-        interactionMode,
-      },
-    })),
+    set((state) => {
+      const validMode = isOneOf(interactionMode, INTERACTION_MODES) ? interactionMode : defaultSettings.interactionMode;
+      return {
+        interactionMode: validMode,
+        settings: {
+          ...state.settings,
+          interactionMode: validMode,
+        },
+      };
+    }),
   setSettings: (settings) => {
     const normalizedSettings = normalizeAppSettings(settings);
     return set({
@@ -160,7 +166,7 @@ export const useAppStore = create<AppState>((set) => ({
     set((state) => ({
       chapterProgress: {
         ...state.chapterProgress,
-        [`${bookId}-${chapterIndex}`]: index,
+        [`${bookId}-${Math.max(0, chapterIndex)}`]: Math.max(0, index),
       },
     })),
   clearChapterProgress: () => set({ chapterProgress: {} }),

@@ -1,6 +1,6 @@
 [package]
 name = "typeread"
-version = "0.1.0"
+version = "0.1.2"
 description = "A local desktop typing and reading application"
 authors = ["Codex"]
 edition = "2021"
