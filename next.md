@@ -2,7 +2,6 @@ sound effects?
 progression unlocks
 short story first book?
 Monetization model?
-keyboard error heatmap
 
 Ran command: `npm run tauri dev
 `

@@ -23,7 +23,7 @@ const SECTION_DESCRIPTIONS = {
 const METRIC_DESCRIPTIONS: Record<string, string> = {
   "Total XP": "Experience earned through sessions and challenges.",
   "Streak": "Consecutive days with at least one session.",
-  "Rested Buffer": "Bonus XP applied to your next words. Refreshes while you're away.",
+  "Rested Buffer": "The first 100 words you type every day will give you 2x XP.",
   "Sessions": "Total typing sessions completed.",
   "Rhythm Score": "A measure of how steady your typing cadence is.",
   "Focus Score": "Your ability to maintain speed without sudden pauses.",
@@ -129,7 +129,7 @@ export function AnalyticsView({
       {/* 1. Profile Section */}
       <Card className="relative overflow-hidden border-none bg-gradient-to-br from-[rgba(138,173,244,0.15)] to-transparent p-8 shadow-2xl">
         <div className="absolute -right-20 -top-20 h-64 w-64 rounded-full bg-[var(--accent)] opacity-5 blur-[100px]" />
-        
+
         <div className="grid gap-8 lg:grid-cols-[minmax(0,1.2fr)_minmax(320px,0.8fr)]">
           <div>
             <div className="flex items-center gap-3">
@@ -213,9 +213,9 @@ export function AnalyticsView({
                 <div>
                   <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-[var(--text-muted)]">Completed At</p>
                   <p className="mt-2 text-sm font-semibold tabular-nums text-[var(--text)]">
-                    {new Date(latestSession.startTime).toLocaleDateString(undefined, { 
-                      month: 'short', 
-                      day: 'numeric', 
+                    {new Date(latestSession.startTime).toLocaleDateString(undefined, {
+                      month: 'short',
+                      day: 'numeric',
                       year: 'numeric',
                       hour: '2-digit',
                       minute: '2-digit'
@@ -238,9 +238,9 @@ export function AnalyticsView({
               </div>
             </div>
             <div className="mt-12">
-              <SessionGraph 
-                points={sessionPoints} 
-                unit={sessionMetric === "wpm" ? "WPM" : "%"} 
+              <SessionGraph
+                points={sessionPoints}
+                unit={sessionMetric === "wpm" ? "WPM" : "%"}
                 xAxisLabel="Time (Seconds)"
                 xAxisType="time"
               />
@@ -294,8 +294,8 @@ export function AnalyticsView({
               </div>
             </div>
             <div className="mt-12">
-              <SessionGraph 
-                points={lifetimePoints} 
+              <SessionGraph
+                points={lifetimePoints}
                 unit={lifetimeMetric === "wpm" ? "WPM" : lifetimeMetric === "accuracy" ? "%" : "Words"}
                 xAxisLabel="Time (Days)"
                 xAxisType="day"
@@ -324,22 +324,20 @@ export function AnalyticsView({
                   <button
                     type="button"
                     onClick={() => setHeatmapMode("drift")}
-                    className={`rounded-full px-4 py-1.5 text-xs font-semibold transition-all duration-200 ${
-                      heatmapMode === "drift"
+                    className={`rounded-full px-4 py-1.5 text-xs font-semibold transition-all duration-200 ${heatmapMode === "drift"
                         ? "bg-[var(--accent)] text-black shadow-sm"
                         : "text-[var(--text-muted)] hover:text-[var(--text)]"
-                    }`}
+                      }`}
                   >
                     Drift
                   </button>
                   <button
                     type="button"
                     onClick={() => setHeatmapMode("accuracy")}
-                    className={`rounded-full px-4 py-1.5 text-xs font-semibold transition-all duration-200 ${
-                      heatmapMode === "accuracy"
+                    className={`rounded-full px-4 py-1.5 text-xs font-semibold transition-all duration-200 ${heatmapMode === "accuracy"
                         ? "bg-[var(--accent)] text-black shadow-sm"
                         : "text-[var(--text-muted)] hover:text-[var(--text)]"
-                    }`}
+                      }`}
                   >
                     Accuracy
                   </button>
@@ -360,13 +358,13 @@ export function AnalyticsView({
                   onSelectKey={setSelectedKey}
                 />
               </div>
-                <DirectionalPanel
-                  layout={layout}
-                  selectedKey={activeKey}
-                  drifts={selectedDrifts}
-                  mode={heatmapMode}
-                  keyAccuracies={analytics.keyAccuracies}
-                />
+              <DirectionalPanel
+                layout={layout}
+                selectedKey={activeKey}
+                drifts={selectedDrifts}
+                mode={heatmapMode}
+                keyAccuracies={analytics.keyAccuracies}
+              />
             </div>
           </Card>
 
@@ -436,11 +434,10 @@ function TabButton({ active, onClick, label }: { active: boolean; onClick: () =>
   return (
     <button
       onClick={onClick}
-      className={`px-8 py-3 rounded-[20px] text-sm font-bold tracking-tight transition-all duration-300 ${
-        active 
-          ? "bg-[var(--accent)] text-black shadow-lg shadow-[var(--accent)]/20" 
+      className={`px-8 py-3 rounded-[20px] text-sm font-bold tracking-tight transition-all duration-300 ${active
+          ? "bg-[var(--accent)] text-black shadow-lg shadow-[var(--accent)]/20"
           : "text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-white/5"
-      }`}
+        }`}
     >
       {label}
     </button>
@@ -451,11 +448,10 @@ function ToggleButton({ active, onClick, label }: { active: boolean; onClick: ()
   return (
     <button
       onClick={onClick}
-      className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all ${
-        active 
-          ? "bg-[var(--accent)] text-black" 
+      className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all ${active
+          ? "bg-[var(--accent)] text-black"
           : "text-[var(--text-muted)] hover:text-[var(--text)]"
-      }`}
+        }`}
     >
       {label}
     </button>
@@ -465,7 +461,7 @@ function ToggleButton({ active, onClick, label }: { active: boolean; onClick: ()
 
 function HeroMetric({ label, value }: { label: string; value: string }) {
   const description = METRIC_DESCRIPTIONS[label] || "Description not available.";
-  
+
   return (
     <InfoTooltip content={description} trigger="hover" maxWidth="280px" className="w-full">
       <div className="group relative w-full cursor-help overflow-hidden rounded-[24px] border border-[var(--border)] bg-white/5 px-6 py-6 transition-all hover:border-[var(--accent)] hover:bg-white/10">
@@ -479,14 +475,14 @@ function HeroMetric({ label, value }: { label: string; value: string }) {
   );
 }
 
-function SessionGraph({ 
-  points, 
-  unit = "WPM", 
+function SessionGraph({
+  points,
+  unit = "WPM",
   xAxisLabel = "Time (Seconds)",
   xAxisType = "time"
-}: { 
-  points: WpmSample[]; 
-  unit?: string; 
+}: {
+  points: WpmSample[];
+  unit?: string;
   xAxisLabel?: string;
   xAxisType?: "time" | "day";
 }) {
@@ -504,7 +500,7 @@ function SessionGraph({
   const values = points.map((point) => point.value);
   const minValue = 0;
   const maxValue = Math.max(...values, unit === "%" ? 100 : 80);
-  
+
   const chartPoints = points.map((point) => ({
     x: padding.left + ((point.at - minAt) / Math.max(maxAt - minAt, 0.0001)) * (width - padding.left - padding.right),
     y:
@@ -518,11 +514,11 @@ function SessionGraph({
     const svg = e.currentTarget;
     const rect = svg.getBoundingClientRect();
     const x = ((e.clientX - rect.left) / rect.width) * width;
-    
+
     // Find closest point
     let closestIndex = 0;
     let minDistance = Math.abs(chartPoints[0].x - x);
-    
+
     for (let i = 1; i < chartPoints.length; i++) {
       const distance = Math.abs(chartPoints[i].x - x);
       if (distance < minDistance) {
@@ -530,7 +526,7 @@ function SessionGraph({
         closestIndex = i;
       }
     }
-    
+
     setHoveredPointIndex(closestIndex);
   };
 
@@ -538,8 +534,8 @@ function SessionGraph({
 
   return (
     <div className="relative group/graph">
-      <svg 
-        viewBox={`0 0 ${width} ${height}`} 
+      <svg
+        viewBox={`0 0 ${width} ${height}`}
         className="h-[340px] w-full overflow-visible cursor-crosshair"
         onMouseMove={handleMouseMove}
         onMouseLeave={() => setHoveredPointIndex(null)}
@@ -593,7 +589,7 @@ function SessionGraph({
           } else {
             label = `${Math.round((maxAt - minAt) * ratio)}d`;
           }
-          
+
           return (
             <text
               key={`x-${ratio}`}
@@ -656,7 +652,7 @@ function SessionGraph({
               strokeDasharray="4 4"
               opacity="0.5"
             />
-            
+
             {/* Active Data Point */}
             <circle
               cx={hoveredPoint.x}
@@ -769,9 +765,8 @@ function KeyboardHeatmap({
                 key={`${rowIndex}-${key}`}
                 type="button"
                 onClick={() => onSelectKey(key)}
-                className={`flex h-14 w-14 items-center justify-center rounded-[18px] border text-base font-bold transition-all duration-200 hover:scale-110 active:scale-95 ${
-                  isActive ? "z-10 border-[var(--accent)] text-[var(--text)] shadow-[0_0_20px_rgba(138,173,244,0.5)] scale-110" : "border-[var(--border)] text-[var(--text-muted)]"
-                }`}
+                className={`flex h-14 w-14 items-center justify-center rounded-[18px] border text-base font-bold transition-all duration-200 hover:scale-110 active:scale-95 ${isActive ? "z-10 border-[var(--accent)] text-[var(--text)] shadow-[0_0_20px_rgba(138,173,244,0.5)] scale-110" : "border-[var(--border)] text-[var(--text-muted)]"
+                  }`}
                 style={{
                   background: bg,
                   color: isActive ? "black" : undefined
