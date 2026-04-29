@@ -22,6 +22,7 @@ use models::{
 use parser::parse_file;
 use tauri::{Emitter, Manager};
 
+/// Global application state shared across Tauri commands.
 #[derive(Clone)]
 struct AppState {
     db: Database,
@@ -30,6 +31,7 @@ struct AppState {
     live_sessions: Arc<Mutex<HashMap<String, LiveSessionAnalytics>>>,
     parsed_cache: Arc<Mutex<HashMap<std::path::PathBuf, models::ParsedImport>>>,
 }
+
 
 #[tauri::command]
 async fn import_books(

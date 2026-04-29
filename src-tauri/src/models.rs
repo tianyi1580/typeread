@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 
+/// Represents a book record stored in the database.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BookRecord {
@@ -19,6 +20,7 @@ pub struct BookRecord {
     pub added_at: String,
 }
 
+/// Represents a chunk of text within a book chapter.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BookChunk {
@@ -28,6 +30,7 @@ pub struct BookChunk {
     pub text: String,
 }
 
+/// Represents a chapter within a book.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BookChapter {
@@ -39,6 +42,7 @@ pub struct BookChapter {
     pub chunks: Vec<BookChunk>,
 }
 
+/// Represents a book that has been parsed.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ParsedBook {
@@ -47,6 +51,7 @@ pub struct ParsedBook {
     pub chapters: Vec<BookChapter>,
 }
 
+/// Input data for saving a typing session.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TypingSessionInput {
@@ -63,6 +68,7 @@ pub struct TypingSessionInput {
     pub duration_seconds: i64,
 }
 
+/// Aggregated typing metrics for a single day.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DailyMetric {
@@ -73,6 +79,7 @@ pub struct DailyMetric {
     pub words_typed: i64,
 }
 
+/// A data point representing a completed typing session.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SessionPoint {
@@ -92,6 +99,7 @@ pub struct SessionPoint {
     pub focus_score: f64,
 }
 
+/// Represents a pair of keys that the user frequently confuses.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ConfusionPair {
@@ -100,6 +108,7 @@ pub struct ConfusionPair {
     pub count: i64,
 }
 
+/// Accuracy metrics for a specific key.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct KeyAccuracy {
@@ -109,6 +118,8 @@ pub struct KeyAccuracy {
 }
 
 
+
+/// Statistics for a key transition.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TransitionStat {
@@ -119,6 +130,7 @@ pub struct TransitionStat {
     pub error_rate: f64,
 }
 
+/// Grouped transition statistics.
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct TransitionGroups {
@@ -127,6 +139,7 @@ pub struct TransitionGroups {
     pub error_prone: Vec<TransitionStat>,
 }
 
+/// A sample of WPM at a specific timestamp.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct WpmSample {
@@ -134,6 +147,7 @@ pub struct WpmSample {
     pub value: f64,
 }
 
+/// Detailed analytics for a typing session or aggregate period.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DeepAnalytics {
@@ -149,6 +163,7 @@ pub struct DeepAnalytics {
     pub key_accuracies: Vec<KeyAccuracy>,
 }
 
+/// Features and cosmetics unlocked by the user.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct UnlockState {
@@ -161,6 +176,7 @@ pub struct UnlockState {
     pub custom_success_colors: bool,
 }
 
+/// User profile progression state.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ProfileProgress {
@@ -175,6 +191,7 @@ pub struct ProfileProgress {
     pub unlocks: UnlockState,
 }
 
+/// An achievement awarded to the user.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AchievementAward {
@@ -182,6 +199,8 @@ pub struct AchievementAward {
     pub earned_at: String,
 }
 
+
+/// Summary of all analytics data for the user.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AnalyticsSummary {
@@ -201,6 +220,7 @@ pub struct AnalyticsSummary {
     pub key_accuracies: Vec<KeyAccuracy>,
 }
 
+/// Application settings and preferences.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AppSettings {
@@ -224,6 +244,7 @@ pub struct AppSettings {
     pub success_color: String,
 }
 
+/// Definition of a keyboard layout.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct KeyboardLayoutDefinition {
@@ -232,6 +253,7 @@ pub struct KeyboardLayoutDefinition {
     pub rows: Vec<String>,
 }
 
+/// Represents a single keystroke event.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct KeystrokeEvent {
@@ -249,6 +271,7 @@ pub struct KeystrokeEvent {
     pub errors: Option<i64>,
 }
 
+/// Contextual information about the current typing session.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SessionContext {
@@ -258,6 +281,7 @@ pub struct SessionContext {
     pub keyboard_layout: KeyboardLayoutDefinition,
 }
 
+/// Input for processing a batch of keystrokes.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ProcessKeystrokeBatchInput {
@@ -267,6 +291,7 @@ pub struct ProcessKeystrokeBatchInput {
     pub finalize_session: Option<TypingSessionInput>,
 }
 
+/// Response received after completing and saving a session.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SessionSummaryResponse {
@@ -285,6 +310,7 @@ pub struct SessionSummaryResponse {
     pub session_point: SessionPoint,
 }
 
+/// Result of processing a batch of keystrokes.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ProcessKeystrokeBatchResult {
@@ -292,6 +318,7 @@ pub struct ProcessKeystrokeBatchResult {
     pub saved_session: Option<SessionSummaryResponse>,
 }
 
+/// Data structure for a book being imported.
 #[derive(Debug, Clone)]
 pub struct ParsedImport {
     pub title: String,
@@ -301,3 +328,4 @@ pub struct ParsedImport {
     pub total_chars: i64,
     pub chapters: Vec<BookChapter>,
 }
+

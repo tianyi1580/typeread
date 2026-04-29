@@ -10,19 +10,34 @@ import type { AppSettings, AppFont, ProfileProgress, ThemeName } from "../types"
 
 type SettingsSection = "appearance" | "reading" | "storage";
 
+/**
+ * Properties for the SettingsView component.
+ */
 interface SettingsViewProps {
+  /** Whether the settings modal is open. */
   isOpen: boolean;
+  /** Current application settings. */
   settings: AppSettings;
+  /** User's profile progress (for unlocks). */
   profile: ProfileProgress | null;
+  /** Whether the Tauri backend is ready. */
   desktopReady: boolean;
+  /** Callback to close the settings. */
   onClose: () => void;
+  /** Callback when settings change. */
   onChange: (settings: AppSettings) => void;
+  /** Callback to export the database. */
   onExportDatabase: () => void;
+  /** Callback to import a database. */
   onImportDatabase: () => void;
+  /** Callback to clear session history. */
   onClearSessionHistory: () => void;
+  /** Callback to delete the library. */
   onDeleteLibrary: () => void;
+  /** Callback to refresh data from the backend. */
   onRefresh: () => Promise<void>;
 }
+
 
 export function SettingsView({
   isOpen,

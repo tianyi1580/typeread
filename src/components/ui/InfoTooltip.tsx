@@ -2,13 +2,22 @@ import React, { useState, useRef, useEffect, useLayoutEffect } from "react";
 import { createPortal } from "react-dom";
 import { clamp, cn } from "../../lib/utils";
 
+/**
+ * Properties for the InfoTooltip component.
+ */
 interface InfoTooltipProps {
+  /** The text content to display inside the tooltip. */
   content: string;
+  /** The element that triggers the tooltip. */
   children: React.ReactNode;
+  /** How the tooltip is triggered (hover or click). */
   trigger?: "hover" | "click";
+  /** Optional class name for the wrapper. */
   className?: string;
+  /** Optional max width for the tooltip. */
   maxWidth?: string;
 }
+
 
 interface TooltipPosition {
   top: number;

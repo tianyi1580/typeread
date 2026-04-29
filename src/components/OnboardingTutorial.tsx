@@ -3,7 +3,12 @@ import { motion } from "framer-motion";
 import { Button } from "./ui/button";
 import { useAppStore } from "../store/app-store";
 
+/**
+ * Component that renders an onboarding tutorial overlay for first-time users.
+ * Uses a spotlight effect to guide the user through the interface.
+ */
 export function OnboardingTutorial() {
+
   const [step, setStep] = useState<1 | 2 | null>(null);
   const [targetRect, setTargetRect] = useState<DOMRect | null>(null);
   const checkIntervalRef = useRef<number | null>(null);

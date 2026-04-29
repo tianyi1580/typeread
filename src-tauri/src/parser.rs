@@ -17,6 +17,8 @@ use crate::models::{BookChapter, BookChunk, ParsedImport};
 
 const CHUNK_TARGET: usize = 2000;
 
+/// Parses a file based on its extension into a `ParsedImport`.
+/// Supports TXT, MD, EPUB, and PDF formats.
 pub fn parse_file(path: &Path, covers_dir: &Path) -> Result<ParsedImport> {
     let extension = path
         .extension()
@@ -32,6 +34,7 @@ pub fn parse_file(path: &Path, covers_dir: &Path) -> Result<ParsedImport> {
         other => bail!("unsupported file type: {other}"),
     }
 }
+
 
 fn parse_txt(path: &Path) -> Result<ParsedImport> {
     let source =

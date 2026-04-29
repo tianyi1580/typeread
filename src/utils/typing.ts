@@ -1,19 +1,38 @@
 import type { KeystrokeEvent, LiveMetrics, TokenizedWord, TypingSnapshot, WordTypingState } from "../types";
 import { clamp } from "../lib/utils";
 
+/**
+ * Behavior options for the typing engine.
+ */
 interface TypingBehavior {
+  /** Whether pressing Tab skips the current word. */
   tabToSkip?: boolean;
+  /** Set of characters to ignore when comparing typed vs expected. */
   ignoredCharacterSet?: ReadonlySet<string>;
+  /** The current keyboard layout ID. */
   layoutId?: string;
 }
 
+/**
+ * Input event for a keystroke.
+ */
 interface TypingInput {
+  /** The key pressed. */
   key: string;
+  /** Whether the Ctrl key was held down. */
   ctrlKey?: boolean;
 }
 
+/** Default characters to ignore if ignoreQuotationMarks is enabled. */
 export const DEFAULT_IGNORED_CHARACTERS = '"\'“”‘’';
 
+/**
+ * Normalizes a single character or string for consistent typing comparison.
+ * Replaces curly quotes, em dashes, etc., with standard equivalents.
+ * 
+ * @param input - The string to normalize.
+ * @returns The normalized string.
+ */
 export function normalizeTypingChar(input: string) {
   return input
     .replace(/[“”]/g, "\"")
@@ -24,10 +43,23 @@ export function normalizeTypingChar(input: string) {
     .replace(/\u00a0/g, " ");
 }
 
+/**
+ * Normalizes full text content, handling line endings and special characters.
+ * 
+ * @param text - The text to normalize.
+ * @returns The fully normalized text.
+ */
 export function normalizeTypingText(text: string) {
   return normalizeTypingChar(text.replace(/\r\n/g, "\n").replace(/\r/g, "\n")).normalize("NFKC");
 }
 
+/**
+ * Parses a string specification of ignored characters into a Set.
+ * Supports comma-separated or quoted formats.
+ * 
+ * @param spec - The string specification of ignored characters.
+ * @returns A Set of parsed characters.
+ */
 export function parseIgnoredCharacterSet(spec: string) {
   const parsed = new Set<string>();
   const quotedPattern = /"((?:\\.|[^"\\])*)"|'((?:\\.|[^'\\])*)'/g;
@@ -65,6 +97,13 @@ export function parseIgnoredCharacterSet(spec: string) {
   return parsed;
 }
 
+/**
+ * Normalizes text specifically for comparison, filtering out ignored characters.
+ * 
+ * @param input - The input string to normalize.
+ * @param ignoredCharacterSet - Optional set of characters to ignore.
+ * @returns The normalized string ready for comparison.
+ */
 export function normalizeForCompare(input: string, ignoredCharacterSet?: ReadonlySet<string>) {
   const normalized = normalizeTypingChar(input).normalize("NFKC");
   if (!ignoredCharacterSet || ignoredCharacterSet.size === 0) {
@@ -74,6 +113,13 @@ export function normalizeForCompare(input: string, ignoredCharacterSet?: Readonl
   return [...normalized].filter((character) => !charIsIgnored(character, ignoredCharacterSet)).join("");
 }
 
+/**
+ * Checks if a character is in the ignored set.
+ * 
+ * @param char - The character to check.
+ * @param set - The set of ignored characters.
+ * @returns True if the character should be ignored.
+ */
 function charIsIgnored(char: string, set?: ReadonlySet<string>) {
   if (!set || set.size === 0) return false;
   if (set.has(char)) return true;
@@ -84,6 +130,12 @@ function charIsIgnored(char: string, set?: ReadonlySet<string>) {
   return false;
 }
 
+/**
+ * Tokenizes text into words and their trailing whitespace.
+ * 
+ * @param text - The text to tokenize.
+ * @returns An array of tokenized words.
+ */
 export function tokenizeText(text: string): TokenizedWord[] {
   const normalizedText = normalizeTypingText(text);
   const tokens: TokenizedWord[] = [];
@@ -104,6 +156,14 @@ export function tokenizeText(text: string): TokenizedWord[] {
   return tokens;
 }
 
+
+/**
+ * Creates a typing snapshot based on the current cursor position in the text.
+ * 
+ * @param tokens - The tokenized words.
+ * @param cursorTextIndex - The current character index of the cursor.
+ * @returns A new TypingSnapshot.
+ */
 export function createTypingSnapshot(tokens: TokenizedWord[], cursorTextIndex = 0): TypingSnapshot {
   const words = tokens.map<WordTypingState>(() => ({
     typed: "",
@@ -158,6 +218,13 @@ export function createTypingSnapshot(tokens: TokenizedWord[], cursorTextIndex = 
   };
 }
 
+/**
+ * Creates a typing snapshot starting at the beginning of a specific word.
+ * 
+ * @param tokens - The tokenized words.
+ * @param wordIndex - The index of the word to start at.
+ * @returns A new TypingSnapshot.
+ */
 export function createSnapshotFromWordStart(tokens: TokenizedWord[], wordIndex: number) {
   if (tokens.length === 0) {
     return createTypingSnapshot(tokens);
@@ -167,6 +234,13 @@ export function createSnapshotFromWordStart(tokens: TokenizedWord[], wordIndex: 
   return createTypingSnapshot(tokens, tokens[safeIndex].start);
 }
 
+/**
+ * Resolves the word index from a character index.
+ * 
+ * @param tokens - The tokenized words.
+ * @param cursorTextIndex - The character index.
+ * @returns The corresponding word index.
+ */
 export function wordIndexFromTextIndex(tokens: TokenizedWord[], cursorTextIndex: number) {
   if (tokens.length === 0) {
     return 0;
@@ -184,6 +258,13 @@ export function wordIndexFromTextIndex(tokens: TokenizedWord[], cursorTextIndex:
   return tokens.length - 1;
 }
 
+/**
+ * Resolves the character index of the start of a word.
+ * 
+ * @param tokens - The tokenized words.
+ * @param wordIndex - The word index.
+ * @returns The starting character index.
+ */
 export function textIndexForWordStart(tokens: TokenizedWord[], wordIndex: number) {
   if (tokens.length === 0) {
     return 0;
@@ -192,6 +273,14 @@ export function textIndexForWordStart(tokens: TokenizedWord[], wordIndex: number
   return tokens[clamp(wordIndex, 0, tokens.length - 1)]?.start ?? 0;
 }
 
+/**
+ * Computes the score (correct chars, errors) for a typed word.
+ * 
+ * @param expected - The expected word text.
+ * @param typed - The actual typed text.
+ * @param options - Typing behavior options.
+ * @returns Object containing correctChars, typedChars, and errors.
+ */
 export function computeWordScore(expected: string, typed: string, options: TypingBehavior = {}) {
   const normalizedExpected = normalizeForCompare(expected, options.ignoredCharacterSet);
   const normalizedTyped = normalizeForCompare(typed, options.ignoredCharacterSet);
@@ -219,6 +308,13 @@ export function computeWordScore(expected: string, typed: string, options: Typin
   };
 }
 
+
+/**
+ * Moves the cursor to the previous word in the snapshot.
+ * 
+ * @param snapshot - The current TypingSnapshot.
+ * @returns The updated snapshot.
+ */
 export function moveToPreviousWord(snapshot: TypingSnapshot) {
   if (snapshot.currentWordIndex === 0) {
     return snapshot;
@@ -239,6 +335,17 @@ export function moveToPreviousWord(snapshot: TypingSnapshot) {
   return snapshot;
 }
 
+/**
+ * Applies a keystroke input to the current typing snapshot.
+ * 
+ * @param snapshot - The current TypingSnapshot.
+ * @param tokens - The tokenized words.
+ * @param input - The keystroke input.
+ * @param timestamp - The timestamp of the event.
+ * @param chapterIndex - The current chapter index.
+ * @param options - Typing behavior options.
+ * @returns Object containing the updated snapshot and an optional KeystrokeEvent.
+ */
 export function applyTypingInput(
   snapshot: TypingSnapshot,
   tokens: TokenizedWord[],
@@ -318,6 +425,7 @@ export function applyTypingInput(
     };
   }
 
+
   const isEnter = input.key === "Enter";
   if (isEnter || input.key.length === 1) {
     autoConsumeIgnoredCharacters(current, token, options.ignoredCharacterSet);
@@ -380,6 +488,13 @@ export function applyTypingInput(
   return { snapshot };
 }
 
+/**
+ * Calculates the current cursor index in the text.
+ * 
+ * @param snapshot - The current TypingSnapshot.
+ * @param tokens - The tokenized words.
+ * @returns The character index of the cursor.
+ */
 export function currentCursorIndex(snapshot: TypingSnapshot, tokens: TokenizedWord[]) {
   const currentToken = tokens[snapshot.currentWordIndex];
   if (!currentToken) {
@@ -395,6 +510,13 @@ export function currentCursorIndex(snapshot: TypingSnapshot, tokens: TokenizedWo
   return Math.min(currentToken.start + wordState.typed.length, currentToken.end);
 }
 
+/**
+ * Calculates the current progress as a fraction (0 to 1).
+ * 
+ * @param snapshot - The current TypingSnapshot.
+ * @param tokens - The tokenized words.
+ * @returns The progress fraction.
+ */
 export function currentProgress(snapshot: TypingSnapshot, tokens: TokenizedWord[]) {
   const lastToken = tokens[tokens.length - 1];
   if (!lastToken) {
@@ -404,6 +526,15 @@ export function currentProgress(snapshot: TypingSnapshot, tokens: TokenizedWord[
   return currentCursorIndex(snapshot, tokens) / Math.max(lastToken.end, 1);
 }
 
+/**
+ * Calculates the active typing duration, excluding pauses longer than thresholdMs.
+ * 
+ * @param events - The keystroke events.
+ * @param startTime - The session start timestamp.
+ * @param currentTime - The current timestamp.
+ * @param thresholdMs - The pause threshold in milliseconds (default 10s).
+ * @returns The active duration in seconds.
+ */
 export function calculateActiveDuration(
   events: KeystrokeEvent[],
   startTime: number,
@@ -434,6 +565,12 @@ export function calculateActiveDuration(
   return Math.round(Math.max(1000, activeMs) / 1000);
 }
 
+/**
+ * Summarizes session events to calculate typed words, chars, errors, etc.
+ * 
+ * @param events - The keystroke events.
+ * @returns Object containing typedWords, typedChars, correctChars, errors, and accuracy.
+ */
 function summarizeSessionEvents(events: KeystrokeEvent[]) {
   let typedWords = 0;
   let typedChars = 0;
@@ -472,6 +609,15 @@ function summarizeSessionEvents(events: KeystrokeEvent[]) {
   };
 }
 
+/**
+ * Computes live metrics during a typing session.
+ * 
+ * @param events - The keystroke events.
+ * @param elapsedSeconds - Elapsed time in seconds.
+ * @param snapshot - The current TypingSnapshot.
+ * @param tokens - The tokenized words.
+ * @returns The LiveMetrics.
+ */
 export function computeMetrics(
   events: KeystrokeEvent[],
   elapsedSeconds: number,
@@ -497,11 +643,20 @@ export function computeMetrics(
   };
 }
 
+/**
+ * Finalizes metrics at the end of a typing session.
+ * 
+ * @param events - The keystroke events.
+ * @param startTime - The session start timestamp.
+ * @param endTime - The session end timestamp.
+ * @returns Finalized metrics.
+ */
 export function finalizeMetrics(
   events: KeystrokeEvent[],
   startTime: number,
   endTime: number,
 ) {
+
   const durationSeconds = calculateActiveDuration(events, startTime, endTime);
   const { typedWords, typedChars, correctChars, errors, accuracy } = summarizeSessionEvents(events);
 

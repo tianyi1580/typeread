@@ -6,6 +6,7 @@ use crate::models::{
     TypingSessionInput, WpmSample,
 };
 
+/// State accumulator for real-time typing analytics.
 #[derive(Clone)]
 pub struct LiveSessionAnalytics {
     typing_timestamps: Vec<i64>,
@@ -18,6 +19,7 @@ pub struct LiveSessionAnalytics {
     accuracy_samples: Vec<(i64, bool)>,
     key_stats: HashMap<String, KeyStats>,
 }
+
 
 #[derive(Clone, Default)]
 struct KeyStats {

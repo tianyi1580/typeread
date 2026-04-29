@@ -1,82 +1,87 @@
-**typeread** is a premium, distraction-free desktop application designed for bibliophiles and typing enthusiasts. It transforms your reading list into an immersive typing experience, allowing you to master your keyboard while journeying through your favorite literature.
+# TypeRead
 
-## ✨ Features
-
-- **📚 Universal Library**: Seamlessly import EPUB, Markdown, and TXT files. Your entire library is stored locally, with granular progress tracking for every book.
-- **⌨️ Immersive Type Mode**: A focused, high-performance typing engine with real-time feedback.
-  - **Loose Typing with Anchors**: Errors are highlighted but won't halt your flow.
-  - **Smart Normalization**: Automatically handles curly quotes and em-dashes for a smooth experience.
-  - **Focus HUD**: Minimalist metrics (WPM, Accuracy, Progress) that fade out during active typing to keep you in the zone.
-- **📖 Elegant Read Mode**: Switch to a classic e-reader interface when you just want to get lost in the story.
-- **🎨 Skueomorphic Layouts**: Choose between a modern **Infinite Scroll** or a classic **2-Page Spread** with smooth animations.
-- **📊 Advanced Analytics**: Detailed insights into your typing performance over time, featuring WPM trends, accuracy charts, and session history.
-- **🏆 Achievements & Versus Mode**: Stay motivated with a built-in achievement system and challenge yourself in Versus mode against your past performance or ghost competitors.
-- **🌓 Custom Themes & Typography**: Fully customizable interface with curated themes (Catppuccin, Gruvbox, Sepia, etc.) and professional-grade fonts optimized for both reading and coding.
-
-## 🛠️ Tech Stack
-
-- **Core**: [Tauri](https://tauri.app/) (Rust Backend + Vite/React Frontend)
-- **Frontend**: React, TypeScript, TailwindCSS, Zustand, Framer Motion
-- **Backend**: Rust (pulldown-cmark, epub, scraper)
-- **Database**: SQLite (Local persistence)
-- **Styling**: Vanilla CSS + TailwindCSS Design System
-
-## 🚀 Download & Installation
-
-### macOS (Recommended)
-
-```bash
-brew tap tianyi1580/tap
-brew install --cask typeread
-```
-
-### Manual Download
-You can download the latest installers for macOS and Windows from the [Releases](https://github.com/tianyi1580/typeread/releases) page.
-
-> [!IMPORTANT]
-> **macOS Security Note:** If you download the `.dmg` manually and see a message saying the app is "damaged" or "cannot be opened," this is a macOS security feature for unsigned apps. To fix it, run this command in your Terminal:
-> `xattr -cr /Applications/TypeRead.app`
+**TypeRead** is a high-performance, distraction-free desktop application engineered for bibliophiles and typing enthusiasts. It seamlessly bridges the gap between digital literature and typing proficiency, enabling users to read their favorite books while practicing high-speed, accurate keyboarding.
 
 ---
 
-## 🛠️ Development Setup
+## 🏗️ Architecture Stack
 
-### Prerequisites
+TypeRead is designed as a lightweight, secure local-first application using a modern polyglot stack.
 
-- [Rust](https://www.rust-lang.org/tools/install)
-- [Node.js](https://nodejs.org/) (v18+)
-- [pnpm](https://pnpm.io/) or `npm`
+- **Core & Security**: [Tauri v2](https://tauri.app/) (Rust-based engine providing isolated system APIs)
+- **Frontend Surface**: React 18, TypeScript 5, Vite
+- **High-Speed State Management**: [Zustand](https://zustand.docs.pmnd.rs/) (Optimized for sub-millisecond keystroke event transport)
+- **Local Data Layer**: SQLite via `rusqlite` (Local persistence for books, configurations, and metrics)
+- **Styling Engine**: TailwindCSS combined with micro-animations powered by [Framer Motion](https://www.framer.com/motion/)
 
-### Installation
+---
 
-1. **Clone the repository**:
+## ✨ Features
+
+- **📚 Universal Library Support**: Native parsing of `.epub`, `.md`, and `.txt` files with dynamic sanitization.
+- **⌨️ Advanced Typing Engine**:
+  - **Loose Typing with Anchor Resets**: Typing errors shift character highlights but never halt user input.
+  - **Intelligent Normalization**: Automatically maps smart punctuation (`“`, `”`, `—`) to straight ASCII equivalents.
+  - **Spacebar Snapping**: Quickly realigns out-of-sync cursor positions safely.
+- **📖 Adaptive Reading Views**: High-fidelity **2-Page Spread** layout with CSS transforms or standard **Infinite Scroll** interfaces.
+- **📊 Granular Analytics Pipelines**: Full tracking of raw/net WPM, error rates, speed heatmaps, and historical records.
+- **🏆 Progression & Versus Mode**: Gamified achievement systems paired with simulated typing opponents.
+
+---
+
+## 📂 Project Structure
+
+```
+typeread/
+├── src-tauri/                 # Backend Rust Execution Layer
+│   ├── src/
+│   │   ├── main.rs            # Application bootstrap & Tauri bindings
+│   │   ├── db.rs              # SQLite lifecycle & transaction routing
+│   │   ├── parser.rs          # Book format conversion pipeline
+│   │   └── analytics.rs       # Performance statistical processing
+├── src/                       # Frontend Presentation Layer
+│   ├── components/            # UI, Views (Analytics, Library, Settings)
+│   ├── hooks/                 # Event bindings and hardware listeners
+│   ├── lib/                   # Achievement configurations and layouts
+│   ├── store/                 # Zustand persistent application state
+│   └── utils/                 # Algorithmic pagination and typing matrices
+```
+
+---
+
+## 🛠️ Local Development
+
+Ensure you have [Rust (1.75+)](https://www.rust-lang.org/), [Node.js (v18+)](https://nodejs.org/), and `npm` ready.
+
+1. **Clone Repo**:
    ```bash
    git clone https://github.com/tianyi1580/typeread.git
    cd typeread
    ```
-
-2. **Install dependencies**:
+2. **Install Dependencies**:
    ```bash
    npm install
    ```
-
-3. **Run in development mode**:
+3. **Execute Tauri Dev Server**:
    ```bash
    npm run tauri dev
    ```
 
-### Building for Production
-
-To create a native installer for your platform:
+To bundle an optimized, native platform binary:
 ```bash
 npm run tauri build
 ```
+---
 
-## 🏗️ Architecture
+## 🔖 Versioning
 
-- **`src-tauri/`**: Rust source code. Handles file parsing (EPUB/MD), database management, and high-performance analytics.
-- **`src/`**: React application. A highly responsive UI built with Zustand for lightning-fast state updates during typing.
-- **`src/components/TypingLayer.tsx`**: The core typing engine that tracks every keystroke with sub-millisecond latency.
+To release a new version of TypeRead, run the standard npm version command:
+```bash
+npm version <patch|minor|major>
+```
+This will automatically execute the `sync_version.cjs` hook, propagating the version bump from `package.json` into Tauri's underlying configuration files (`src-tauri/Cargo.toml`, `src-tauri/tauri.conf.json`, and `src-tauri/Cargo.lock`) securely before creating the Git commit and tag.
+
+---
 
 ## 📄 License
 

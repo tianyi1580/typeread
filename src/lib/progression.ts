@@ -9,6 +9,12 @@ export const LEVEL_REWARDS = [
   { level: 15, label: "Premium typography unlocked" },
 ] as const;
 
+/**
+ * Calculates the total XP required to reach a specific level.
+ * 
+ * @param level - The level.
+ * @returns The XP threshold.
+ */
 export function xpThresholdForLevel(level: number) {
   if (level <= 1) {
     return 0;
@@ -17,6 +23,12 @@ export function xpThresholdForLevel(level: number) {
   return Math.round(1000 * Math.pow(level, 1.5));
 }
 
+/**
+ * Calculates the level from total XP.
+ * 
+ * @param totalXp - The total XP.
+ * @returns The calculated level.
+ */
 export function levelFromXp(totalXp: number) {
   let level = 1;
   while (level < 10000 && xpThresholdForLevel(level + 1) <= totalXp) {
@@ -25,6 +37,12 @@ export function levelFromXp(totalXp: number) {
   return level;
 }
 
+/**
+ * Gets the title associated with a level.
+ * 
+ * @param level - The level.
+ * @returns The title string.
+ */
 export function titleForLevel(level: number) {
   if (level >= 100) {
     return "Grandmaster";
@@ -41,6 +59,12 @@ export function titleForLevel(level: number) {
   return "Initiate";
 }
 
+/**
+ * Determines the features unlocked at a specific level.
+ * 
+ * @param level - The level.
+ * @returns The UnlockState.
+ */
 export function unlocksForLevel(level: number): UnlockState {
   return {
     draculaTheme: level >= 10,
@@ -54,6 +78,14 @@ export function unlocksForLevel(level: number): UnlockState {
   };
 }
 
+/**
+ * Builds the ProfileProgress object from raw data.
+ * 
+ * @param totalXp - Total XP.
+ * @param streakDays - Current streak in days.
+ * @param restedWordsAvailable - Rested words available.
+ * @returns The ProfileProgress.
+ */
 export function buildProfileProgress(totalXp: number, streakDays: number, restedWordsAvailable: number): ProfileProgress {
   const level = levelFromXp(totalXp);
   const currentLevelXp = xpThresholdForLevel(level);
@@ -76,6 +108,14 @@ export function buildProfileProgress(totalXp: number, streakDays: number, rested
   };
 }
 
+/**
+ * Gets reward messages for levels gained.
+ * 
+ * @param levelBefore - Level before update.
+ * @param levelAfter - Level after update.
+ * @returns Array of reward strings.
+ */
 export function rewardMessagesForLevelRange(levelBefore: number, levelAfter: number) {
   return LEVEL_REWARDS.filter((reward) => reward.level > levelBefore && reward.level <= levelAfter).map((reward) => reward.label);
 }
+

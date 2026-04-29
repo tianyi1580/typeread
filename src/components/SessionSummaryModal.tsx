@@ -16,10 +16,16 @@ const METRIC_DESCRIPTIONS: Record<string, string> = {
   "Time": "Active duration spent typing during this session.",
 };
 
+/**
+ * Properties for the SessionSummaryModal component.
+ */
 interface SessionSummaryModalProps {
+  /** The session summary data to display. */
   summary: SessionSummaryResponse | null;
+  /** Callback to close the modal. */
   onClose: () => void;
 }
+
 
 function CountUp({ value, decimals = 0, suffix = "" }: { value: number, decimals?: number, suffix?: string }) {
   const [displayValue, setDisplayValue] = useState(0);

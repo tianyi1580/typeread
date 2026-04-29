@@ -1,4 +1,6 @@
+/// The default text content loaded into the library for new users.
 pub const WELCOME_BOOK_CONTENT: &str = r#"# Getting Started with TypeRead
+
 
 Welcome. TypeRead turns your library into a typing gym. Instead of random words, you practice with real literature to build speed, accuracy, and deep focus.
 

@@ -49,13 +49,24 @@ const FALLBACK_KEYBOARD_LAYOUT: KeyboardLayoutDefinition = {
   rows: ["1234567890-=", "qwertyuiop[]\\", "asdfghjkl;'", "zxcvbnm,./"],
 };
 
+/**
+ * Properties for the AnalyticsView component.
+ */
+interface AnalyticsViewProps {
+  /** The analytics summary data. */
+  analytics: AnalyticsSummary | null;
+  /** The application settings. */
+  settings: AppSettings | null;
+}
+
+/**
+ * Component for rendering deep typing analytics, graphs, and heatmaps.
+ */
 export function AnalyticsView({
   analytics,
   settings,
-}: {
-  analytics: AnalyticsSummary | null;
-  settings: AppSettings | null;
-}) {
+}: AnalyticsViewProps) {
+
   const [activeTab, setActiveTab] = useState<"session" | "lifetime" | "heatmap" | "recent">("session");
   const [sessionMetric, setSessionMetric] = useState<"wpm" | "accuracy">("wpm");
   const [lifetimeMetric, setLifetimeMetric] = useState<"wpm" | "accuracy" | "words">("wpm");

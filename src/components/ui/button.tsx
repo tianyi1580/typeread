@@ -1,9 +1,14 @@
 import * as React from "react";
 import { cn } from "../../lib/utils";
 
+/**
+ * Properties for the Button component.
+ */
 export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+  /** The visual style of the button. */
   variant?: "primary" | "secondary" | "ghost" | "danger";
 }
+
 
 export function Button({ className, type = "button", variant = "primary", ...props }: ButtonProps) {
   return (

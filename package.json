@@ -9,7 +9,8 @@
     "preview": "vite preview --host 0.0.0.0 --port 1420",
     "lint": "tsc --noEmit",
     "tauri": "tauri",
-    "homebrew:generate": "node scripts/generate_cask.cjs"
+    "homebrew:generate": "node scripts/generate_cask.cjs",
+    "version": "node scripts/sync_version.cjs && git add src-tauri/Cargo.toml src-tauri/Cargo.lock src-tauri/tauri.conf.json"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.3.0",

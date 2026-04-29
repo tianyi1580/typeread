@@ -2,13 +2,22 @@ import React, { useState, useRef, useEffect, useCallback, useMemo } from "react"
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "../../lib/utils";
 
+/**
+ * Properties for the ColorPicker component.
+ */
 interface ColorPickerProps {
+  /** The current hex color value. */
   value: string;
+  /** Callback when the color changes. */
   onChange: (value: string) => void;
+  /** Whether the picker is disabled. */
   disabled?: boolean;
+  /** Optional level unlock requirement label. */
   levelLabel?: string;
+  /** The display label for the field. */
   label?: string;
 }
+
 
 const PRESET_COLORS = [
   "#A6DA95", // Catppuccin Green

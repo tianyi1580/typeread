@@ -3,22 +3,38 @@ import { cn } from "../lib/utils";
 import type { InteractionMode, TokenizedWord, TypingSnapshot, WordTypingState } from "../types";
 import { normalizeForCompare } from "../utils/typing";
 
+/**
+ * Properties for the TypingLayer component.
+ */
 interface TypingLayerProps {
+  /** List of tokenized words to display. */
   tokens: TokenizedWord[];
+  /** Current typing state snapshot. */
   snapshot: TypingSnapshot;
+  /** Full text of the chapter. */
   chapterText: string;
+  /** Optional visible character range for pagination. */
   visibleRange?: { start: number; end: number };
+  /** Disable automatic scrolling. */
   noScroll?: boolean;
+  /** Additional CSS classes. */
   className?: string;
+  /** Enable fading effect for distant words. */
   faded?: boolean;
+  /** Comparison options for character matching. */
   compareOptions?: {
     ignoredCharacters?: ReadonlySet<string>;
   };
+  /** Callback when a word is clicked. */
   onWordClick?: (wordIndex: number) => void;
+  /** Current interaction mode. */
   interactionMode?: InteractionMode;
+  /** Enable smooth caret animations. */
   smoothCaret?: boolean;
+  /** Index of the bot's cursor in versus mode. */
   botCursorIndex?: number | null;
 }
+
 
 export function TypingLayer({
   tokens,

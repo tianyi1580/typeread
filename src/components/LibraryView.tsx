@@ -8,21 +8,38 @@ import { themeMap } from "../theme";
 import { cn } from "../lib/utils";
 import type { BookRecord, ThemeName } from "../types";
 
+/**
+ * Properties for the LibraryView component.
+ */
 interface LibraryViewProps {
+  /** List of books in the library. */
   books: BookRecord[];
+  /** ID of the book currently loading. */
   loadingBookId: number | null;
+  /** Whether the desktop environment is ready. */
   desktopReady: boolean;
+  /** Whether files are being dragged over the window. */
   draggingFiles: boolean;
+  /** List of file paths currently being imported. */
   pendingImports: string[];
+  /** Current search query filter. */
   searchQuery: string;
+  /** Name of the active theme. */
   themeName: ThemeName;
+  /** Callback to trigger book import. */
   onImportBooks: () => void;
+  /** Callback to open a book. */
   onOpenBook: (bookId: number) => void;
+  /** Callback to rename a book. */
   onRenameBook: (bookId: number, title: string) => Promise<void>;
+  /** Callback to update a book's cover image. */
   onUpdateCover: (bookId: number, imageDataBase64: string) => Promise<void>;
+  /** Callback to pin/unpin a book. */
   onTogglePinned: (bookId: number, pinned: boolean) => Promise<void>;
+  /** Callback to delete a book. */
   onDeleteBook: (bookId: number) => Promise<void>;
 }
+
 
 export function LibraryView({
   books,

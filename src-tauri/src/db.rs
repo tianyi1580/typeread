@@ -15,10 +15,12 @@ use crate::models::{
     TypingSessionInput, UnlockState,
 };
 
+/// Manages the local SQLite database for the application.
 #[derive(Clone)]
 pub struct Database {
     path: PathBuf,
 }
+
 
 #[derive(Default)]
 struct StoredProfile {

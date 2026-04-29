@@ -3,7 +3,19 @@ import type { AchievementAward } from "../types";
 import { Card } from "./ui/card";
 import { InfoTooltip, InfoIcon } from "./ui/InfoTooltip";
 
-export function AchievementsView({ earnedAwards }: { earnedAwards: AchievementAward[] }) {
+/**
+ * Properties for the AchievementsView component.
+ */
+interface AchievementsViewProps {
+  /** List of achievements earned by the user. */
+  earnedAwards: AchievementAward[];
+}
+
+/**
+ * Component displaying the user's earned and locked achievements.
+ */
+export function AchievementsView({ earnedAwards }: AchievementsViewProps) {
+
   const earnedMap = new Map(earnedAwards.map((award) => [award.key, award.earnedAt]));
 
   return (

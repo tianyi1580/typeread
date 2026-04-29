@@ -1,10 +1,22 @@
 import type { TokenizedWord } from "../types";
 
+/**
+ * Represents a range of characters defining a page.
+ */
 export interface PageRange {
+  /** The starting character index (inclusive). */
   start: number;
+  /** The ending character index (exclusive). */
   end: number;
 }
 
+/**
+ * Calculates the line wrap state for a string of characters.
+ * 
+ * @param charsInLine - Total characters in the current line.
+ * @param charsPerLine - Maximum characters allowed per line.
+ * @returns Object containing additional lines used and characters on the last line.
+ */
 function resolveWrappedLineState(charsInLine: number, charsPerLine: number) {
   if (charsInLine <= charsPerLine) {
     return {
@@ -27,6 +39,12 @@ function resolveWrappedLineState(charsInLine: number, charsPerLine: number) {
  * Splits text into pages based on the available vertical space (maxLines).
  * It simulates word-wrapping to estimate how many lines each token will occupy.
  * This ensures that Page 2 resumes exactly where Page 1's visible content ended.
+ * 
+ * @param text - The full text to paginate.
+ * @param maxLines - Maximum number of lines per page.
+ * @param charsPerLine - Estimated characters per line.
+ * @param tokens - Tokenized words in the text.
+ * @returns An array of page ranges.
  */
 export function paginateText(
   text: string, 
@@ -34,6 +52,7 @@ export function paginateText(
   charsPerLine: number,
   tokens: TokenizedWord[]
 ): PageRange[] {
+
   if (tokens.length === 0) {
     return [{ start: 0, end: text.length }];
   }

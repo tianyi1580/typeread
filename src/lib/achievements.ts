@@ -1,9 +1,17 @@
+/**
+ * Definition of an achievement.
+ */
 export interface AchievementDefinition {
+  /** Unique key for the achievement. */
   key: string;
+  /** Human-readable name. */
   name: string;
+  /** Detailed description. */
   description: string;
+  /** Category of the achievement. */
   category: "speed" | "endurance" | "volume" | "precision";
 }
+
 
 const speedThresholds = [30, 50, 70, 100, 130, 160, 200];
 const durationThresholds = [1, 2, 5, 10, 15, 20, 30, 45, 60];

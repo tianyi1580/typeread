@@ -30,15 +30,26 @@ const EMPTY_METRICS: LiveMetrics = {
   chapterProgress: 0,
 };
 
+/**
+ * Properties for the PracticeView component.
+ */
 interface PracticeViewProps {
+  /** The type of practice session (type-test or versus). */
   mode: SessionSource;
+  /** Current application settings. */
   settings: AppSettings;
+  /** User's analytics summary. */
   analytics: AnalyticsSummary | null;
+  /** Whether the desktop environment is ready. */
   desktopReady: boolean;
+  /** API function to process a batch of keystrokes. */
   processBatch: (payload: ProcessKeystrokeBatchInput) => Promise<ProcessKeystrokeBatchResult>;
+  /** Callback when settings are modified. */
   onSettingsChange: (settings: AppSettings) => void;
+  /** Callback to report errors. */
   onError: (message: string) => void;
 }
+
 
 export function PracticeView({
   mode,

@@ -16,10 +16,22 @@ declare global {
   }
 }
 
+/**
+ * Checks if the application is running in a Tauri desktop environment.
+ * 
+ * @returns True if running in Tauri.
+ */
 function isDesktop() {
   return typeof window !== "undefined" && typeof window.__TAURI_INTERNALS__ !== "undefined";
 }
 
+/**
+ * Internal helper to invoke a Tauri command.
+ * 
+ * @param command - The command name.
+ * @param payload - Optional arguments.
+ * @returns Promise resolving to the command result.
+ */
 async function call<T>(command: string, payload?: Record<string, unknown>): Promise<T> {
   if (!isDesktop()) {
     throw new Error("Desktop backend is unavailable. Run the application through Tauri to access local files.");
@@ -27,8 +39,12 @@ async function call<T>(command: string, payload?: Record<string, unknown>): Prom
   return invoke<T>(command, payload);
 }
 
+/**
+ * TypeRead API client for Tauri backend commands.
+ */
 export const api = {
   isDesktop,
+
   assetUrl: (path: string | null) => (path && isDesktop() ? convertFileSrc(path) : null),
   importBooks: () => call<BookRecord[]>("import_books"),
   importBookPaths: (paths: string[]) => call<BookRecord[]>("import_book_paths", { paths }),

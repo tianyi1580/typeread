@@ -3,19 +3,35 @@ import { Card } from "./ui/card";
 import { formatDuration, formatPercent } from "../lib/utils";
 import type { LiveMetrics, ReaderMode, InteractionMode } from "../types";
 
+/**
+ * Properties for the Hud component.
+ */
 interface HudProps {
+  /** Real-time typing metrics. */
   metrics: LiveMetrics;
+  /** Current chapter index. */
   chapterIndex: number;
+  /** Total number of chapters. */
   chapterCount: number;
+  /** Current reader mode (scroll or spread). */
   readerMode: ReaderMode;
+  /** Current interaction mode (type or read). */
   interactionMode: InteractionMode;
+  /** Whether to show a minimal HUD (fade out controls). */
   minimal: boolean;
+  /** Callback to navigate to the previous chapter. */
   onPreviousChapter: () => void;
+  /** Callback to navigate to the next chapter. */
   onNextChapter: () => void;
+  /** Callback to change the reader mode. */
   onReaderModeChange: (mode: ReaderMode) => void;
+  /** Callback to change the interaction mode. */
   onInteractionModeChange: (mode: InteractionMode) => void;
 }
 
+/**
+ * Heads-Up Display (HUD) for tracking metrics and controlling reader modes.
+ */
 export function Hud({
   metrics,
   chapterIndex,
@@ -28,6 +44,7 @@ export function Hud({
   onReaderModeChange,
   onInteractionModeChange,
 }: HudProps) {
+
   return (
     <Card
       className={`sticky top-0 z-20 overflow-hidden px-4 py-3 transition duration-300 ${

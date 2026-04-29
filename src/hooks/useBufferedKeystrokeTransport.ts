@@ -8,12 +8,20 @@ import type {
   TypingSessionInput,
 } from "../types";
 
+/**
+ * Options for the useBufferedKeystrokeTransport hook.
+ */
 interface BufferedKeystrokeTransportOptions {
+  /** Whether the desktop environment is ready. */
   desktopReady: boolean;
+  /** Context for the current typing session. */
   context: SessionContext;
+  /** API function to process a batch of keystrokes. */
   processBatch: (payload: ProcessKeystrokeBatchInput) => Promise<ProcessKeystrokeBatchResult>;
+  /** Optional error callback. */
   onError?: (message: string) => void;
 }
+
 
 export function useBufferedKeystrokeTransport({
   desktopReady,

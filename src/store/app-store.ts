@@ -10,17 +10,31 @@ import {
 } from "../types";
 import type { ActiveTab, AnalyticsSummary, AppSettings, BookRecord, InteractionMode, ParsedBook, ReaderMode } from "../types";
 
+/**
+ * Global application state managed by Zustand.
+ */
 interface AppState {
+  /** Currently active navigation tab. */
   activeTab: ActiveTab;
+  /** List of available books. */
   books: BookRecord[];
+  /** The currently loaded book with parsed text. */
   currentBook: ParsedBook | null;
+  /** ID of the selected book. */
   selectedBookId: number | null;
+  /** Index of the selected chapter in the current book. */
   selectedChapterIndex: number;
+  /** Current reader mode (scroll or spread). */
   readerMode: ReaderMode;
+  /** Current interaction mode (type or read). */
   interactionMode: InteractionMode;
+  /** Application settings. */
   settings: AppSettings;
+  /** Analytics summary data. */
   analytics: AnalyticsSummary | null;
+  /** Map of chapter progress indices (key format: "bookId-chapterIndex"). */
   chapterProgress: Record<string, number>;
+  /** Whether the desktop environment is ready. */
   desktopReady: boolean;
   setDesktopReady: (ready: boolean) => void;
   setActiveTab: (tab: AppState["activeTab"]) => void;
@@ -35,6 +49,7 @@ interface AppState {
   setChapterProgress: (bookId: number, chapterIndex: number, index: number) => void;
   clearChapterProgress: () => void;
 }
+
 
 export const defaultSettings: AppSettings = {
   theme: "catppuccin-macchiato",

@@ -1,4 +1,10 @@
+/**
+ * @file demo.ts
+ * @description Mock data and settings used for onboarding, testing, and fallback states.
+ */
+
 import type { AnalyticsSummary, AppSettings, ParsedBook } from "../types";
+
 import { buildProfileProgress } from "./progression";
 
 export const demoSettings: AppSettings = {

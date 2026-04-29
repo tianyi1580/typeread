@@ -37,30 +37,56 @@ import { TypingLayer } from "./TypingLayer";
 import { Button } from "./ui/button";
 import { VersusConfigModal } from "./VersusConfigModal";
 
+/**
+ * Properties for the ReaderView component.
+ */
 interface ReaderViewProps {
+  /** The book being read/typed. */
   book: ParsedBook;
+  /** Index of the active chapter. */
   chapterIndex: number;
+  /** Current display mode (spread or scroll). */
   readerMode: ReaderMode;
+  /** Current interaction mode (read, type, versus). */
   interactionMode: InteractionMode;
+  /** Current application settings. */
   settings: AppSettings;
+  /** User's analytics summary. */
   analytics: AnalyticsSummary | null;
+  /** Whether the desktop environment is ready. */
   desktopReady: boolean;
+  /** Whether the book is currently loading. */
   loadingBook: boolean;
+  /** Callback to return to the library view. */
   onBackToLibrary: () => void;
+  /** Callback when the chapter is changed. */
   onChapterChange: (index: number) => void;
+  /** Callback when the interaction mode is changed. */
   onInteractionModeChange: (mode: InteractionMode) => void;
+  /** Callback when settings are modified. */
   onSettingsChange: (settings: AppSettings) => void;
+  /** Callback to open settings. */
   onOpenSettings: () => void;
+  /** Whether the side menu is open. */
   menuOpen: boolean;
+  /** Callback to toggle the side menu. */
   onToggleMenu: () => void;
+  /** Callback to close the side menu. */
   onCloseMenu: () => void;
+  /** Callback to open a specific tab in the menu. */
   onOpenTab: (tab: ActiveTab) => void;
+  /** Callback to save typing progress. */
   onProgress: (bookId: number, currentIndex: number, currentChapter: number) => Promise<void>;
+  /** Callback to save reading progress. */
   onReadProgress: (bookId: number, readIndex: number, readChapter: number) => Promise<void>;
+  /** API function to process a batch of keystrokes. */
   onProcessBatch: (payload: ProcessKeystrokeBatchInput) => Promise<ProcessKeystrokeBatchResult>;
+  /** Callback to report errors. */
   onError: (message: string) => void;
+  /** Map of chapter progress percentages. */
   chapterProgressMap: Record<string, number>;
 }
+
 
 const EMPTY_METRICS: LiveMetrics = {
   wpm: 0,

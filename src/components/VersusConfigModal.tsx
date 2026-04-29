@@ -10,13 +10,22 @@ function clampBotCpm(value: number) {
   return clamp(Math.round(value), MIN_BOT_CPM, MAX_BOT_CPM);
 }
 
+/**
+ * Properties for the VersusConfigModal component.
+ */
 interface VersusConfigModalProps {
+  /** Whether the modal is open. */
   isOpen: boolean;
+  /** Callback to close the modal. */
   onClose: () => void;
+  /** Callback to start the race with the configured bot speed. */
   onStart: (cpm: number) => void;
+  /** Current configured bot speed in CPM. */
   currentCpm: number;
+  /** User's average speed in WPM. */
   averageWpm: number;
 }
+
 
 export function VersusConfigModal({
   isOpen,

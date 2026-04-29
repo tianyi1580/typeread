@@ -18,6 +18,12 @@ export const keyboardLayoutPresets: Record<Exclude<KeyboardLayoutId, "custom">, 
   },
 };
 
+/**
+ * Parses a custom keyboard layout string into rows.
+ * 
+ * @param source - The custom layout string.
+ * @returns An array of string rows.
+ */
 export function parseKeyboardLayoutRows(source: string) {
   return source
     .split(/\r?\n/)
@@ -25,7 +31,14 @@ export function parseKeyboardLayoutRows(source: string) {
     .filter(Boolean);
 }
 
+/**
+ * Resolves the active keyboard layout definition from app settings.
+ * 
+ * @param settings - The application settings.
+ * @returns The resolved KeyboardLayoutDefinition.
+ */
 export function resolveKeyboardLayout(settings: AppSettings): KeyboardLayoutDefinition {
+
   if (settings.keyboardLayout === "custom") {
     const rows = parseKeyboardLayoutRows(settings.customKeyboardLayout);
     if (rows.length >= 3) {
@@ -40,7 +53,14 @@ export function resolveKeyboardLayout(settings: AppSettings): KeyboardLayoutDefi
   return keyboardLayoutPresets[settings.keyboardLayout as Exclude<KeyboardLayoutId, "custom">] ?? keyboardLayoutPresets["qwerty-us"];
 }
 
+/**
+ * Normalizes a key label for display or comparison.
+ * 
+ * @param value - The key value.
+ * @returns The normalized label.
+ */
 export function normalizeKeyLabel(value: string) {
+
   if (value === " ") {
     return "space";
   }
