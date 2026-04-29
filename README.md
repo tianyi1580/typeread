@@ -78,6 +78,8 @@ npm run tauri build
 To release a new version of TypeRead, run the standard npm version command:
 ```bash
 npm version <patch|minor|major>
+git push origin main --follow-tags
+
 ```
 This will automatically execute the `sync_version.cjs` hook, propagating the version bump from `package.json` into Tauri's underlying configuration files (`src-tauri/Cargo.toml`, `src-tauri/tauri.conf.json`, and `src-tauri/Cargo.lock`) securely before creating the Git commit and tag.
 
