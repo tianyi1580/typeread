@@ -73,6 +73,26 @@ jobs:
           end
           EOF
           
+      - name: Checkout Homebrew Tap Repo
+        if: matrix.platform == 'macos-latest'
+        uses: actions/checkout@v4
+        with:
+          repository: tianyi1580/homebrew-tap
+          path: homebrew-tap
+          token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+
+      - name: Update Homebrew Cask
+        if: matrix.platform == 'macos-latest'
+        run: |
+          mkdir -p homebrew-tap/Casks
+          cp homebrew-cask-snippet.txt homebrew-tap/Casks/typeread.rb
+          cd homebrew-tap
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add Casks/typeread.rb
+          git commit -m "Update typeread to v$(node -p "require('../src-tauri/tauri.conf.json').version")" || exit 0
+          git push
+
       - name: Upload Homebrew Snippet
         if: matrix.platform == 'macos-latest'
         uses: actions/upload-artifact@v4
