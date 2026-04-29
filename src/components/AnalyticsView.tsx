@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { resolveKeyboardLayout } from "../lib/keyboard-layouts";
 import { formatDuration } from "../lib/utils";
-import type { AnalyticsSummary, AppSettings, ConfusionPair, KeyboardLayoutDefinition, TransitionStat, WpmSample } from "../types";
+import type { AnalyticsSummary, AppSettings, ConfusionPair, KeyAccuracy, KeyboardLayoutDefinition, TransitionStat, WpmSample } from "../types";
 import { Card } from "./ui/card";
 import { InfoTooltip, InfoIcon } from "./ui/InfoTooltip";
 
@@ -61,6 +61,8 @@ export function AnalyticsView({
   const [lifetimeMetric, setLifetimeMetric] = useState<"wpm" | "accuracy" | "words">("wpm");
   const [timeRange, setTimeRange] = useState<"7" | "30" | "90" | "365" | "all">("all");
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
+  const [heatmapMode, setHeatmapMode] = useState<"drift" | "accuracy">("accuracy");
+
 
   const layout = useMemo(
     () => (settings ? resolveKeyboardLayout(settings) : FALLBACK_KEYBOARD_LAYOUT),
@@ -317,8 +319,34 @@ export function AnalyticsView({
                 </div>
                 <h2 className="mt-3 text-3xl font-bold">Directional drift by key</h2>
               </div>
-              <div className="rounded-full border border-[var(--border)] bg-white/5 px-5 py-2 text-xs font-semibold tracking-wide text-[var(--text-muted)] backdrop-blur-md">
-                {layout.name}
+              <div className="flex items-center gap-4">
+                <div className="flex rounded-full border border-[var(--border)] bg-black/10 p-1">
+                  <button
+                    type="button"
+                    onClick={() => setHeatmapMode("drift")}
+                    className={`rounded-full px-4 py-1.5 text-xs font-semibold transition-all duration-200 ${
+                      heatmapMode === "drift"
+                        ? "bg-[var(--accent)] text-black shadow-sm"
+                        : "text-[var(--text-muted)] hover:text-[var(--text)]"
+                    }`}
+                  >
+                    Drift
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setHeatmapMode("accuracy")}
+                    className={`rounded-full px-4 py-1.5 text-xs font-semibold transition-all duration-200 ${
+                      heatmapMode === "accuracy"
+                        ? "bg-[var(--accent)] text-black shadow-sm"
+                        : "text-[var(--text-muted)] hover:text-[var(--text)]"
+                    }`}
+                  >
+                    Accuracy
+                  </button>
+                </div>
+                <div className="rounded-full border border-[var(--border)] bg-white/5 px-5 py-2 text-xs font-semibold tracking-wide text-[var(--text-muted)] backdrop-blur-md">
+                  {layout.name}
+                </div>
               </div>
             </div>
             <div className="mt-10 grid gap-10 xl:grid-cols-[minmax(0,1fr)_340px]">
@@ -326,11 +354,19 @@ export function AnalyticsView({
                 <KeyboardHeatmap
                   layout={layout}
                   confusions={analytics.aggregateConfusions}
+                  keyAccuracies={analytics.keyAccuracies}
+                  mode={heatmapMode}
                   selectedKey={activeKey}
                   onSelectKey={setSelectedKey}
                 />
               </div>
-              <DirectionalPanel layout={layout} selectedKey={activeKey} drifts={selectedDrifts} />
+                <DirectionalPanel
+                  layout={layout}
+                  selectedKey={activeKey}
+                  drifts={selectedDrifts}
+                  mode={heatmapMode}
+                  keyAccuracies={analytics.keyAccuracies}
+                />
             </div>
           </Card>
 
@@ -684,11 +720,15 @@ function SessionGraph({
 function KeyboardHeatmap({
   layout,
   confusions,
+  keyAccuracies,
+  mode,
   selectedKey,
   onSelectKey,
 }: {
   layout: KeyboardLayoutDefinition;
   confusions: ConfusionPair[];
+  keyAccuracies: KeyAccuracy[];
+  mode: "drift" | "accuracy";
   selectedKey: string | null;
   onSelectKey: (key: string) => void;
 }) {
@@ -699,14 +739,31 @@ function KeyboardHeatmap({
   const peak = Math.max(...counts.values(), 1);
   const offsets = [0, 25, 42, 60];
 
+  const accuracyMap = new Map<string, { correct: number; total: number }>();
+  if (keyAccuracies) {
+    for (const acc of keyAccuracies) {
+      accuracyMap.set(acc.key, { correct: acc.correct, total: acc.total });
+    }
+  }
+
   return (
     <div className="flex flex-col gap-4">
       {layout.rows.map((row, rowIndex) => (
         <div key={`${row}-${rowIndex}`} className="flex gap-3" style={{ paddingLeft: `${offsets[rowIndex] ?? 0}px` }}>
           {[...row].map((key) => {
+            const accObj = accuracyMap.get(key);
+            const total = accObj?.total ?? 0;
+            const hasData = total > 0;
+            const accuracy = hasData ? accObj!.correct / total : 1;
+
             const count = counts.get(key) ?? 0;
-            const intensity = count / peak;
+            const intensity = mode === "accuracy" ? (hasData ? 1 - accuracy : 0) : count / peak;
             const isActive = selectedKey === key;
+
+            const bg = isActive
+              ? "var(--accent)"
+              : `color-mix(in srgb, var(--accent) ${Math.round(intensity * 70)}%, rgba(255,255,255,0.03))`;
+
             return (
               <button
                 key={`${rowIndex}-${key}`}
@@ -716,9 +773,7 @@ function KeyboardHeatmap({
                   isActive ? "z-10 border-[var(--accent)] text-[var(--text)] shadow-[0_0_20px_rgba(138,173,244,0.5)] scale-110" : "border-[var(--border)] text-[var(--text-muted)]"
                 }`}
                 style={{
-                  background: isActive 
-                    ? "var(--accent)" 
-                    : `color-mix(in srgb, var(--accent) ${Math.round(intensity * 70)}%, rgba(255,255,255,0.03))`,
+                  background: bg,
                   color: isActive ? "black" : undefined
                 }}
               >
@@ -732,14 +787,19 @@ function KeyboardHeatmap({
   );
 }
 
+
 function DirectionalPanel({
   layout,
   selectedKey,
   drifts,
+  mode,
+  keyAccuracies,
 }: {
   layout: KeyboardLayoutDefinition;
   selectedKey: string | null;
   drifts: ConfusionPair[];
+  mode: "drift" | "accuracy";
+  keyAccuracies: KeyAccuracy[];
 }) {
   const positions = useMemo(() => buildKeyPositions(layout), [layout]);
   const selectedPosition = selectedKey ? positions.get(selectedKey) : null;
@@ -748,45 +808,74 @@ function DirectionalPanel({
     <div className="space-y-5">
       <div className="rounded-[32px] border border-[var(--border)] bg-white/5 p-6 backdrop-blur-sm">
         <div className="flex items-center gap-2">
-          <p className="text-xs font-bold uppercase tracking-[0.24em] text-[var(--text-muted)]">Directional Vectors</p>
-          <InfoTooltip content={SECTION_DESCRIPTIONS.vectors} trigger="click">
+          <p className="text-xs font-bold uppercase tracking-[0.24em] text-[var(--text-muted)]">
+            {mode === "accuracy" ? "Key Accuracy" : "Directional Vectors"}
+          </p>
+          <InfoTooltip content={mode === "accuracy" ? "The accuracy percentage for the selected key." : SECTION_DESCRIPTIONS.vectors} trigger="click">
             <InfoIcon className="h-3 w-3" />
           </InfoTooltip>
         </div>
         <div className="relative mt-6 flex h-[180px] items-center justify-center rounded-2xl bg-black/20 overflow-hidden">
-          <svg viewBox="0 0 220 160" className="h-full w-full">
-            {selectedPosition && (
-              <>
-                <circle cx={selectedPosition.x} cy={selectedPosition.y} r="10" fill="var(--accent)" className="animate-pulse" />
-                {drifts.map((drift) => {
-                  const target = positions.get(drift.typed);
-                  if (!target) return null;
-                  return (
-                    <g key={`${drift.expected}-${drift.typed}`}>
-                      <line
-                        x1={selectedPosition.x}
-                        y1={selectedPosition.y}
-                        x2={target.x}
-                        y2={target.y}
-                        stroke="var(--accent)"
-                        strokeWidth={Math.max(2, drift.count / 4)}
-                        opacity="0.6"
-                        strokeLinecap="round"
-                      />
-                      <circle cx={target.x} cy={target.y} r="5" fill="var(--danger)" />
-                    </g>
-                  );
-                })}
-              </>
-            )}
-          </svg>
-          {!selectedKey && (
-            <p className="absolute inset-0 flex items-center justify-center px-6 text-center text-xs font-medium leading-relaxed text-[var(--text-muted)] opacity-50">
-              Select a key from the heatmap to view drift vectors.
-            </p>
+          {mode === "accuracy" ? (
+            selectedKey ? (
+              (() => {
+                const accObj = keyAccuracies?.find(a => a.key === selectedKey);
+                const total = accObj?.total ?? 0;
+                const accuracy = total > 0 ? (accObj!.correct / total) * 100 : 100;
+                return (
+                  <div className="flex flex-col items-center gap-2 animate-fade-in">
+                    <span className="text-5xl font-black tracking-tight text-[var(--text)]">
+                      {accuracy.toFixed(1)}%
+                    </span>
+                    <span className="text-xs font-medium text-[var(--text-muted)]">
+                      {accObj?.correct ?? 0} / {total} correct attempts
+                    </span>
+                  </div>
+                );
+              })()
+            ) : (
+              <p className="absolute inset-0 flex items-center justify-center px-6 text-center text-xs font-medium leading-relaxed text-[var(--text-muted)] opacity-50">
+                Select a key from the heatmap to view accuracy.
+              </p>
+            )
+          ) : (
+            <>
+              <svg viewBox="0 0 220 160" className="h-full w-full">
+                {selectedPosition && (
+                  <>
+                    <circle cx={selectedPosition.x} cy={selectedPosition.y} r="10" fill="var(--accent)" className="animate-pulse" />
+                    {drifts.map((drift) => {
+                      const target = positions.get(drift.typed);
+                      if (!target) return null;
+                      return (
+                        <g key={`${drift.expected}-${drift.typed}`}>
+                          <line
+                            x1={selectedPosition.x}
+                            y1={selectedPosition.y}
+                            x2={target.x}
+                            y2={target.y}
+                            stroke="var(--accent)"
+                            strokeWidth={Math.max(2, drift.count / 4)}
+                            opacity="0.6"
+                            strokeLinecap="round"
+                          />
+                          <circle cx={target.x} cy={target.y} r="5" fill="var(--danger)" />
+                        </g>
+                      );
+                    })}
+                  </>
+                )}
+              </svg>
+              {!selectedKey && (
+                <p className="absolute inset-0 flex items-center justify-center px-6 text-center text-xs font-medium leading-relaxed text-[var(--text-muted)] opacity-50">
+                  Select a key from the heatmap to view drift vectors.
+                </p>
+              )}
+            </>
           )}
         </div>
       </div>
+
 
       <div className="rounded-[32px] border border-[var(--border)] bg-white/5 p-6 backdrop-blur-sm">
         <div className="flex items-center gap-2">

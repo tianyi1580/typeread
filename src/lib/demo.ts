@@ -213,6 +213,12 @@ export const demoAnalytics: AnalyticsSummary = {
     cadenceCv: 0.14,
     focusScore: 92,
     activeTypingSeconds: 1490,
+    keyAccuracies: [
+      { key: "a", correct: 245, total: 263 },
+      { key: "e", correct: 312, total: 346 },
+      { key: "o", correct: 184, total: 231 },
+      { key: "n", correct: 165, total: 194 },
+    ],
   },
   aggregateConfusions: [
     { expected: "a", typed: "s", count: 64 },
@@ -234,4 +240,10 @@ export const demoAnalytics: AnalyticsSummary = {
       { combo: "ea", samples: 53, averageMs: 198, deviationMs: 24, errorRate: 0.13 },
     ],
   },
+  keyAccuracies: [
+    { key: "a", correct: 1245, total: 1309 },
+    { key: "e", correct: 1812, total: 1846 },
+    { key: "o", correct: 1084, total: 1131 },
+    { key: "n", correct: 965, total: 994 },
+  ],
 };

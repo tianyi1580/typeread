@@ -42,6 +42,8 @@ export function SettingsView({
   const defaultUnlocks = {
     draculaTheme: false,
     nordTheme: false,
+    rosewoodTheme: false,
+    mochaBlushTheme: false,
     smoothCaret: false,
     premiumTypography: false,
     customErrorColors: false,
@@ -113,7 +115,18 @@ export function SettingsView({
 
               <div className="grid gap-4 md:grid-cols-2">
                 {themeEntries.map(([key, theme]) => {
-                  const locked = (key === "dracula" && !unlocks.draculaTheme) || (key === "nord" && !unlocks.nordTheme);
+                  const locked =
+                    (key === "dracula" && !unlocks.draculaTheme) ||
+                    (key === "nord" && !unlocks.nordTheme) ||
+                    (key === "rosewood" && !unlocks.rosewoodTheme) ||
+                    (key === "mocha-blush" && !unlocks.mochaBlushTheme);
+
+                  const getThemeLevel = (themeKey: string) => {
+                    if (themeKey === "dracula" || themeKey === "rosewood") return 10;
+                    if (themeKey === "nord" || themeKey === "mocha-blush") return 15;
+                    return 0;
+                  };
+
                   return (
                     <button
                       key={key}
@@ -133,7 +146,7 @@ export function SettingsView({
                       </div>
                       <div className="mt-4 flex items-center justify-between gap-3">
                         <p className="text-lg font-semibold">{theme.name}</p>
-                        {locked && <span className="text-xs uppercase tracking-[0.18em] text-[var(--text-muted)]">Lvl 5</span>}
+                        {locked && <span className="text-xs uppercase tracking-[0.18em] text-[var(--text-muted)]">Lvl {getThemeLevel(key)}</span>}
                       </div>
                     </button>
                   );
@@ -193,7 +206,7 @@ export function SettingsView({
 
               <ToggleRow
                 label="Smooth Caret"
-                description="Unlocked at level 10. Keeps the caret motion less harsh during dense typing runs."
+                description="Unlocked at level 5. Keeps the caret motion less harsh during dense typing runs."
                 checked={settings.smoothCaret}
                 disabled={!unlocks.smoothCaret}
                 onChange={(checked) => onChange({ ...settings, smoothCaret: checked })}
@@ -205,7 +218,7 @@ export function SettingsView({
                     label="Error Highlight Color"
                     value={settings.errorColor}
                     disabled={!unlocks.customErrorColors}
-                    levelLabel="Lvl 50"
+                    levelLabel="Lvl 10"
                     onChange={(color) => onChange({ ...settings, errorColor: color })}
                   />
                   <div className="flex flex-col justify-end">
@@ -218,7 +231,7 @@ export function SettingsView({
                   </div>
                 </div>
                 {!unlocks.customErrorColors && (
-                  <p className="text-sm text-[var(--text-muted)]">Unlocks at level 50.</p>
+                  <p className="text-sm text-[var(--text-muted)]">Unlocks at level 10.</p>
                 )}
               </div>
 
@@ -228,7 +241,7 @@ export function SettingsView({
                     label="Correct Character Color"
                     value={settings.successColor}
                     disabled={!unlocks.customSuccessColors}
-                    levelLabel="Lvl 40"
+                    levelLabel="Lvl 2"
                     onChange={(color) => onChange({ ...settings, successColor: color })}
                   />
                   <div className="flex flex-col justify-end">
@@ -241,7 +254,7 @@ export function SettingsView({
                   </div>
                 </div>
                 {!unlocks.customSuccessColors && (
-                  <p className="text-sm text-[var(--text-muted)]">Unlocks at level 40.</p>
+                  <p className="text-sm text-[var(--text-muted)]">Unlocks at level 2.</p>
                 )}
               </div>
             </div>

@@ -1,11 +1,12 @@
 import type { ProfileProgress, UnlockState } from "../types";
 
 export const LEVEL_REWARDS = [
-  { level: 5, label: "Dracula and Nord themes unlocked" },
-  { level: 10, label: "Smooth caret unlocked" },
+  { level: 2, label: "Custom correct colors unlocked" },
+  { level: 5, label: "Smooth caret unlocked" },
+  { level: 10, label: "Dracula and Rosewood themes unlocked" },
+  { level: 10, label: "Custom error colors unlocked" },
+  { level: 15, label: "Nord and Mocha Blush themes unlocked" },
   { level: 15, label: "Premium typography unlocked" },
-  { level: 40, label: "Custom correct colors unlocked" },
-  { level: 50, label: "Custom error colors unlocked" },
 ] as const;
 
 export function xpThresholdForLevel(level: number) {
@@ -42,12 +43,14 @@ export function titleForLevel(level: number) {
 
 export function unlocksForLevel(level: number): UnlockState {
   return {
-    draculaTheme: level >= 5,
-    nordTheme: level >= 5,
-    smoothCaret: level >= 10,
+    draculaTheme: level >= 10,
+    nordTheme: level >= 15,
+    rosewoodTheme: level >= 10,
+    mochaBlushTheme: level >= 15,
+    smoothCaret: level >= 5,
     premiumTypography: level >= 15,
-    customSuccessColors: level >= 40,
-    customErrorColors: level >= 50,
+    customSuccessColors: level >= 2,
+    customErrorColors: level >= 10,
   };
 }
 

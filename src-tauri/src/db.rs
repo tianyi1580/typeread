@@ -264,6 +264,13 @@ impl Database {
         ensure_column(conn, "books", "read_chapter", "INTEGER NOT NULL DEFAULT 0")?;
         ensure_column(
             conn,
+            "session_analytics",
+            "key_accuracy_json",
+            "TEXT NOT NULL DEFAULT '[]'",
+        )?;
+
+        ensure_column(
+            conn,
             "settings",
             "theme",
             "TEXT NOT NULL DEFAULT 'catppuccin-macchiato'",
@@ -1055,6 +1062,9 @@ impl Database {
             .context("failed to serialize confusion pairs")?;
         let transition_stats_json = serde_json::to_string(&finalized.transition_stats)
             .context("failed to serialize transition stats")?;
+        let key_accuracy_json = serde_json::to_string(&finalized.deep_analytics.key_accuracies)
+            .context("failed to serialize key accuracies")?;
+
 
         tx.execute(
             r#"
@@ -1070,9 +1080,10 @@ impl Database {
                 confusion_json,
                 transition_stats_json,
                 cadence_cv,
-                active_typing_seconds
+                active_typing_seconds,
+                key_accuracy_json
             )
-            VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)
+            VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)
             "#,
             params![
                 session_id,
@@ -1085,10 +1096,12 @@ impl Database {
                 confusion_json,
                 transition_stats_json,
                 finalized.deep_analytics.cadence_cv,
-                finalized.deep_analytics.active_typing_seconds
+                finalized.deep_analytics.active_typing_seconds,
+                key_accuracy_json
             ],
         )
         .context("failed to persist session analytics")?;
+
 
         let total_words_after: i64 = tx.query_row(
             "SELECT CAST(COALESCE(SUM(words_typed), 0) AS INTEGER) FROM typing_sessions",
@@ -1272,7 +1285,9 @@ impl Database {
             .collect::<std::result::Result<Vec<_>, _>>()?;
 
         let latest_deep_analytics = self.latest_deep_analytics(&conn)?;
-        let (aggregate_confusions, aggregate_transitions) = self.aggregate_deep_analytics(&conn)?;
+        let (aggregate_confusions, aggregate_transitions, key_accuracies) =
+            self.aggregate_deep_analytics(&conn)?;
+
 
         Ok(AnalyticsSummary {
             total_words_typed,
@@ -1288,6 +1303,7 @@ impl Database {
             latest_deep_analytics,
             aggregate_confusions,
             aggregate_transitions,
+            key_accuracies,
         })
     }
 
@@ -1504,7 +1520,8 @@ impl Database {
                     typing_sessions.rhythm_score,
                     session_analytics.cadence_cv,
                     typing_sessions.focus_score,
-                    session_analytics.active_typing_seconds
+                    session_analytics.active_typing_seconds,
+                    session_analytics.key_accuracy_json
                 FROM session_analytics
                 INNER JOIN typing_sessions ON typing_sessions.id = session_analytics.session_id
                 ORDER BY typing_sessions.start_time DESC
@@ -1537,7 +1554,12 @@ impl Database {
                         cadence_cv: row.get(6)?,
                         focus_score: row.get(7)?,
                         active_typing_seconds: row.get(8)?,
+                        key_accuracies: serde_json::from_str::<Vec<crate::models::KeyAccuracy>>(
+                            &row.get::<_, String>(9)?,
+                        )
+                        .unwrap_or_default(),
                     })
+
                 },
             )
             .optional()?;
@@ -1547,18 +1569,29 @@ impl Database {
     fn aggregate_deep_analytics(
         &self,
         conn: &Connection,
-    ) -> Result<(Vec<ConfusionPair>, crate::models::TransitionGroups)> {
-        let mut stmt =
-            conn.prepare("SELECT confusion_json, transition_stats_json FROM session_analytics")?;
+    ) -> Result<(
+        Vec<ConfusionPair>,
+        crate::models::TransitionGroups,
+        Vec<crate::models::KeyAccuracy>,
+    )> {
+
+        let mut stmt = conn.prepare(
+            "SELECT confusion_json, transition_stats_json, key_accuracy_json FROM session_analytics",
+        )?;
         let rows = stmt.query_map([], |row| {
-            Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+            Ok((
+                row.get::<_, String>(0)?,
+                row.get::<_, String>(1)?,
+                row.get::<_, Option<String>>(2)?,
+            ))
         })?;
 
         let mut confusion_map = HashMap::<(String, String), i64>::new();
         let mut transition_map = HashMap::<String, TransitionAggregate>::new();
+        let mut accuracy_map = HashMap::<String, (i64, i64)>::new();
 
         for row in rows {
-            let (confusion_json, transition_json) = row?;
+            let (confusion_json, transition_json, key_accuracy_json) = row?;
             for pair in
                 serde_json::from_str::<Vec<ConfusionPair>>(&confusion_json).unwrap_or_default()
             {
@@ -1573,6 +1606,15 @@ impl Database {
                     .entry(stat.combo.clone())
                     .or_default()
                     .merge_stat(&stat);
+            }
+            if let Some(ka_json) = key_accuracy_json {
+                for acc in serde_json::from_str::<Vec<crate::models::KeyAccuracy>>(&ka_json)
+                    .unwrap_or_default()
+                {
+                    let entry = accuracy_map.entry(acc.key).or_insert((0, 0));
+                    entry.0 += acc.correct;
+                    entry.1 += acc.total;
+                }
             }
         }
 
@@ -1592,8 +1634,18 @@ impl Database {
             .map(|(combo, aggregate)| aggregate.to_stat(combo))
             .collect::<Vec<_>>();
 
-        Ok((confusions, group_transition_stats(&transition_stats)))
+        let key_accuracies = accuracy_map
+            .into_iter()
+            .map(|(key, (correct, total))| crate::models::KeyAccuracy { key, correct, total })
+            .collect::<Vec<_>>();
+ 
+        Ok((
+            confusions,
+            group_transition_stats(&transition_stats),
+            key_accuracies,
+        ))
     }
+
 }
 
 fn ensure_column(conn: &Connection, table: &str, column: &str, definition: &str) -> Result<()> {

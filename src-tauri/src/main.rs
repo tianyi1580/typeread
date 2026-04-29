@@ -249,7 +249,9 @@ async fn save_session(
                 cadence_cv: 0.0,
                 focus_score: 100.0,
                 active_typing_seconds: session.duration_seconds,
+                key_accuracies: Vec::new(),
             },
+
             transition_stats: Vec::new(),
             endurance_segments: 0,
         };

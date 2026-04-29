@@ -128,6 +128,7 @@ export interface AnalyticsSummary {
   latestDeepAnalytics: DeepAnalytics | null;
   aggregateConfusions: ConfusionPair[];
   aggregateTransitions: TransitionGroups;
+  keyAccuracies: KeyAccuracy[];
 }
 
 export interface AppSettings {
@@ -208,6 +209,13 @@ export interface ConfusionPair {
   count: number;
 }
 
+export interface KeyAccuracy {
+  key: string;
+  correct: number;
+  total: number;
+}
+
+
 export interface TransitionStat {
   combo: string;
   samples: number;
@@ -237,11 +245,14 @@ export interface DeepAnalytics {
   cadenceCv: number;
   focusScore: number;
   activeTypingSeconds: number;
+  keyAccuracies: KeyAccuracy[];
 }
 
 export interface UnlockState {
   draculaTheme: boolean;
   nordTheme: boolean;
+  rosewoodTheme: boolean;
+  mochaBlushTheme: boolean;
   smoothCaret: boolean;
   premiumTypography: boolean;
   customErrorColors: boolean;

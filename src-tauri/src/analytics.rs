@@ -2,7 +2,7 @@ use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet, VecDeque};
 
 use crate::models::{
-    ConfusionPair, DeepAnalytics, KeystrokeEvent, SessionContext, TransitionGroups, TransitionStat,
+    ConfusionPair, DeepAnalytics, KeyAccuracy, KeystrokeEvent, SessionContext, TransitionGroups, TransitionStat,
     TypingSessionInput, WpmSample,
 };
 
@@ -16,7 +16,15 @@ pub struct LiveSessionAnalytics {
     total_events: usize,
     seen_accuracy_indices: HashSet<(i64, i64)>,
     accuracy_samples: Vec<(i64, bool)>,
+    key_stats: HashMap<String, KeyStats>,
 }
+
+#[derive(Clone, Default)]
+struct KeyStats {
+    correct: i64,
+    missed: i64,
+}
+
 
 #[derive(Clone)]
 pub struct FinalizedAnalytics {
@@ -82,6 +90,7 @@ impl LiveSessionAnalytics {
             total_events: 0,
             seen_accuracy_indices: HashSet::new(),
             accuracy_samples: Vec::new(),
+            key_stats: HashMap::new(),
         }
     }
 
@@ -138,6 +147,15 @@ impl LiveSessionAnalytics {
                 cadence_cv,
                 focus_score,
                 active_typing_seconds,
+                key_accuracies: self
+                    .key_stats
+                    .iter()
+                    .map(|(key, stats)| KeyAccuracy {
+                        key: key.clone(),
+                        correct: stats.correct,
+                        total: stats.correct + stats.missed,
+                    })
+                    .collect(),
             },
             transition_stats,
             endurance_segments,
@@ -176,6 +194,14 @@ impl LiveSessionAnalytics {
         let Some(expected_char) = expected else {
             return;
         };
+
+        let stats = self.key_stats.entry(expected_char.clone()).or_default();
+        if is_correct {
+            stats.correct += 1;
+        } else {
+            stats.missed += 1;
+        }
+
 
         if is_correct {
             self.correct_char_samples

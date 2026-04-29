@@ -102,6 +102,15 @@ pub struct ConfusionPair {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct KeyAccuracy {
+    pub key: String,
+    pub correct: i64,
+    pub total: i64,
+}
+
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct TransitionStat {
     pub combo: String,
     pub samples: i64,
@@ -137,6 +146,7 @@ pub struct DeepAnalytics {
     pub cadence_cv: f64,
     pub focus_score: f64,
     pub active_typing_seconds: i64,
+    pub key_accuracies: Vec<KeyAccuracy>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -188,6 +198,7 @@ pub struct AnalyticsSummary {
     pub latest_deep_analytics: Option<DeepAnalytics>,
     pub aggregate_confusions: Vec<ConfusionPair>,
     pub aggregate_transitions: TransitionGroups,
+    pub key_accuracies: Vec<KeyAccuracy>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
