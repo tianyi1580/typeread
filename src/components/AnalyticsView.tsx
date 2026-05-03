@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { resolveKeyboardLayout } from "../lib/keyboard-layouts";
 import { formatDuration } from "../lib/utils";
 import type { AnalyticsSummary, AppSettings, ConfusionPair, KeyAccuracy, KeyboardLayoutDefinition, TransitionStat, WpmSample } from "../types";
@@ -49,6 +49,15 @@ const FALLBACK_KEYBOARD_LAYOUT: KeyboardLayoutDefinition = {
   rows: ["1234567890-=", "qwertyuiop[]\\", "asdfghjkl;'", "zxcvbnm,./"],
 };
 
+const SHIFT_MAP: Record<string, string> = {
+  "1": "!", "2": "@", "3": "#", "4": "$", "5": "%", "6": "^", "7": "&", "8": "*", "9": "(", "0": ")", "-": "_", "=": "+",
+  "q": "Q", "w": "W", "e": "E", "r": "R", "t": "T", "y": "Y", "u": "U", "i": "I", "o": "O", "p": "P", "[": "{", "]": "}", "\\": "|",
+  "a": "A", "s": "S", "d": "D", "f": "F", "g": "G", "h": "H", "j": "J", "k": "K", "l": "L", ";": ":", "'": "\"",
+  "z": "Z", "x": "X", "c": "C", "v": "V", "b": "B", "n": "N", "m": "M", ",": "<", ".": ">", "/": "?",
+};
+
+const SHIFTED_CHARS = new Set(Object.values(SHIFT_MAP));
+
 /**
  * Properties for the AnalyticsView component.
  */
@@ -75,10 +84,36 @@ export function AnalyticsView({
   const [heatmapMode, setHeatmapMode] = useState<"drift" | "accuracy">("accuracy");
   const [heatmapView, setHeatmapView] = useState<"keyboard" | "list">("keyboard");
   const [keyAccuracySortOrder, setKeyAccuracySortOrder] = useState<"asc" | "desc">("asc");
+  const [isShiftPressed, setIsShiftPressed] = useState(false);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Shift") setIsShiftPressed(true);
+    };
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (e.key === "Shift") setIsShiftPressed(false);
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("keyup", handleKeyUp);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("keyup", handleKeyUp);
+    };
+  }, []);
 
   const layout = useMemo(
-    () => (settings ? resolveKeyboardLayout(settings) : FALLBACK_KEYBOARD_LAYOUT),
-    [settings],
+    () => {
+      const base = settings ? resolveKeyboardLayout(settings) : FALLBACK_KEYBOARD_LAYOUT;
+      if (!isShiftPressed) return base;
+      return {
+        ...base,
+        rows: base.rows.map(row => 
+          [...row].map(char => SHIFT_MAP[char] || char.toUpperCase()).join("")
+        )
+      };
+    },
+    [settings, isShiftPressed],
   );
 
   const filteredSessionPoints = useMemo(() => {
@@ -325,6 +360,11 @@ export function AnalyticsView({
               <div>
                 <div className="flex items-center gap-3">
                   <p className="text-xs uppercase tracking-[0.3em] text-[var(--text-muted)]">Keyboard Heatmap</p>
+                  {isShiftPressed && (
+                    <span className="rounded-full bg-[var(--accent)] px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-black animate-in fade-in zoom-in duration-200">
+                      Shift Mode
+                    </span>
+                  )}
                   <InfoTooltip content={SECTION_DESCRIPTIONS.heatmap} trigger="click">
                     <InfoIcon className="h-3.5 w-3.5" />
                   </InfoTooltip>
@@ -402,7 +442,11 @@ export function AnalyticsView({
                 ) : (
                   <div className="w-full grid gap-4 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 2xl:grid-cols-6 max-h-[600px] overflow-y-auto pr-2 custom-scrollbar">
                     {[...(analytics.keyAccuracies || [])]
-                      .filter(acc => acc.total > 0)
+                      .filter(acc => {
+                        if (acc.total === 0) return false;
+                        const isShiftChar = SHIFTED_CHARS.has(acc.key) || (acc.key >= "A" && acc.key <= "Z");
+                        return isShiftPressed ? isShiftChar : !isShiftChar;
+                      })
                       .sort((a, b) => {
                         const accA = a.correct / a.total;
                         const accB = b.correct / b.total;
@@ -834,7 +878,7 @@ function KeyboardHeatmap({
       {layout.rows.map((row, rowIndex) => (
         <div key={`${row}-${rowIndex}`} className="flex gap-3" style={{ paddingLeft: `${offsets[rowIndex] ?? 0}px` }}>
           {[...row].map((key) => {
-            const accObj = accuracyMap.get(key);
+            const accObj = accuracyMap.get(key) || accuracyMap.get(key.toLowerCase());
             const total = accObj?.total ?? 0;
             const hasData = total > 0;
             const accuracy = hasData ? accObj!.correct / total : 1;
