@@ -73,7 +73,8 @@ export function AnalyticsView({
   const [timeRange, setTimeRange] = useState<"7" | "30" | "90" | "365" | "all">("all");
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [heatmapMode, setHeatmapMode] = useState<"drift" | "accuracy">("accuracy");
-
+  const [heatmapView, setHeatmapView] = useState<"keyboard" | "list">("keyboard");
+  const [keyAccuracySortOrder, setKeyAccuracySortOrder] = useState<"asc" | "desc">("asc");
 
   const layout = useMemo(
     () => (settings ? resolveKeyboardLayout(settings) : FALLBACK_KEYBOARD_LAYOUT),
@@ -334,40 +335,113 @@ export function AnalyticsView({
                 <div className="flex rounded-full border border-[var(--border)] bg-black/10 p-1">
                   <button
                     type="button"
-                    onClick={() => setHeatmapMode("drift")}
-                    className={`rounded-full px-4 py-1.5 text-xs font-semibold transition-all duration-200 ${heatmapMode === "drift"
+                    onClick={() => setHeatmapView("keyboard")}
+                    className={`rounded-full px-4 py-1.5 text-xs font-semibold transition-all duration-200 ${heatmapView === "keyboard"
                         ? "bg-[var(--accent)] text-black shadow-sm"
                         : "text-[var(--text-muted)] hover:text-[var(--text)]"
                       }`}
                   >
-                    Drift
+                    Keyboard
                   </button>
                   <button
                     type="button"
-                    onClick={() => setHeatmapMode("accuracy")}
-                    className={`rounded-full px-4 py-1.5 text-xs font-semibold transition-all duration-200 ${heatmapMode === "accuracy"
+                    onClick={() => setHeatmapView("list")}
+                    className={`rounded-full px-4 py-1.5 text-xs font-semibold transition-all duration-200 ${heatmapView === "list"
                         ? "bg-[var(--accent)] text-black shadow-sm"
                         : "text-[var(--text-muted)] hover:text-[var(--text)]"
                       }`}
                   >
-                    Accuracy
+                    List
                   </button>
                 </div>
+                {heatmapView === "keyboard" ? (
+                  <div className="flex rounded-full border border-[var(--border)] bg-black/10 p-1">
+                    <button
+                      type="button"
+                      onClick={() => setHeatmapMode("drift")}
+                      className={`rounded-full px-4 py-1.5 text-xs font-semibold transition-all duration-200 ${heatmapMode === "drift"
+                          ? "bg-[var(--accent)] text-black shadow-sm"
+                          : "text-[var(--text-muted)] hover:text-[var(--text)]"
+                        }`}
+                    >
+                      Drift
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setHeatmapMode("accuracy")}
+                      className={`rounded-full px-4 py-1.5 text-xs font-semibold transition-all duration-200 ${heatmapMode === "accuracy"
+                          ? "bg-[var(--accent)] text-black shadow-sm"
+                          : "text-[var(--text-muted)] hover:text-[var(--text)]"
+                        }`}
+                    >
+                      Accuracy
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex gap-1 rounded-full bg-black/10 p-1">
+                    <ToggleButton active={keyAccuracySortOrder === "asc"} onClick={() => setKeyAccuracySortOrder("asc")} label="Lowest First" />
+                    <ToggleButton active={keyAccuracySortOrder === "desc"} onClick={() => setKeyAccuracySortOrder("desc")} label="Highest First" />
+                  </div>
+                )}
                 <div className="rounded-full border border-[var(--border)] bg-white/5 px-5 py-2 text-xs font-semibold tracking-wide text-[var(--text-muted)] backdrop-blur-md">
                   {layout.name}
                 </div>
               </div>
             </div>
             <div className="mt-10 grid gap-10 xl:grid-cols-[minmax(0,1fr)_340px]">
-              <div className="flex items-center justify-center rounded-[32px] border border-[var(--border)] bg-black/20 p-8 shadow-inner overflow-x-auto">
-                <KeyboardHeatmap
-                  layout={layout}
-                  confusions={analytics.aggregateConfusions}
-                  keyAccuracies={analytics.keyAccuracies}
-                  mode={heatmapMode}
-                  selectedKey={activeKey}
-                  onSelectKey={setSelectedKey}
-                />
+              <div className={`flex items-center ${heatmapView === "keyboard" ? 'justify-center overflow-x-auto' : 'items-start'} rounded-[32px] border border-[var(--border)] bg-black/20 p-8 shadow-inner`}>
+                {heatmapView === "keyboard" ? (
+                  <KeyboardHeatmap
+                    layout={layout}
+                    confusions={analytics.aggregateConfusions}
+                    keyAccuracies={analytics.keyAccuracies}
+                    mode={heatmapMode}
+                    selectedKey={activeKey}
+                    onSelectKey={setSelectedKey}
+                  />
+                ) : (
+                  <div className="w-full grid gap-4 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 2xl:grid-cols-6 max-h-[600px] overflow-y-auto pr-2 custom-scrollbar">
+                    {[...(analytics.keyAccuracies || [])]
+                      .filter(acc => acc.total > 0)
+                      .sort((a, b) => {
+                        const accA = a.correct / a.total;
+                        const accB = b.correct / b.total;
+                        if (Math.abs(accA - accB) < 0.0001) {
+                          return b.total - a.total;
+                        }
+                        return keyAccuracySortOrder === "asc" ? accA - accB : accB - accA;
+                      })
+                      .map((acc) => {
+                        const accuracy = (acc.correct / acc.total) * 100;
+                        const isSelected = activeKey === acc.key;
+                        return (
+                          <button
+                            key={acc.key}
+                            onClick={() => setSelectedKey(acc.key)}
+                            className={`group flex flex-col items-center justify-center rounded-[20px] border p-4 transition-all hover:border-[var(--accent)] hover:bg-white/10 ${
+                              isSelected ? 'border-[var(--accent)] bg-white/10 shadow-[0_0_20px_rgba(138,173,244,0.15)]' : 'border-[var(--border)] bg-white/5'
+                            }`}
+                          >
+                            <span className={`text-2xl font-bold tracking-tighter transition-colors ${
+                              isSelected ? 'text-[var(--accent)]' : 'text-[var(--text)] group-hover:text-[var(--accent)]'
+                            }`}>
+                              {acc.key === " " ? "Space" : (acc.key === "\n" || acc.key === "\r" || acc.key === "\r\n") ? "Enter" : acc.key === "\t" ? "Tab" : acc.key.trim() === "" ? "Space" : acc.key}
+                            </span>
+                            <span
+                              className={`mt-2 text-sm font-bold tabular-nums ${
+                                accuracy < 90 ? "text-[var(--danger)]" : accuracy >= 96 ? "text-[var(--success)]" : "text-[var(--accent)]"
+                              }`}
+                            >
+                              {accuracy.toFixed(1)}%
+                            </span>
+                            <p className="mt-1 text-[10px] font-bold uppercase tracking-widest text-[var(--text-muted)]">
+                              {acc.total} attempts
+                            </p>
+                          </button>
+                        );
+                      })}
+                  </div>
+                )}
               </div>
               <DirectionalPanel
                 layout={layout}
@@ -378,6 +452,8 @@ export function AnalyticsView({
               />
             </div>
           </Card>
+
+
 
           <Card className="p-8">
             <div className="flex items-center gap-3">
