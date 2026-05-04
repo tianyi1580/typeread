@@ -239,7 +239,7 @@ export function ReaderView({
     const fontSize = settings.baseFontSize;
     const lineHeight = settings.lineHeight;
     const lineHeightPx = Math.round(fontSize * lineHeight);
-    
+
     // Internal overhead accounts for:
     // 1. ReaderView top/bottom padding: pt-20 (80px) + pb-6 (24px) = 104px
     // 2. SpreadPage top/bottom padding: pt-8 (32px) + pb-5 (20px) = 52px
@@ -249,7 +249,7 @@ export function ReaderView({
     const measuredHeight = availableHeight || (typeof window !== "undefined" ? window.innerHeight : 800);
     const usableHeight = measuredHeight - verticalOverhead;
     const maxLines = Math.max(5, Math.floor(usableHeight / lineHeightPx));
-    
+
     // Horizontal overhead:
     // 1. ReaderView side padding: px-4 or px-6 (max 24px each side) = 48px total
     // 2. Grid gap: gap-6 = 24px
@@ -257,7 +257,7 @@ export function ReaderView({
     // Per page horizontal overhead: (48 + 24 + 48*2) / 2 = 84px
     const horizontalOverhead = 84;
     const usableWidth = (availableWidth || (typeof window !== "undefined" ? window.innerWidth : 1200)) / 2 - horizontalOverhead;
-    
+
     // Using 0.65 for a balance between fitting text and avoiding overflow.
     const charsPerLine = Math.max(20, Math.floor(usableWidth / (fontSize * 0.65)));
 
@@ -370,12 +370,12 @@ export function ReaderView({
       if (!botPausedRef.current) {
         const cps = (settings.versusBotCpm || 200) / 60;
         const next = Math.min(botCursorRef.current + cps * delta, normalizedText.length);
-        
+
         const prevFloor = Math.floor(botCursorRef.current);
         const nextFloor = Math.floor(next);
-        
+
         botCursorRef.current = next;
-        
+
         if (nextFloor !== prevFloor) {
           setBotCursorIndex(next);
         }
@@ -534,10 +534,10 @@ export function ReaderView({
 
   const handleScroll = useCallback(() => {
     if (readerMode !== "scroll" || !scrollContainerRef.current) return;
-    
+
     const container = scrollContainerRef.current;
     const scrollTop = container.scrollTop;
-    
+
     // Find the word element closest to the top of the container
     // We can use the container's children (which is the TypingLayer's div)
     const layer = container.firstElementChild as HTMLElement;
@@ -546,7 +546,7 @@ export function ReaderView({
     const words = Array.from(layer.children) as HTMLElement[];
     // Find the first word whose bottom is below the top of the container
     const topWord = words.find((word) => word.hasAttribute("data-word-index") && word.offsetTop + word.offsetHeight > scrollTop);
-    
+
     if (topWord) {
       const indexAttr = topWord.getAttribute("data-word-index");
       if (indexAttr) {
@@ -717,13 +717,16 @@ export function ReaderView({
     <>
       <div
         className={cn(
-          "relative flex flex-col rounded-[34px] border border-white/5 bg-[color-mix(in_srgb,var(--panel)_40%,transparent)] shadow-panel backdrop-blur-2xl",
+          "relative flex flex-col rounded-[34px] border border-white/5 shadow-panel backdrop-blur-2xl",
+          settings.theme === "nebula-drift"
+            ? "bg-[color-mix(in_srgb,var(--panel)_18%,transparent)]"
+            : "bg-[color-mix(in_srgb,var(--panel)_40%,transparent)]",
           "h-screen overflow-hidden",
           readerFontClass,
         )}
       >
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.08),transparent_36%)]" />
-        
+
         {/* Foreground Celestial Particles for Nebula Drift Theme */}
         {settings.theme === "nebula-drift" && (
           <div className="absolute inset-0 z-0 pointer-events-none">
@@ -782,149 +785,149 @@ export function ReaderView({
                 </button>
               </div>
 
-            <div className="relative min-w-0 flex-1 text-center">
-              <p className="truncate text-sm font-medium">{book.title}</p>
-              <button
-                type="button"
-                onClick={() => setChapterMenuOpen(!chapterMenuOpen)}
-                className="mx-auto flex items-center gap-1.5 truncate text-xs uppercase tracking-[0.24em] text-[var(--text-muted)] transition hover:text-[var(--text)]"
-              >
-                {chapter.title}
-                <span className="text-[10px] opacity-60">▼</span>
-              </button>
-
-              {chapterMenuOpen && (
-                <div
-                  ref={chapterMenuRef}
-                  className="no-scrollbar absolute left-1/2 top-full z-50 mt-4 max-h-[360px] w-[280px] -translate-x-1/2 overflow-y-auto rounded-[28px] border border-[var(--border)] bg-[color-mix(in_srgb,var(--bg)_95%,transparent)] p-2 shadow-2xl backdrop-blur-3xl transform-gpu"
-                >
-                  <div className="px-3 py-2 text-[10px] font-bold uppercase tracking-[0.2em] text-[var(--text-muted)]">
-                    Chapters
-                  </div>
-                  {book.chapters.map((ch, idx) => (
-                    <button
-                      key={ch.id}
-                      type="button"
-                      onClick={() => {
-                        handleChapterJump(idx);
-                        setChapterMenuOpen(false);
-                      }}
-                      className={cn(
-                        "flex w-full items-center rounded-[20px] px-4 py-3 text-left text-sm transition",
-                        idx === chapterIndex
-                          ? "bg-[var(--accent-soft)] font-semibold text-[var(--text)]"
-                          : "text-[var(--text-muted)] hover:bg-white/5 hover:text-[var(--text)]",
-                      )}
-                    >
-                      <span className="mr-3 tabular-nums opacity-40">{idx + 1}</span>
-                      <span className="truncate">{ch.title}</span>
-
-                      {(() => {
-                        let progress = 0;
-                        if (idx < book.currentChapter) {
-                          progress = 1;
-                        } else if (idx === book.currentChapter) {
-                          progress = book.currentIndex / Math.max(1, ch.text.length);
-                        }
-
-                        // If this is the chapter currently being viewed/typed in, show live progress
-                        if (idx === chapterIndex) {
-                          const currentIdx = currentCursorIndex(snapshot, tokens);
-                          progress = currentIdx / Math.max(1, normalizedText.length);
-                        }
-
-                        if (progress <= 0) return null;
-
-                        return (
-                          <div className="ml-auto flex items-center gap-2 pl-4">
-                            <div className="h-1 w-10 overflow-hidden rounded-full bg-white/10">
-                              <div
-                                className="h-full bg-[var(--accent)] transition-all duration-300"
-                                style={{ width: `${Math.min(1, progress) * 100}%` }}
-                              />
-                            </div>
-                            <span className="min-w-[28px] text-right text-[10px] tabular-nums opacity-40">
-                              {Math.round(Math.min(1, progress) * 100)}%
-                            </span>
-                          </div>
-                        );
-                      })()}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <div className="flex flex-1 items-center justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => void flushSession(true)}
-                disabled={!sessionStartAt}
-                className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-2 text-sm text-[var(--text)] transition duration-300 hover:border-[var(--accent)] hover:bg-white/[0.08] disabled:opacity-40"
-              >
-                End Session
-              </button>
-              <div className="relative">
+              <div className="relative min-w-0 flex-1 text-center">
+                <p className="truncate text-sm font-medium">{book.title}</p>
                 <button
                   type="button"
-                  onClick={onToggleMenu}
-                  className="flex h-9 w-9 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--panel-soft)] text-lg text-[var(--text)] transition hover:border-[var(--accent)]"
+                  onClick={() => setChapterMenuOpen(!chapterMenuOpen)}
+                  className="mx-auto flex items-center gap-1.5 truncate text-xs uppercase tracking-[0.24em] text-[var(--text-muted)] transition hover:text-[var(--text)]"
                 >
-                  ≡
+                  {chapter.title}
+                  <span className="text-[10px] opacity-60">▼</span>
                 </button>
-                {menuOpen && (
-                  <div 
-                    ref={menuRef}
-                    className="absolute right-0 top-12 z-50 min-w-[240px] rounded-[24px] border border-[var(--border)] bg-[color-mix(in_srgb,var(--bg)_95%,transparent)] p-2 shadow-2xl backdrop-blur-3xl transform-gpu"
+
+                {chapterMenuOpen && (
+                  <div
+                    ref={chapterMenuRef}
+                    className="no-scrollbar absolute left-1/2 top-full z-50 mt-4 max-h-[360px] w-[280px] -translate-x-1/2 overflow-y-auto rounded-[28px] border border-[var(--border)] bg-[color-mix(in_srgb,var(--bg)_95%,transparent)] p-2 shadow-2xl backdrop-blur-3xl transform-gpu"
                   >
-                    <MenuButton
-                      onClick={() => {
-                        navigate(() => onOpenTab("library"));
-                      }}
-                    >
-                      Library
-                    </MenuButton>
-                    <MenuButton
-                      onClick={() => {
-                        navigate(() => onOpenTab("analytics"));
-                      }}
-                    >
-                      Profile & Analytics
-                    </MenuButton>
-                    <MenuButton
-                      onClick={() => {
-                        navigate(() => onOpenTab("achievements"));
-                      }}
-                    >
-                      Achievements
-                    </MenuButton>
-                    <MenuButton
-                      onClick={() => {
-                        navigate(() => onOpenTab("shop"));
-                      }}
-                    >
-                      Shop
-                    </MenuButton>
-                    <MenuButton
-                      onClick={() => {
-                        navigate(() => onOpenTab("type-test"));
-                      }}
-                    >
-                      Type Test
-                    </MenuButton>
-                    <MenuButton
-                      onClick={() => {
-                        onOpenSettings();
-                      }}
-                    >
-                      Settings
-                    </MenuButton>
+                    <div className="px-3 py-2 text-[10px] font-bold uppercase tracking-[0.2em] text-[var(--text-muted)]">
+                      Chapters
+                    </div>
+                    {book.chapters.map((ch, idx) => (
+                      <button
+                        key={ch.id}
+                        type="button"
+                        onClick={() => {
+                          handleChapterJump(idx);
+                          setChapterMenuOpen(false);
+                        }}
+                        className={cn(
+                          "flex w-full items-center rounded-[20px] px-4 py-3 text-left text-sm transition",
+                          idx === chapterIndex
+                            ? "bg-[var(--accent-soft)] font-semibold text-[var(--text)]"
+                            : "text-[var(--text-muted)] hover:bg-white/5 hover:text-[var(--text)]",
+                        )}
+                      >
+                        <span className="mr-3 tabular-nums opacity-40">{idx + 1}</span>
+                        <span className="truncate">{ch.title}</span>
+
+                        {(() => {
+                          let progress = 0;
+                          if (idx < book.currentChapter) {
+                            progress = 1;
+                          } else if (idx === book.currentChapter) {
+                            progress = book.currentIndex / Math.max(1, ch.text.length);
+                          }
+
+                          // If this is the chapter currently being viewed/typed in, show live progress
+                          if (idx === chapterIndex) {
+                            const currentIdx = currentCursorIndex(snapshot, tokens);
+                            progress = currentIdx / Math.max(1, normalizedText.length);
+                          }
+
+                          if (progress <= 0) return null;
+
+                          return (
+                            <div className="ml-auto flex items-center gap-2 pl-4">
+                              <div className="h-1 w-10 overflow-hidden rounded-full bg-white/10">
+                                <div
+                                  className="h-full bg-[var(--accent)] transition-all duration-300"
+                                  style={{ width: `${Math.min(1, progress) * 100}%` }}
+                                />
+                              </div>
+                              <span className="min-w-[28px] text-right text-[10px] tabular-nums opacity-40">
+                                {Math.round(Math.min(1, progress) * 100)}%
+                              </span>
+                            </div>
+                          );
+                        })()}
+                      </button>
+                    ))}
                   </div>
                 )}
               </div>
-            </div>
-          </motion.div>
-        )}
+
+              <div className="flex flex-1 items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => void flushSession(true)}
+                  disabled={!sessionStartAt}
+                  className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-2 text-sm text-[var(--text)] transition duration-300 hover:border-[var(--accent)] hover:bg-white/[0.08] disabled:opacity-40"
+                >
+                  End Session
+                </button>
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={onToggleMenu}
+                    className="flex h-9 w-9 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--panel-soft)] text-lg text-[var(--text)] transition hover:border-[var(--accent)]"
+                  >
+                    ≡
+                  </button>
+                  {menuOpen && (
+                    <div
+                      ref={menuRef}
+                      className="absolute right-0 top-12 z-50 min-w-[240px] rounded-[24px] border border-[var(--border)] bg-[color-mix(in_srgb,var(--bg)_95%,transparent)] p-2 shadow-2xl backdrop-blur-3xl transform-gpu"
+                    >
+                      <MenuButton
+                        onClick={() => {
+                          navigate(() => onOpenTab("library"));
+                        }}
+                      >
+                        Library
+                      </MenuButton>
+                      <MenuButton
+                        onClick={() => {
+                          navigate(() => onOpenTab("analytics"));
+                        }}
+                      >
+                        Profile & Analytics
+                      </MenuButton>
+                      <MenuButton
+                        onClick={() => {
+                          navigate(() => onOpenTab("achievements"));
+                        }}
+                      >
+                        Achievements
+                      </MenuButton>
+                      <MenuButton
+                        onClick={() => {
+                          navigate(() => onOpenTab("shop"));
+                        }}
+                      >
+                        Shop
+                      </MenuButton>
+                      <MenuButton
+                        onClick={() => {
+                          navigate(() => onOpenTab("type-test"));
+                        }}
+                      >
+                        Type Test
+                      </MenuButton>
+                      <MenuButton
+                        onClick={() => {
+                          onOpenSettings();
+                        }}
+                      >
+                        Settings
+                      </MenuButton>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </motion.div>
+          )}
         </AnimatePresence>
 
         <AnimatePresence>
@@ -986,7 +989,12 @@ export function ReaderView({
               <div
                 ref={scrollContainerRef}
                 onScroll={handleScroll}
-                className="flex-1 overflow-y-auto no-scrollbar rounded-[36px] border border-[var(--border)] bg-[color-mix(in_srgb,var(--panel-soft)_68%,transparent)] px-6 py-8 md:px-10 md:py-12"
+                className={cn(
+                  "flex-1 overflow-y-auto no-scrollbar rounded-[36px] border border-[var(--border)] px-6 py-8 md:px-10 md:py-12",
+                  settings.theme === "nebula-drift"
+                    ? "bg-[color-mix(in_srgb,var(--panel-soft)_21%,transparent)]"
+                    : "bg-[color-mix(in_srgb,var(--panel-soft)_68%,transparent)]"
+                )}
                 style={{ fontSize: `${settings.baseFontSize}px`, lineHeight: settings.lineHeight }}
               >
                 <TypingLayer
@@ -1187,7 +1195,10 @@ function SpreadPage({
   return (
     <div
       className={cn(
-        "flex h-full flex-col overflow-hidden rounded-[34px] border border-[var(--border)] bg-[linear-gradient(180deg,rgba(255,255,255,0.12),transparent)] px-6 pb-0 pt-8 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]",
+        "flex h-full flex-col overflow-hidden rounded-[34px] border border-[var(--border)] px-6 pb-0 pt-8 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]",
+        style.theme === "nebula-drift"
+          ? "bg-[linear-gradient(180deg,rgba(255,255,255,0.04),transparent)]"
+          : "bg-[linear-gradient(180deg,rgba(255,255,255,0.12),transparent)]",
         "font-[var(--font-main)]",
       )}
       style={{ fontSize: `${style.baseFontSize}px`, lineHeight: `${lineHeightPx}px` }}
