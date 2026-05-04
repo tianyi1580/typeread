@@ -143,6 +143,20 @@ export const themeMap: Record<ThemeName, ThemeDefinition> = {
     danger: "#e57373",
     shadow: "rgba(38, 28, 25, 0.45)",
   },
+  "nebula-drift": {
+    name: "Nebula Drift",
+    background: "#0a0b1e",
+    panel: "rgba(15, 17, 45, 0.82)",
+    panelSoft: "rgba(25, 28, 65, 0.72)",
+    border: "rgba(192, 132, 252, 0.18)",
+    text: "#e0e0ff",
+    textMuted: "#94a3b8",
+    accent: "#c084fc",
+    accentSoft: "rgba(192, 132, 252, 0.15)",
+    success: "#4ade80",
+    danger: "#f87171",
+    shadow: "rgba(0, 0, 0, 0.5)",
+  },
 };
 
 const DEFAULT_THEME_NAME: ThemeName = "catppuccin-macchiato";

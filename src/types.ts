@@ -30,7 +30,7 @@ export type SessionSource = (typeof SESSION_SOURCES)[number];
 /**
  * Active navigation tabs in the application.
  */
-export const ACTIVE_TABS = ["library", "reader", "analytics", "achievements", "type-test"] as const;
+export const ACTIVE_TABS = ["library", "reader", "analytics", "achievements", "type-test", "shop"] as const;
 export type ActiveTab = (typeof ACTIVE_TABS)[number];
 
 /**
@@ -52,6 +52,7 @@ export const THEME_NAMES = [
   "rosewood",
   "sakura-tea",
   "mocha-blush",
+  "nebula-drift",
 ] as const;
 export type ThemeName = (typeof THEME_NAMES)[number];
 

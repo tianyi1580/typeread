@@ -36,6 +36,7 @@ import { SessionSummaryModal } from "./SessionSummaryModal";
 import { TypingLayer } from "./TypingLayer";
 import { Button } from "./ui/button";
 import { VersusConfigModal } from "./VersusConfigModal";
+import { CelestialParticles } from "./NebulaBackground";
 
 /**
  * Properties for the ReaderView component.
@@ -722,6 +723,13 @@ export function ReaderView({
         )}
       >
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.08),transparent_36%)]" />
+        
+        {/* Foreground Celestial Particles for Nebula Drift Theme */}
+        {settings.theme === "nebula-drift" && (
+          <div className="absolute inset-0 z-0 pointer-events-none">
+            <CelestialParticles count={30} size={2} opacity={0.7} speed={40} twinkle />
+          </div>
+        )}
 
 
         <AnimatePresence>
@@ -889,6 +897,13 @@ export function ReaderView({
                       }}
                     >
                       Achievements
+                    </MenuButton>
+                    <MenuButton
+                      onClick={() => {
+                        navigate(() => onOpenTab("shop"));
+                      }}
+                    >
+                      Shop
                     </MenuButton>
                     <MenuButton
                       onClick={() => {

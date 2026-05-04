@@ -6,6 +6,8 @@ import { LibraryView } from "./components/LibraryView";
 import { PracticeView } from "./components/PracticeView";
 import { ReaderView } from "./components/ReaderView";
 import { SettingsView } from "./components/SettingsView";
+import { ShopView } from "./components/ShopView";
+import { NebulaBackground } from "./components/NebulaBackground";
 import { Button } from "./components/ui/button";
 import { Card } from "./components/ui/card";
 import { demoAnalytics, demoBook, demoSettings } from "./lib/demo";
@@ -515,9 +517,12 @@ export default function App() {
         activeTab === "reader" ? "flex h-screen flex-col overflow-hidden" : "min-h-screen",
       )}
       style={{
-        backgroundImage: `radial-gradient(circle at top left, ${theme.accentSoft}, transparent 26%), radial-gradient(circle at bottom right, ${theme.panelSoft}, transparent 22%)`,
+        backgroundImage: settings?.theme === "nebula-drift" 
+          ? "none" 
+          : `radial-gradient(circle at top left, ${theme.accentSoft}, transparent 26%), radial-gradient(circle at bottom right, ${theme.panelSoft}, transparent 22%)`,
       }}
     >
+      {settings?.theme === "nebula-drift" && <NebulaBackground />}
       <div
         className={cn(
           activeTab === "reader"
@@ -584,6 +589,8 @@ export default function App() {
               onError={(message) => setError(message)}
             />
           )}
+
+          {activeTab === "shop" && <ShopView />}
 
           {activeTab === "reader" && currentBook && settings && (
             <ReaderView
@@ -724,6 +731,7 @@ function WindowShell({
     analytics: "Profile & Analytics",
     achievements: "Achievements",
     "type-test": "Type Test",
+    shop: "The Shop",
   };
 
   return (
@@ -778,6 +786,7 @@ function WindowShell({
                 <MenuButton onClick={() => onOpenTab("library")}>Library</MenuButton>
                 <MenuButton onClick={() => onOpenTab("analytics")}>Profile & Analytics</MenuButton>
                 <MenuButton onClick={() => onOpenTab("achievements")}>Achievements</MenuButton>
+                <MenuButton onClick={() => onOpenTab("shop")}>Shop</MenuButton>
                 <MenuButton onClick={() => onOpenTab("type-test")}>Type Test</MenuButton>
                 <MenuButton onClick={onOpenSettings}>Settings</MenuButton>
               </div>
