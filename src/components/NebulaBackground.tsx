@@ -1,9 +1,31 @@
 import { useMemo } from "react";
-import { motion } from "framer-motion";
+
+/**
+ * Shared keyframes for the nebula theme to ensure they are defined once and reused.
+ * Using hardware-accelerated properties only (transform, opacity).
+ */
+const NEBULA_STYLES = `
+  @keyframes nebula-drift {
+    0%, 100% { transform: translate3d(0, 0, 0); }
+    50% { transform: translate3d(var(--drift-x), var(--drift-y), 0); }
+  }
+  @keyframes nebula-twinkle {
+    0%, 100% { opacity: var(--base-opacity); transform: scale(1); }
+    50% { opacity: calc(var(--base-opacity) * 0.15); transform: scale(1.25); }
+  }
+  @keyframes nebula-float {
+    0% { transform: translate3d(0, 0, 0) scale(1) rotate(0deg); }
+    33% { transform: translate3d(120px, -100px, 0) scale(1.15) rotate(15deg); }
+    66% { transform: translate3d(-120px, 100px, 0) scale(0.85) rotate(-15deg); }
+    100% { transform: translate3d(0, 0, 0) scale(1) rotate(0deg); }
+  }
+`;
 
 export function NebulaBackground() {
   return (
     <div className="fixed inset-0 z-0 overflow-hidden bg-[#050614]">
+      <style>{NEBULA_STYLES}</style>
+      
       {/* Deep Space Base */}
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,#0a0b1e_0%,#050614_100%)]" />
 
@@ -61,7 +83,6 @@ interface CelestialParticleProps {
   opacity: number;
   speed: number;
   twinkle?: boolean;
-  interactive?: boolean;
 }
 
 export function CelestialParticles({ count, size, opacity, speed, twinkle }: CelestialParticleProps) {
@@ -73,7 +94,7 @@ export function CelestialParticles({ count, size, opacity, speed, twinkle }: Cel
       y: Math.random() * 100,
       delay: Math.random() * speed,
       twinkleDelay: Math.random() * 5,
-      // Larger drift range for more expansive motion
+      duration: speed + (Math.random() - 0.5) * (speed * 0.2), // Slight variation in speed
       driftX: (Math.random() - 0.5) * 350,
       driftY: (Math.random() - 0.5) * 350,
     }));
@@ -81,35 +102,39 @@ export function CelestialParticles({ count, size, opacity, speed, twinkle }: Cel
 
   return (
     <div className="absolute inset-0 pointer-events-none overflow-hidden">
+      {/* Ensure styles are present even if CelestialParticles is used without NebulaBackground */}
+      <style>{NEBULA_STYLES}</style>
+
       {particles.map((p) => (
-        <motion.div
+        <div
           key={p.id}
-          className="absolute rounded-full bg-white"
+          className="absolute transform-gpu"
           style={{
-            width: size,
-            height: size,
             left: `${p.x}%`,
             top: `${p.y}%`,
-            opacity,
-            boxShadow: twinkle ? `0 0 ${size * 3}px rgba(255, 255, 255, 0.6)` : "none",
-            willChange: "transform, opacity",
-          }}
-          animate={{
-            opacity: twinkle ? [opacity, opacity * 0.1, opacity] : opacity,
-            scale: twinkle ? [1, 1.25, 1] : 1,
-            // Smooth floating motion
-            x: [0, p.driftX, 0],
-            y: [0, p.driftY, 0],
-          }}
-          transition={{
-            duration: speed,
-            repeat: Infinity,
-            ease: "linear", // Linear is actually better for "constant" drifting motion
-            delay: -p.delay,
-            opacity: twinkle ? { duration: 3 + p.twinkleDelay, repeat: Infinity, ease: "easeInOut" } : undefined,
-            scale: twinkle ? { duration: 4 + p.twinkleDelay, repeat: Infinity, ease: "easeInOut" } : undefined,
-          }}
-        />
+            width: size,
+            height: size,
+            "--drift-x": `${p.driftX}px`,
+            "--drift-y": `${p.driftY}px`,
+            animation: `nebula-drift ${p.duration}s linear infinite`,
+            animationDelay: `-${p.delay}s`,
+            willChange: "transform",
+          } as React.CSSProperties}
+        >
+          <div
+            className="h-full w-full rounded-full bg-white shadow-white transform-gpu"
+            style={{
+              opacity: twinkle ? undefined : opacity,
+              boxShadow: twinkle ? `0 0 ${size * 4}px rgba(255, 255, 255, 0.85)` : "none",
+              "--base-opacity": opacity,
+              animation: twinkle
+                ? `nebula-twinkle ${3 + p.twinkleDelay}s ease-in-out infinite`
+                : "none",
+              animationDelay: `-${p.delay}s`,
+              willChange: twinkle ? "transform, opacity" : "auto",
+            } as React.CSSProperties}
+          />
+        </div>
       ))}
     </div>
   );
@@ -117,8 +142,8 @@ export function CelestialParticles({ count, size, opacity, speed, twinkle }: Cel
 
 function NebulaBlob({ color, size, initialX, initialY, duration }: { color: string, size: string, initialX: string, initialY: string, duration: number }) {
   return (
-    <motion.div
-      className="absolute rounded-full pointer-events-none"
+    <div
+      className="absolute rounded-full pointer-events-none transform-gpu"
       style={{
         width: size,
         height: size,
@@ -126,20 +151,11 @@ function NebulaBlob({ color, size, initialX, initialY, duration }: { color: stri
         top: initialY,
         background: `radial-gradient(circle, ${color} 0%, transparent 70%)`,
         filter: "blur(120px)",
-        willChange: "transform",
         mixBlendMode: "screen",
-      }}
-      animate={{
-        x: [0, 120, -120, 0],
-        y: [0, -100, 100, 0],
-        scale: [1, 1.15, 0.85, 1],
-        rotate: [0, 25, -25, 0],
-      }}
-      transition={{
-        duration,
-        repeat: Infinity,
-        ease: "easeInOut",
-      }}
+        animation: `nebula-float ${duration}s ease-in-out infinite`,
+        willChange: "transform",
+      } as React.CSSProperties}
     />
   );
 }
+
