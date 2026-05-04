@@ -727,7 +727,7 @@ export function ReaderView({
         {/* Foreground Celestial Particles for Nebula Drift Theme */}
         {settings.theme === "nebula-drift" && (
           <div className="absolute inset-0 z-0 pointer-events-none">
-            <CelestialParticles count={30} size={2} opacity={0.7} speed={40} twinkle />
+            <CelestialParticles count={70} size={1.2} opacity={0.65} speed={120} twinkle />
           </div>
         )}
 

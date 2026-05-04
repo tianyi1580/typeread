@@ -61,6 +61,8 @@ export function TypingLayer({
   const preShiftRelativeTop = useRef<number | null>(null);
   const lastOffsetTop = useRef<number | null>(null);
   const lastWordIndex = useRef<number>(-1);
+  const snapshotRef = useRef(snapshot);
+  snapshotRef.current = snapshot;
   const animationFrameId = useRef<number | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [caretStyle, setCaretStyle] = React.useState<{ top: number; left: number; height: number; opacity: number }>({ top: 0, left: 0, height: 0, opacity: 0 });
@@ -102,14 +104,14 @@ export function TypingLayer({
         }
         container = container.parentElement;
       }
-      
+
       if (container) {
         const newTop = el.getBoundingClientRect().top;
         const delta = newTop - preShiftRelativeTop.current;
         if (Math.abs(delta) > 0.5) {
           const isWindowScroll = container === document.body;
           const nextScroll = Math.max(0, (isWindowScroll ? window.scrollY : container.scrollTop) + delta);
-          
+
           if (isWindowScroll) window.scrollTo(0, nextScroll);
           else container.scrollTop = nextScroll;
 
@@ -165,11 +167,11 @@ export function TypingLayer({
       if (!container) return;
 
       const isWindowScroll = container === document.body;
-      const containerRect = isWindowScroll 
-        ? { top: 0, height: window.innerHeight } 
+      const containerRect = isWindowScroll
+        ? { top: 0, height: window.innerHeight }
         : container.getBoundingClientRect();
       const elRect = el.getBoundingClientRect();
-      
+
       const currentRelativeCenter = (elRect.top + elRect.height / 2) - (containerRect.top + containerRect.height / 2);
       const currentScroll = isWindowScroll ? window.scrollY : container.scrollTop;
       const target = Math.max(0, currentScroll + currentRelativeCenter);
@@ -181,7 +183,7 @@ export function TypingLayer({
       springRef.current.current = target;
       springRef.current.velocity = 0;
       springRef.current.isActive = false;
-      
+
       lastWordIndex.current = currentIndex;
       lastOffsetTop.current = el.offsetTop;
     }
@@ -194,7 +196,7 @@ export function TypingLayer({
 
     const currentIndex = snapshot.currentWordIndex;
     const isManualJump = lastWordIndex.current === -1 || Math.abs(currentIndex - lastWordIndex.current) > 1;
-    
+
     // We handle manual jumps in useLayoutEffect for immediate positioning.
     // Here we only care about line changes during normal typing.
     if (isManualJump) return;
@@ -211,13 +213,13 @@ export function TypingLayer({
     if (!container) return;
 
     const isWindowScroll = container === document.body;
-    const containerRect = isWindowScroll 
-      ? { top: 0, height: window.innerHeight } 
+    const containerRect = isWindowScroll
+      ? { top: 0, height: window.innerHeight }
       : container.getBoundingClientRect();
     const elRect = el.getBoundingClientRect();
-    
+
     const currentRelativeCenter = (elRect.top + elRect.height / 2) - (containerRect.top + containerRect.height / 2);
-    
+
     // Improved new line detection: check if the vertical offset changed since the last word we processed
     const currentOffsetTop = el.offsetTop;
     const isLineChanged = lastOffsetTop.current !== null && Math.abs(currentOffsetTop - lastOffsetTop.current) > 10;
@@ -225,7 +227,7 @@ export function TypingLayer({
 
     if (isLineChanged) {
       springRef.current.target = Math.max(0, currentScroll + currentRelativeCenter);
-      
+
       if (!springRef.current.isActive) {
         springRef.current.isActive = true;
         springRef.current.current = currentScroll;
@@ -247,11 +249,11 @@ export function TypingLayer({
     };
   }, [snapshot.currentWordIndex, visibleRange, noScroll, interactionMode]);
 
-  const animate = (time: number) => {
+  const animate = React.useCallback((time: number) => {
     const state = springRef.current;
     const el = currentWordRef.current;
     if (!el || !state.isActive) return;
-    
+
     let container: HTMLElement | null = el.parentElement;
     while (container && container !== document.body) {
       const style = window.getComputedStyle(container);
@@ -274,7 +276,8 @@ export function TypingLayer({
     state.lastTime = time;
 
     if (delta > 0) {
-      const isManualJump = lastWordIndex.current === -1 || Math.abs(snapshot.currentWordIndex - lastWordIndex.current) > 1;
+      const currentSnapshot = snapshotRef.current;
+      const isManualJump = lastWordIndex.current === -1 || Math.abs(currentSnapshot.currentWordIndex - lastWordIndex.current) > 1;
       const stiffness = isManualJump ? 240 : 160;
       const damping = isManualJump ? 32 : 28;
 
@@ -296,7 +299,7 @@ export function TypingLayer({
       state.isActive = false;
       animationFrameId.current = null;
     }
-  };
+  }, []);
 
   useEffect(() => {
     const updateCaret = () => {
@@ -306,15 +309,15 @@ export function TypingLayer({
         setCaretStyle((prev) => (prev.opacity === 0 ? prev : { ...prev, opacity: 0 }));
         return;
       }
-      
+
       const wordEl = currentWordRef.current;
       const typedLength = snapshot.words[snapshot.currentWordIndex]?.typed.length ?? 0;
       const charEl = wordEl.children[typedLength] as HTMLElement;
-      
+
       if (charEl) {
         const containerRect = containerRef.current.getBoundingClientRect();
         const charRect = charEl.getBoundingClientRect();
-        
+
         setCaretStyle({
           top: charRect.top - containerRect.top + containerRef.current.scrollTop,
           left: charRect.left - containerRect.left,

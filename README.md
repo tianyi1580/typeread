@@ -49,6 +49,24 @@ typeread/
 
 ---
 
+## 🚀 Installation
+
+TypeRead is available via Homebrew for macOS users:
+
+```bash
+brew tap tianyi1580/tap
+brew install --cask typeread
+```
+
+To update TypeRead to the latest version:
+
+```bash
+brew update
+brew upgrade --cask typeread
+```
+
+---
+
 ## 🛠️ Local Development
 
 Ensure you have [Rust (1.75+)](https://www.rust-lang.org/), [Node.js (v18+)](https://nodejs.org/), and `npm` ready.
@@ -78,6 +96,9 @@ npm run tauri build
 To release a new version of TypeRead, run the standard npm version command:
 ```bash
 npm version <patch|minor|major>
+git push origin main --follow-tags
+
+npm version v0.1.8
 git push origin main --follow-tags
 
 ```
