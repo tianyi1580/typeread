@@ -146,8 +146,8 @@ export const themeMap: Record<ThemeName, ThemeDefinition> = {
   "nebula-drift": {
     name: "Nebula Drift",
     background: "#0a0b1e",
-    panel: "rgba(15, 17, 45, 0.82)",
-    panelSoft: "rgba(25, 28, 65, 0.72)",
+    panel: "rgba(15, 17, 45, 0.45)",
+    panelSoft: "rgba(25, 28, 65, 0.12)",
     border: "rgba(165, 129, 218, 0.02)",
     text: "#e0e0ff",
     textMuted: "#94a3b8",

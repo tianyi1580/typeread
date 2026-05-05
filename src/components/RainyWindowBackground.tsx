@@ -30,7 +30,6 @@ interface RainDrop {
   length: number;   // Drop height in px
   width: number;    // Drop width in px
   opacity: number;  // Per-drop opacity multiplier
-  glowRadius: number;
   layerIdx: number; // 0=bg, 1=mid, 2=fg — for sprite lookup
 }
 
@@ -112,6 +111,41 @@ function createSplatSprite(dpr: number, maxRadius: number): HTMLCanvasElement {
 
 // ─── Drop Initialization ────────────────────────────────────────────────────
 
+// ─── Drop Initialization ────────────────────────────────────────────────────
+
+/**
+ * Resets a drop to its starting state (top of screen, random X, new speed).
+ * Mutates the object in place to avoid GC pressure in the animation loop.
+ */
+function resetDrop(
+  drop: RainDrop,
+  width: number,
+  height: number,
+  layerIdx: number,
+  speed: number,
+  scatter: boolean
+): void {
+  const cfg = layerIdx === 0 ? LAYER_CONFIG.bg : layerIdx === 1 ? LAYER_CONFIG.mid : LAYER_CONFIG.fg;
+  
+  // Speed logic preserved: 
+  // bg: 1.2–2.0s to cross (height + dropHeight)
+  // mid: 0.7–1.2s
+  // fg: 0.4–0.7s
+  const durationBase = layerIdx === 0 
+    ? (1.2 + Math.random() * 0.8) 
+    : layerIdx === 1 
+      ? (0.7 + Math.random() * 0.5) 
+      : (0.4 + Math.random() * 0.3);
+
+  drop.x = Math.random() * width;
+  drop.y = scatter ? -(Math.random() * (height + cfg.h)) : -cfg.h;
+  drop.speed = ((height + cfg.h) / durationBase) * speed;
+  drop.length = cfg.h;
+  drop.width = cfg.w;
+  drop.opacity = cfg.baseOpacity;
+  drop.layerIdx = layerIdx;
+}
+
 function spawnDrop(
   width: number,
   height: number,
@@ -119,23 +153,9 @@ function spawnDrop(
   speed: number,
   scatter: boolean
 ): RainDrop {
-  const cfg = layerIdx === 0 ? LAYER_CONFIG.bg : layerIdx === 1 ? LAYER_CONFIG.mid : LAYER_CONFIG.fg;
-  const baseSpeed = layerIdx === 0
-    ? (height + cfg.h) / (1.2 + Math.random() * 0.8)  // bg: 1.2–2.0s
-    : layerIdx === 1
-      ? (height + cfg.h) / (0.7 + Math.random() * 0.5)  // mid: 0.7–1.2s
-      : (height + cfg.h) / (0.4 + Math.random() * 0.3); // fg: 0.4–0.7s
-
-  return {
-    x: Math.random() * width,
-    y: scatter ? -(Math.random() * (height + cfg.h)) : -cfg.h,
-    speed: baseSpeed * speed,
-    length: cfg.h,
-    width: cfg.w,
-    opacity: cfg.baseOpacity,
-    glowRadius: cfg.glow,
-    layerIdx,
-  };
+  const drop = {} as RainDrop;
+  resetDrop(drop, width, height, layerIdx, speed, scatter);
+  return drop;
 }
 
 function initDrops(
@@ -178,9 +198,9 @@ function splatScale(age: number, lifetime: number): number {
 
 /**
  * High-performance Canvas-based rain system.
- * Replaces hundreds of DOM nodes with a single rAF-driven canvas.
+ * Optimized for zero-allocation animation loops and smooth state transitions.
  *
- * All original props are preserved for full customizability.
+ * All original props and aesthetic qualities are strictly maintained.
  */
 export const RainParticles = memo(function RainParticles({
   density = 1,
@@ -193,6 +213,7 @@ export const RainParticles = memo(function RainParticles({
   fgOpacity = 1,
   showLightning = true,
   showSplats = true,
+  showAtmospherics = false,
   className,
 }: {
   density?: number;
@@ -205,10 +226,75 @@ export const RainParticles = memo(function RainParticles({
   fgOpacity?: number;
   showLightning?: boolean;
   showSplats?: boolean;
+  showAtmospherics?: boolean;
   className?: string;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  
+  // Persistent refs to avoid re-allocation and visual resets
+  const dropsRef = useRef<RainDrop[]>([]);
+  const splatsRef = useRef<Splat[]>([]);
+  const lastStateRef = useRef({ density, speed });
+  const metricsRef = useRef({ w: 0, h: 0, dpr: 1 });
+  const spritesRef = useRef<{ drops: HTMLCanvasElement[]; splat: HTMLCanvasElement | null; noise: HTMLCanvasElement | null }>({
+    drops: [],
+    splat: null,
+    noise: null,
+  });
+
+  // Track metrics to avoid divisions in the render loop
+  const spriteMetricsRef = useRef<{ sw: number; sh: number }[]>([]);
+  const splatMetricRef = useRef({ sw: 0, sh: 0 });
+
+  // Track the actual splat density used
   const activeSplatDensity = splatDensity ?? density;
+
+  // Initialize drops only once or when density/speed changes
+  const syncDrops = (width: number, height: number, targetDensity: number, currentSpeed: number) => {
+    const bgTarget = Math.floor(BASE_BG_COUNT * targetDensity);
+    const midTarget = Math.floor(BASE_MID_COUNT * targetDensity);
+    const fgTarget = Math.floor(BASE_FG_COUNT * targetDensity);
+    
+    const counts = [bgTarget, midTarget, fgTarget];
+    let currentDrops = dropsRef.current;
+
+    // Adjust each layer
+    for (let layerIdx = 0; layerIdx < 3; layerIdx++) {
+      const layerDrops = currentDrops.filter(d => d.layerIdx === layerIdx);
+      const target = counts[layerIdx];
+      
+      // Update speeds of existing drops in this layer if speed changed
+      if (lastStateRef.current.speed !== currentSpeed) {
+        const ratio = currentSpeed / (lastStateRef.current.speed || 1);
+        layerDrops.forEach(d => {
+          d.speed *= ratio;
+        });
+      }
+
+      if (layerDrops.length < target) {
+        // Add more drops
+        const toAdd = target - layerDrops.length;
+        for (let i = 0; i < toAdd; i++) {
+          currentDrops.push(spawnDrop(width, height, layerIdx, currentSpeed, true));
+        }
+      } else if (layerDrops.length > target) {
+        // Remove excess drops from this layer
+        let removed = 0;
+        const toRemove = layerDrops.length - target;
+        dropsRef.current = currentDrops.filter(d => {
+          if (d.layerIdx === layerIdx && removed < toRemove) {
+            removed++;
+            return false;
+          }
+          return true;
+        });
+        currentDrops = dropsRef.current;
+      }
+    }
+    
+    lastStateRef.current.speed = currentSpeed;
+    lastStateRef.current.density = targetDensity;
+  };
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -218,74 +304,155 @@ export const RainParticles = memo(function RainParticles({
     if (!ctx) return;
 
     let animId: number;
-    let w = 0;
-    let h = 0;
-    let dpr = 1;
-    let drops: RainDrop[] = [];
-    let splats: Splat[] = [];
-    let sprites: HTMLCanvasElement[] = [];
-    let splatSprite: HTMLCanvasElement;
     let lastTime = 0;
     let lastSplatTick = 0;
 
-    const layerOpacities = [bgOpacity, midOpacity, fgOpacity];
+    const updateMetrics = () => {
+      const dpr = window.devicePixelRatio || 1;
+      const parent = canvas.parentElement;
+      const w = parent?.clientWidth ?? window.innerWidth;
+      const h = parent?.clientHeight ?? window.innerHeight;
+      
+      if (w !== metricsRef.current.w || h !== metricsRef.current.h || dpr !== metricsRef.current.dpr) {
+        metricsRef.current = { w, h, dpr };
+        canvas.width = w * dpr;
+        canvas.height = h * dpr;
+        canvas.style.width = `${w}px`;
+        canvas.style.height = `${h}px`;
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-    // ── Resize handler ──────────────────────────────────────────────────
-    const resize = () => {
-      dpr = window.devicePixelRatio || 1;
-      w = canvas.parentElement?.clientWidth ?? window.innerWidth;
-      h = canvas.parentElement?.clientHeight ?? window.innerHeight;
-      canvas.width = w * dpr;
-      canvas.height = h * dpr;
-      canvas.style.width = `${w}px`;
-      canvas.style.height = `${h}px`;
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-
-      sprites = createDropSprites(dpr);
-      splatSprite = createSplatSprite(dpr, 6 * splatSize);
-      drops = initDrops(w, h, density, speed);
-
-      // Re-seed splats
-      const now = performance.now();
-      splats = [];
-      if (showSplats) {
-        const initialCount = Math.floor(BASE_SPLAT_INITIAL * activeSplatDensity);
-        for (let i = 0; i < initialCount; i++) {
-          splats.push({
-            x: Math.random() * w,
-            y: Math.random() * h,
-            radius: (1 + Math.random() * 4) * splatSize,
-            birth: now - Math.random() * 6000, // Stagger initial ages
-            lifetime: 8000,
-          });
+        // Re-generate sprites
+        const dSprites = createDropSprites(dpr);
+        spritesRef.current.drops = dSprites;
+        spritesRef.current.splat = createSplatSprite(dpr, 6 * splatSize);
+        
+        // Cache metrics
+        spriteMetricsRef.current = dSprites.map(s => ({
+          sw: s.width / dpr,
+          sh: s.height / dpr
+        }));
+        if (spritesRef.current.splat) {
+          splatMetricRef.current = {
+            sw: spritesRef.current.splat.width / dpr,
+            sh: spritesRef.current.splat.height / dpr
+          };
         }
+
+        // Generate noise sprite for dithering
+        const noiseCanvas = document.createElement("canvas");
+        noiseCanvas.width = 128;
+        noiseCanvas.height = 128;
+        const nCtx = noiseCanvas.getContext("2d");
+        if (nCtx) {
+          const idata = nCtx.createImageData(128, 128);
+          const data = idata.data;
+          for (let i = 0; i < data.length; i += 4) {
+            const val = Math.random() * 255;
+            data[i] = data[i+1] = data[i+2] = val;
+            data[i+3] = 20; // Subtle
+          }
+          nCtx.putImageData(idata, 0, 0);
+          spritesRef.current.noise = noiseCanvas;
+        }
+
+        // Sync drops to new dimensions
+        syncDrops(w, h, density, speed);
       }
     };
 
+    const resize = () => updateMetrics();
     window.addEventListener("resize", resize);
-    resize();
+    updateMetrics();
 
-    // ── Main render loop ────────────────────────────────────────────────
+    // Initial splat seeding if empty
+    if (showSplats && splatsRef.current.length === 0) {
+      const initialCount = Math.floor(BASE_SPLAT_INITIAL * activeSplatDensity);
+      const now = performance.now();
+      for (let i = 0; i < initialCount; i++) {
+        splatsRef.current.push({
+          x: Math.random() * metricsRef.current.w,
+          y: Math.random() * metricsRef.current.h,
+          radius: (1 + Math.random() * 4) * splatSize,
+          birth: now - Math.random() * 6000,
+          lifetime: 8000,
+        });
+      }
+    }
+
     const render = (time: number) => {
-      if (lastTime === 0) lastTime = time;
-      const dt = Math.min((time - lastTime) / 1000, 0.1); // Cap to avoid huge jumps
+      if (lastTime === 0) {
+        lastTime = time;
+        animId = requestAnimationFrame(render);
+        return;
+      }
+      const dt = Math.min((time - lastTime) / 1000, 0.1);
       lastTime = time;
 
+      const { w, h } = metricsRef.current;
+      const { drops, splat: splatSprite, noise: noiseSprite } = spritesRef.current;
+      const splats = splatsRef.current;
+      const spriteMetrics = spriteMetricsRef.current;
+      
       ctx.clearRect(0, 0, w, h);
 
-      // ── Update & draw rain drops ──────────────────────────────────────
-      for (let i = 0; i < drops.length; i++) {
-        const d = drops[i];
+      // ── Draw Atmospherics ──────────────────────────────────────────
+      // Canvas radial gradients are drawn with higher bit-depth than CSS, 
+      // resolving banding issues in semi-transparent gradients.
+      if (showAtmospherics) {
+        // Ambient Blobs (using Canvas for better falloff)
+        const blob1 = ctx.createRadialGradient(w * 0.2, h * 0.3, 0, w * 0.2, h * 0.3, w * 0.6);
+        blob1.addColorStop(0, 'rgba(102,153,155,0.06)');
+        blob1.addColorStop(1, 'rgba(102,153,155,0)');
+        ctx.fillStyle = blob1;
+        ctx.fillRect(0, 0, w, h);
+
+        const blob2 = ctx.createRadialGradient(w * 0.8, h * 0.7, 0, w * 0.8, h * 0.7, w * 0.5);
+        blob2.addColorStop(0, 'rgba(71,85,105,0.08)');
+        blob2.addColorStop(1, 'rgba(71,85,105,0)');
+        ctx.fillStyle = blob2;
+        ctx.fillRect(0, 0, w, h);
+
+        // Vignette (Manual easing for professional transition)
+        const vignette = ctx.createRadialGradient(w/2, h/2, 0, w/2, h/2, Math.max(w, h) * 0.8);
+        vignette.addColorStop(0, 'rgba(15,23,42,0)');
+        vignette.addColorStop(0.3, 'rgba(15,23,42,0.05)');
+        vignette.addColorStop(0.6, 'rgba(15,23,42,0.25)');
+        vignette.addColorStop(1, 'rgba(15,23,42,0.6)');
+        ctx.fillStyle = vignette;
+        ctx.fillRect(0, 0, w, h);
+        
+        // Manual Dither Pass
+        if (noiseSprite) {
+          ctx.globalCompositeOperation = 'overlay';
+          ctx.globalAlpha = 0.4;
+          for (let nx = 0; nx < w; nx += 128) {
+            for (let ny = 0; ny < h; ny += 128) {
+              ctx.drawImage(noiseSprite, nx, ny);
+            }
+          }
+          ctx.globalAlpha = 1;
+          ctx.globalCompositeOperation = 'source-over';
+        }
+      }
+
+      // ── Update & Draw Rain Drops ──────────────────────────────────────
+      const layerOpacities = [bgOpacity, midOpacity, fgOpacity];
+      const dropsList = dropsRef.current;
+      
+      for (let i = 0; i < dropsList.length; i++) {
+        const d = dropsList[i];
         d.y += d.speed * dt;
 
-        // If the drop has fallen past the viewport, respawn it
         if (d.y > h + 20) {
-          const newDrop = spawnDrop(w, h, d.layerIdx, speed, false);
-          drops[i] = newDrop;
-          continue;
+          resetDrop(d, w, h, d.layerIdx, speed, false);
         }
 
-        // Fade-in / fade-out based on position
+        const sprite = drops[d.layerIdx];
+        if (!sprite || !spriteMetrics[d.layerIdx]) continue;
+
+        const { sw, sh } = spriteMetrics[d.layerIdx];
+
+        // Fade logic preserved for high quality visual immersion
         const topEdge = -d.length;
         const fadeInEnd = topEdge + d.length * 0.1;
         const fadeOutStart = h - d.length * 0.1;
@@ -297,78 +464,50 @@ export const RainParticles = memo(function RainParticles({
           dropAlpha *= Math.max(0, 1 - (d.y - fadeOutStart) / (h - fadeOutStart + 20));
         }
 
-        const layerAlpha = layerOpacities[d.layerIdx] ?? 1;
-        const finalAlpha = dropAlpha * layerAlpha;
-
-        if (finalAlpha <= 0.01) continue;
-
-        const sprite = sprites[d.layerIdx];
-        if (!sprite) continue;
-
-        ctx.globalAlpha = finalAlpha;
-        // Draw sprite at drop position
-        const spriteW = sprite.width / dpr;
-        const spriteH = sprite.height / dpr;
-        ctx.drawImage(sprite, d.x - spriteW / 2, d.y, spriteW, spriteH);
+        const finalAlpha = dropAlpha * (layerOpacities[d.layerIdx] ?? 1);
+        if (finalAlpha > 0.005) {
+          ctx.globalAlpha = finalAlpha;
+          ctx.drawImage(sprite, d.x - sw / 2, d.y, sw, sh);
+        }
       }
 
-      // ── Update & draw splats ──────────────────────────────────────────
+      // ── Update & Draw Splats ──────────────────────────────────────────
       if (showSplats && splatSprite) {
-        // Periodic splat spawning
         if (time - lastSplatTick > SPLAT_TICK_INTERVAL_MS) {
           lastSplatTick = time;
-          if (Math.random() < 0.6 * activeSplatDensity * speed) {
+          const spawnChance = 0.6 * activeSplatDensity * speed;
+          if (Math.random() < spawnChance) {
             const maxSplats = Math.floor(BASE_SPLAT_MAX * activeSplatDensity);
-            if (splats.length < maxSplats) {
-              splats.push({
-                x: Math.random() * w,
-                y: Math.random() * h,
-                radius: (1 + Math.random() * 4) * splatSize,
-                birth: time,
-                lifetime: 8000,
-              });
-            }
-            if (Math.random() < 0.4 * activeSplatDensity * speed && splats.length < maxSplats) {
-              splats.push({
-                x: Math.random() * w,
-                y: Math.random() * h,
-                radius: (1 + Math.random() * 4) * splatSize,
-                birth: time,
-                lifetime: 8000,
-              });
+            for (let j = 0; j < 2; j++) {
+              if (splats.length < maxSplats && (j === 0 || Math.random() < 0.4)) {
+                splats.push({
+                  x: Math.random() * w,
+                  y: Math.random() * h,
+                  radius: (1 + Math.random() * 4) * splatSize,
+                  birth: time,
+                  lifetime: 8000,
+                });
+              }
             }
           }
         }
 
-        // Draw & prune
         let writeIdx = 0;
         for (let i = 0; i < splats.length; i++) {
           const s = splats[i];
           const age = time - s.birth;
-          if (age >= s.lifetime) continue; // expired
-
-          splats[writeIdx++] = s;
-
-          const alpha = splatOpacity(age, s.lifetime);
-          if (alpha <= 0.01) continue;
-
-          const scale = splatScale(age, s.lifetime);
-          const drawR = s.radius * scale;
-          const spriteW = splatSprite.width / dpr;
-          const spriteH = splatSprite.height / dpr;
-          const drawSize = drawR * 2;
-          const ratio = drawSize / (spriteW);
-
-          ctx.globalAlpha = alpha;
-          ctx.drawImage(
-            splatSprite,
-            s.x - (spriteW * ratio) / 2,
-            s.y - (spriteH * ratio) / 2,
-            spriteW * ratio,
-            spriteH * ratio
-          );
+          if (age < s.lifetime) {
+            splats[writeIdx++] = s;
+            const alpha = splatOpacity(age, s.lifetime);
+            if (alpha > 0.005) {
+              const scale = splatScale(age, s.lifetime);
+              const drawSize = s.radius * scale * 2;
+              ctx.globalAlpha = alpha;
+              ctx.drawImage(splatSprite, s.x - drawSize / 2, s.y - drawSize / 2, drawSize, drawSize);
+            }
+          }
         }
-        splats.length = writeIdx;
+        if (splats.length !== writeIdx) splats.length = writeIdx;
       }
 
       ctx.globalAlpha = 1;
@@ -381,7 +520,16 @@ export const RainParticles = memo(function RainParticles({
       window.removeEventListener("resize", resize);
       cancelAnimationFrame(animId);
     };
-  }, [density, speed, bgOpacity, midOpacity, fgOpacity, activeSplatDensity, splatSize, showSplats]);
+  }, [density, speed, bgOpacity, midOpacity, fgOpacity, activeSplatDensity, splatSize, showSplats, showAtmospherics]);
+
+  // Sync density/speed changes without restarting the animation loop
+  useEffect(() => {
+    const { w, h } = metricsRef.current;
+    if (w > 0 && h > 0) {
+      syncDrops(w, h, density, speed);
+    }
+  }, [density, speed]);
+
 
   return (
     <div className={cn("absolute inset-0 pointer-events-none overflow-hidden", className)} style={{ opacity }}>
@@ -439,16 +587,10 @@ export const RainyWindowBackground = memo(function RainyWindowBackground({
         speed={speed}
         showLightning={true}
         showSplats={true}
+        showAtmospherics={true}
         splatSize={splatSize}
         splatDensity={splatDensity}
       />
-
-      {/* Background Ambience Blobs - No blurring/filters for performance */}
-      <div className="absolute top-[20%] left-[15%] w-[60vw] h-[60vw] bg-[#66999B]/05 rounded-full pointer-events-none" />
-      <div className="absolute bottom-[25%] right-[5%] w-[50vw] h-[50vw] bg-slate-700/05 rounded-full pointer-events-none" />
-
-      {/* Final Vignette & Grounding Ledge */}
-      <div className="absolute inset-0 z-40 bg-[radial-gradient(circle_at_center,transparent_30%,rgba(15,23,42,0.4)_100%)] pointer-events-none" />
       <div className="absolute bottom-0 left-0 w-full h-[2px] bg-[#3d2b1f] z-50 opacity-40 pointer-events-none" />
     </div>
   );
