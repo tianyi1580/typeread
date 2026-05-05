@@ -22,8 +22,8 @@ export const NebulaBackground = memo(function NebulaBackground() {
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,#0a0b1e_0%,#050614_100%)]" />
 
       {/* High-performance Canvas Starfield Layers - Restored depth */}
-      <CelestialParticles count={170} size={1} opacity={0.4} speed={80} />
-      <CelestialParticles count={85} size={2} opacity={0.6} speed={60} twinkle />
+      <CelestialParticles count={170} size={2} opacity={0.4} speed={80} />
+      <CelestialParticles count={85} size={3} opacity={0.6} speed={60} twinkle />
 
       {/* Dynamic Nebula Blobs - Optimized with smaller base size + scale to reduce blur cost */}
       <NebulaBlob

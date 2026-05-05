@@ -59,6 +59,8 @@ export function SettingsView({
     nordTheme: false,
     rosewoodTheme: false,
     mochaBlushTheme: false,
+    nebulaDriftTheme: true,
+    rainyWindowTheme: true,
     smoothCaret: false,
     premiumTypography: false,
     customErrorColors: false,
@@ -134,11 +136,15 @@ export function SettingsView({
                     (key === "dracula" && !unlocks.draculaTheme) ||
                     (key === "nord" && !unlocks.nordTheme) ||
                     (key === "rosewood" && !unlocks.rosewoodTheme) ||
-                    (key === "mocha-blush" && !unlocks.mochaBlushTheme);
+                    (key === "mocha-blush" && !unlocks.mochaBlushTheme) ||
+                    (key === "nebula-drift" && !unlocks.nebulaDriftTheme) ||
+                    (key === "rainy-window" && !unlocks.rainyWindowTheme);
 
                   const getThemeLevel = (themeKey: string) => {
                     if (themeKey === "dracula" || themeKey === "rosewood") return 10;
                     if (themeKey === "nord" || themeKey === "mocha-blush") return 15;
+                    if (themeKey === "nebula-drift") return 20;
+                    if (themeKey === "rainy-window") return 25;
                     return 0;
                   };
 
