@@ -7,6 +7,7 @@ import { cn } from "../lib/utils";
 export const RainParticles = memo(function RainParticles({
   density = 1,
   splatDensity,
+  splatSize = 1,
   opacity = 1,
   speed = 1,
   bgOpacity = 0.4,
@@ -18,6 +19,7 @@ export const RainParticles = memo(function RainParticles({
 }: {
   density?: number;
   splatDensity?: number;
+  splatSize?: number;
   opacity?: number;
   speed?: number;
   bgOpacity?: number;
@@ -30,9 +32,9 @@ export const RainParticles = memo(function RainParticles({
   const activeSplatDensity = splatDensity ?? density;
 
   const layers = useMemo(() => {
-    const bgCount = Math.floor(120 * density);
-    const midCount = Math.floor(60 * density);
-    const fgCount = Math.floor(25 * density);
+    const bgCount = Math.floor(100 * density);
+    const midCount = Math.floor(40 * density);
+    const fgCount = Math.floor(10 * density);
 
     return {
       bg: Array.from({ length: bgCount }).map((_, i) => ({
@@ -59,7 +61,7 @@ export const RainParticles = memo(function RainParticles({
   return (
     <div className={cn("absolute inset-0 pointer-events-none overflow-hidden", className)} style={{ opacity }}>
       {showLightning && <LightningTrigger />}
-      {showSplats && <GlassSplats density={activeSplatDensity} />}
+      {showSplats && <GlassSplats density={activeSplatDensity} splatSize={splatSize} />}
 
       {/* Background Rain Layer */}
       <div className="absolute inset-0 scale-110 pointer-events-none" style={{ opacity: bgOpacity }}>
@@ -112,7 +114,7 @@ const LightningTrigger = memo(function LightningTrigger() {
 /**
  * GlassSplats - Manages dynamic raindrops on the glass.
  */
-const GlassSplats = memo(function GlassSplats({ density = 1 }: { density?: number }) {
+const GlassSplats = memo(function GlassSplats({ density = 1, splatSize = 1 }: { density?: number, splatSize?: number }) {
   const [splats, setSplats] = useState<{ id: number; x: number; y: number; r: number }[]>([]);
   const idCounter = React.useRef(0);
 
@@ -121,13 +123,13 @@ const GlassSplats = memo(function GlassSplats({ density = 1 }: { density?: numbe
       id: ++idCounter.current,
       x: Math.random() * 100,
       y: Math.random() * 100,
-      r: 1 + Math.random() * 4
+      r: (1 + Math.random() * 4) * splatSize
     };
     setSplats(prev => {
       const next = [...prev, newSplat];
       return next.length > 60 ? next.slice(-60) : next;
     });
-  }, []);
+  }, [splatSize]);
 
   useEffect(() => {
     // Initial batch - make it feel like it's been raining already
@@ -135,7 +137,7 @@ const GlassSplats = memo(function GlassSplats({ density = 1 }: { density?: numbe
       id: ++idCounter.current,
       x: Math.random() * 100,
       y: Math.random() * 100,
-      r: 1 + Math.random() * 4
+      r: (1 + Math.random() * 4) * splatSize
     }));
     setSplats(initialSplats);
 
@@ -146,7 +148,7 @@ const GlassSplats = memo(function GlassSplats({ density = 1 }: { density?: numbe
       }
     }, 200);
     return () => clearInterval(interval);
-  }, [addSplat, density]);
+  }, [addSplat, density, splatSize]);
 
   return (
     <div className="absolute inset-0 z-20 pointer-events-none">
@@ -172,7 +174,7 @@ const GlassSplats = memo(function GlassSplats({ density = 1 }: { density?: numbe
 export const RainyWindowBackground = memo(function RainyWindowBackground() {
   return (
     <div className="fixed inset-0 z-0 overflow-hidden bg-[#1e293b] transform-gpu">
-      <RainParticles density={1} speed={1} showLightning={true} showSplats={true} />
+      <RainParticles density={1} speed={1} showLightning={true} showSplats={true} splatSize={1.5} splatDensity={0.4} />
 
       {/* Background Ambience Blobs - No blurring/filters for performance */}
       <div className="absolute top-[20%] left-[15%] w-[60vw] h-[60vw] bg-[#66999B]/05 rounded-full pointer-events-none" />
