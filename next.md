@@ -7,6 +7,8 @@ zen mode - no need to type caps or punctuation?
 graphics settings?
 rain uniformity
 type test text box opacity
+settings opacity
+make the chapter nav buttons the same size
 
 progression unlocks:
 
