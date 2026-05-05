@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { resolveKeyboardLayout } from "../lib/keyboard-layouts";
-import { formatPercent } from "../lib/utils";
+import { cn, formatPercent } from "../lib/utils";
 import { practiceWordBanks } from "../lib/word-bank";
 import { useBufferedKeystrokeTransport } from "../hooks/useBufferedKeystrokeTransport";
 import { applyTypingInput, calculateActiveDuration, computeMetrics, createTypingSnapshot, finalizeMetrics, parseIgnoredCharacterSet, tokenizeText, wordIndexFromTextIndex } from "../utils/typing";
@@ -455,7 +455,12 @@ export function PracticeView({
             </div>
           </div>
 
-          <div className="relative mt-6 h-[440px] rounded-[34px] border border-[var(--border)] bg-[color-mix(in_srgb,var(--panel-soft)_74%,transparent)]">
+          <div className={cn(
+            "relative mt-6 h-[440px] rounded-[34px]",
+            settings.theme === "nebula-drift" || settings.theme === "rainy-window"
+              ? "liquid-glass-soft"
+              : "border border-[var(--border)] bg-[color-mix(in_srgb,var(--panel-soft)_74%,transparent)]"
+          )}>
             <div className="absolute inset-0 overflow-hidden px-6 py-8 md:px-10 md:py-12">
               <TypingLayer
                 tokens={tokens}

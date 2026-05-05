@@ -212,7 +212,13 @@ textarea {
 [data-theme="rainy-window"] .backdrop-blur-lg,
 [data-theme="rainy-window"] .backdrop-blur-md,
 [data-theme="rainy-window"] .backdrop-blur-sm,
-[data-theme="rainy-window"] .backdrop-blur-none {
+[data-theme="rainy-window"] .backdrop-blur-none,
+[data-theme="nebula-drift"] .backdrop-blur-2xl,
+[data-theme="nebula-drift"] .backdrop-blur-xl,
+[data-theme="nebula-drift"] .backdrop-blur-lg,
+[data-theme="nebula-drift"] .backdrop-blur-md,
+[data-theme="nebula-drift"] .backdrop-blur-sm,
+[data-theme="nebula-drift"] .backdrop-blur-none {
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
 }

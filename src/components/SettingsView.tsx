@@ -99,7 +99,7 @@ export function SettingsView({
       >
         <aside className={cn(
           "border-r p-5",
-          settings.theme === "rainy-window"
+          settings.theme === "rainy-window" || settings.theme === "nebula-drift"
             ? "liquid-glass-soft"
             : "border-[var(--border)] bg-[color-mix(in_srgb,var(--panel-soft)_80%,transparent)]"
         )}>
@@ -129,7 +129,7 @@ export function SettingsView({
 
         <div className={cn(
           "overflow-y-auto p-6 lg:p-8",
-          settings.theme === "rainy-window" ? "bg-[var(--panel)]" : ""
+          settings.theme === "rainy-window" || settings.theme === "nebula-drift" ? "bg-[var(--panel)]" : ""
         )}>
           {section === "appearance" && (
             <div className="space-y-8">
@@ -255,7 +255,7 @@ export function SettingsView({
                     <span className="mb-3 text-[10px] uppercase tracking-[0.28em] text-[var(--text-muted)]">Live Preview</span>
                     <div className={cn(
                       "flex h-12 items-center rounded-[18px] px-5",
-                      settings.theme === "rainy-window"
+                      settings.theme === "rainy-window" || settings.theme === "nebula-drift"
                         ? "liquid-glass-soft"
                         : "border border-[var(--border)] bg-[var(--panel-soft)]"
                     )}>
@@ -621,7 +621,7 @@ function ToggleRow({
     <div
       className={cn(
         "flex items-center justify-between gap-6 rounded-[26px] px-5 py-4",
-        theme === "rainy-window"
+        theme === "rainy-window" || theme === "nebula-drift"
           ? "liquid-glass-soft"
           : "border border-[var(--border)] bg-[var(--panel-soft)]",
         disabled && "opacity-55",
@@ -672,7 +672,7 @@ function StorageCard({
   return (
     <div className={cn(
       "rounded-[28px] p-5",
-      theme === "rainy-window"
+      theme === "rainy-window" || theme === "nebula-drift"
         ? "liquid-glass-soft"
         : "border border-[var(--border)] bg-[var(--panel-soft)]"
     )}>
