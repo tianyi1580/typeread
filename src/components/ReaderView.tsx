@@ -741,7 +741,7 @@ export function ReaderView({
         {settings.theme === "rainy-window" && (
           <RainParticles
             density={0.2}
-            splatDensity={0.4}
+            splatDensity={0.2}
             speed={0.7}
             bgOpacity={0.6}
             midOpacity={0.5}

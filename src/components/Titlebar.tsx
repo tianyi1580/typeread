@@ -31,16 +31,6 @@ export function Titlebar() {
 
   return (
     <>
-      <style dangerouslySetInnerHTML={{ __html: `
-        .tauri-drag {
-          -webkit-app-region: drag !important;
-        }
-        .no-drag {
-          -webkit-app-region: no-drag !important;
-          pointer-events: auto !important;
-        }
-      `}} />
-      
       {/* 
         The Visual Titlebar
         Using data-tauri-drag-region + -webkit-app-region: drag for zero-overhead native dragging.

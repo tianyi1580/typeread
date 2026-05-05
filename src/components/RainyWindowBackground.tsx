@@ -58,58 +58,6 @@ export const RainParticles = memo(function RainParticles({
 
   return (
     <div className={cn("absolute inset-0 pointer-events-none overflow-hidden", className)} style={{ opacity }}>
-      <style>{`
-        .rain-drop {
-          position: absolute;
-          bottom: 100%;
-          will-change: transform;
-        }
-        .rain-stem {
-          width: 100%;
-          height: 100%;
-          background: linear-gradient(to bottom, rgba(255, 255, 255, 0), rgba(102, 153, 155, 0.45));
-          animation: fall linear infinite;
-        }
-        @keyframes fall {
-          0% { transform: translateY(0); opacity: 0; }
-          10% { opacity: 1; }
-          90% { opacity: 1; }
-          100% { transform: translateY(calc(100vh + 160px)); opacity: 0; }
-        }
-        @keyframes lightning-flash {
-          0%, 100% { opacity: 0; }
-          10%, 25% { opacity: 0.4; }
-          15% { opacity: 0.1; }
-          20% { opacity: 0.5; }
-        }
-        .lightning-overlay {
-          position: absolute;
-          inset: 0;
-          background-color: rgba(224, 242, 254, 0.15);
-          pointer-events: none;
-          opacity: 0;
-          z-index: 50;
-        }
-        .flash-active {
-          animation: lightning-flash 0.6s ease-out forwards;
-        }
-        @keyframes splat-lifecycle {
-          0% { transform: scale(0.5); opacity: 0; }
-          10% { transform: scale(1.1); opacity: 0.4; }
-          20% { transform: scale(1); opacity: 0.3; }
-          80% { transform: scale(1); opacity: 0.3; }
-          100% { transform: scale(0.9); opacity: 0; }
-        }
-        .splat-drop {
-          position: absolute;
-          background: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.4), rgba(102, 153, 155, 0.1));
-          box-shadow: 0 0 4px rgba(102, 153, 155, 0.2);
-          border-radius: 50%;
-          pointer-events: none;
-          animation: splat-lifecycle 8s ease-in-out forwards;
-        }
-      `}</style>
-
       {showLightning && <LightningTrigger />}
       {showSplats && <GlassSplats density={activeSplatDensity} />}
 
@@ -166,31 +114,34 @@ const LightningTrigger = memo(function LightningTrigger() {
  */
 const GlassSplats = memo(function GlassSplats({ density = 1 }: { density?: number }) {
   const [splats, setSplats] = useState<{ id: number; x: number; y: number; r: number }[]>([]);
+  const idCounter = React.useRef(0);
 
   const addSplat = useCallback(() => {
     const newSplat = {
-      id: Math.random(),
+      id: ++idCounter.current,
       x: Math.random() * 100,
       y: Math.random() * 100,
       r: 1 + Math.random() * 4
     };
-    setSplats(prev => [...prev.slice(-60), newSplat]);
+    setSplats(prev => {
+      const next = [...prev, newSplat];
+      return next.length > 60 ? next.slice(-60) : next;
+    });
   }, []);
 
   useEffect(() => {
     // Initial batch - make it feel like it's been raining already
-    setSplats(Array.from({ length: Math.floor(15 * density) }).map(() => ({
-      id: Math.random(),
+    const initialSplats = Array.from({ length: Math.floor(15 * density) }).map(() => ({
+      id: ++idCounter.current,
       x: Math.random() * 100,
       y: Math.random() * 100,
       r: 1 + Math.random() * 4
-    })));
+    }));
+    setSplats(initialSplats);
 
     const interval = setInterval(() => {
-      // Add splats more frequently
       if (Math.random() < 0.5 * density) {
         addSplat();
-        // Occasionally double splat for variety
         if (Math.random() < 0.3 * density) addSplat();
       }
     }, 200);
