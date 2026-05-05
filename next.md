@@ -6,7 +6,7 @@ zen mode - no need to type caps or punctuation?
 
 graphics settings?
 rain uniformity
-glass hud opacity
+type test text box opacity
 
 progression unlocks:
 

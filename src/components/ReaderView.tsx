@@ -107,10 +107,10 @@ const READER_CHROME_TRANSITION = {
 } as const;
 
 const READER_CHROME_SURFACE_CLASS =
-  "border border-white/20 bg-gradient-to-b from-white/15 to-white/5 shadow-[0_8px_32px_rgba(0,0,0,0.15)] transform-gpu";
+  "border border-white/20 bg-gradient-to-b from-white/10 to-white/2 shadow-[0_8px_32px_rgba(0,0,0,0.15)] transform-gpu";
 
 const READER_CHROME_BUTTON_CLASS =
-  "pointer-events-auto flex items-center justify-center rounded-full font-medium text-[var(--text)] transition-colors duration-300 hover:border-[var(--accent)] hover:from-white/20 hover:to-white/10 hover:text-[var(--accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] disabled:cursor-not-allowed";
+  "pointer-events-auto flex items-center justify-center rounded-full font-medium text-[var(--text)] transition-colors duration-300 hover:border-[var(--accent)] hover:from-white/15 hover:to-white/5 hover:text-[var(--accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] disabled:cursor-not-allowed";
 
 export function ReaderView({
   book,
@@ -1011,11 +1011,11 @@ export function ReaderView({
                   settings.theme === "rainy-window"
                     ? "liquid-glass-soft"
                     : cn(
-                        "border border-[var(--border)]",
-                        settings.theme === "nebula-drift"
-                          ? "bg-[color-mix(in_srgb,var(--panel-soft)_21%,transparent)]"
-                          : "bg-[color-mix(in_srgb,var(--panel-soft)_68%,transparent)]"
-                      )
+                      "border border-[var(--border)]",
+                      settings.theme === "nebula-drift"
+                        ? "bg-[color-mix(in_srgb,var(--panel-soft)_21%,transparent)]"
+                        : "bg-[color-mix(in_srgb,var(--panel-soft)_68%,transparent)]"
+                    )
                 )}
                 style={{ fontSize: `${settings.baseFontSize}px`, lineHeight: settings.lineHeight }}
               >
@@ -1224,11 +1224,11 @@ function SpreadPage({
         style.theme === "rainy-window"
           ? "liquid-glass-soft"
           : cn(
-              "border border-[var(--border)] shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]",
-              (style.theme === "nebula-drift")
-                ? "bg-[color-mix(in_srgb,var(--panel-soft)_21%,transparent)]"
-                : "bg-[color-mix(in_srgb,var(--panel-soft)_68%,transparent)]"
-            )
+            "border border-[var(--border)] shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]",
+            (style.theme === "nebula-drift")
+              ? "bg-[color-mix(in_srgb,var(--panel-soft)_21%,transparent)]"
+              : "bg-[color-mix(in_srgb,var(--panel-soft)_68%,transparent)]"
+          )
       )}
       style={{ fontSize: `${style.baseFontSize}px`, lineHeight: `${lineHeightPx}px` }}
     >

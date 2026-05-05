@@ -286,7 +286,8 @@ textarea {
 }
 
 /* Ensure children are above the glass sheen */
-.liquid-glass > *, .liquid-glass-soft > * {
+.liquid-glass>*,
+.liquid-glass-soft>* {
   position: relative;
   z-index: 1;
 }
