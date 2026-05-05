@@ -712,6 +712,8 @@ export function ReaderView({
   const visibleLeft = pageRanges[pageIndex];
   const visibleRight = pageRanges[pageIndex + 1];
   const compareOptions = useMemo(() => ({ ignoredCharacters: ignoredCharacterSet }), [ignoredCharacterSet]);
+  const panelMaxWidth = readerMode === "spread" ? "max-w-[1600px]" : "max-w-[1360px]";
+  const pageMaxWidth = readerMode === "spread" ? "max-w-[1600px]" : "max-w-5xl";
 
   return (
     <>
@@ -745,7 +747,8 @@ export function ReaderView({
               onMouseEnter={() => setIsHoveringHud(true)}
               onMouseLeave={() => setIsHoveringHud(false)}
               className={cn(
-                "fixed left-4 right-4 top-10 z-40 mx-auto flex max-w-[1360px] items-center justify-between gap-4 rounded-full px-4 py-3 md:left-6 md:right-6 pointer-events-auto",
+                "fixed left-4 right-4 top-10 z-40 mx-auto flex items-center justify-between gap-4 rounded-full px-4 py-3 md:left-6 md:right-6 pointer-events-auto",
+                panelMaxWidth,
                 "border border-[var(--border)] bg-[color-mix(in_srgb,var(--bg)_95%,transparent)] shadow-[0_8px_32px_rgba(0,0,0,0.3)] backdrop-blur-3xl transform-gpu",
               )}
             >
@@ -978,7 +981,7 @@ export function ReaderView({
           ref={containerRef}
           className={cn(
             "relative mx-auto flex-1 w-full overflow-hidden flex flex-col",
-            readerMode === "spread" ? "max-w-[1600px]" : "max-w-[1360px]"
+            panelMaxWidth
           )}
         >
 
@@ -1060,10 +1063,13 @@ export function ReaderView({
               animate={{ y: 0, z: 0, opacity: 1 }}
               exit={{ y: 20, opacity: 0 }}
               transition={READER_CHROME_TRANSITION}
-              className="pointer-events-none fixed inset-x-0 bottom-6 z-40 px-4 md:px-10"
+              className="pointer-events-none fixed inset-x-0 bottom-6 z-40 px-4 md:px-6"
             >
               {/* Stack the tracker above the chapter buttons on narrow widths so the floating chrome settles into the same layout it animates toward. */}
-              <div className="mx-auto grid max-w-[1360px] grid-cols-2 items-center gap-3 sm:grid-cols-[auto_minmax(0,1fr)_auto] sm:gap-6">
+              <div className={cn(
+                "mx-auto grid grid-cols-2 items-center gap-3 sm:grid-cols-[1fr_auto_1fr] sm:gap-6",
+                pageMaxWidth
+              )}>
                 {interactionMode !== "read" && (
                   <motion.div
                     initial={false}
