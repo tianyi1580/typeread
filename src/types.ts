@@ -53,6 +53,7 @@ export const THEME_NAMES = [
   "sakura-tea",
   "mocha-blush",
   "nebula-drift",
+  "rainy-window",
 ] as const;
 export type ThemeName = (typeof THEME_NAMES)[number];
 
@@ -358,6 +359,8 @@ export interface UnlockState {
   nordTheme: boolean;
   rosewoodTheme: boolean;
   mochaBlushTheme: boolean;
+  nebulaDriftTheme: boolean;
+  rainyWindowTheme: boolean;
   smoothCaret: boolean;
   premiumTypography: boolean;
   customErrorColors: boolean;

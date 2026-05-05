@@ -7,6 +7,13 @@ zen mode - no need to type caps or punctuation?
 research on effects of typing while reading
     :(
 
-window header so I can drag it around and resize easily
 graphics settings?
-hud alignment in type view 
+
+themes:
+snowfall
+pixel art
+sakura tree
+SRL
+
+Pets:
+kaylie white cat

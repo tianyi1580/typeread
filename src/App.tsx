@@ -8,6 +8,7 @@ import { ReaderView } from "./components/ReaderView";
 import { SettingsView } from "./components/SettingsView";
 import { ShopView } from "./components/ShopView";
 import { NebulaBackground } from "./components/NebulaBackground";
+import { RainyWindowBackground } from "./components/RainyWindowBackground";
 import { Button } from "./components/ui/button";
 import { Card } from "./components/ui/card";
 import { demoAnalytics, demoBook, demoSettings } from "./lib/demo";
@@ -519,12 +520,13 @@ export default function App() {
         activeTab === "reader" ? "flex h-screen flex-col overflow-hidden" : "min-h-screen",
       )}
       style={{
-        backgroundImage: settings?.theme === "nebula-drift" 
+        backgroundImage: settings?.theme === "nebula-drift" || settings?.theme === "rainy-window"
           ? "none" 
           : `radial-gradient(circle at top left, ${theme.accentSoft}, transparent 26%), radial-gradient(circle at bottom right, ${theme.panelSoft}, transparent 22%)`,
       }}
     >
       {settings?.theme === "nebula-drift" && <NebulaBackground />}
+      {settings?.theme === "rainy-window" && <RainyWindowBackground />}
       <div
         className={cn(
           activeTab === "reader"

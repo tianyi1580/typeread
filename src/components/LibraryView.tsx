@@ -126,7 +126,7 @@ export function LibraryView({
             <div>
               <p className="text-xs uppercase tracking-[0.28em] text-[var(--text-muted)]">Library</p>
               <h1 className="mt-4 max-w-3xl text-4xl font-semibold leading-tight">
-                Manage your books and track your progress.
+                Manage your books
               </h1>
               <p className="mt-4 max-w-2xl text-sm leading-7 text-[var(--text-muted)]">
                 Search, pin, and organize your collection. Click a book to resume typing exactly where you left off.

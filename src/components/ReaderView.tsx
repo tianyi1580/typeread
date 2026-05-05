@@ -37,6 +37,7 @@ import { TypingLayer } from "./TypingLayer";
 import { Button } from "./ui/button";
 import { VersusConfigModal } from "./VersusConfigModal";
 import { CelestialParticles } from "./NebulaBackground";
+import { RainParticles } from "./RainyWindowBackground";
 
 /**
  * Properties for the ReaderView component.
@@ -736,6 +737,19 @@ export function ReaderView({
           </div>
         )}
 
+        {/* Persisted Rain for Rainy Window Theme */}
+        {settings.theme === "rainy-window" && (
+          <RainParticles
+            density={0.2}
+            splatDensity={0.4}
+            speed={0.7}
+            bgOpacity={0.6}
+            midOpacity={0.5}
+            fgOpacity={0.4}
+            className="z-0"
+          />
+        )}
+
 
         <AnimatePresence>
           {headerVisible && (
@@ -994,7 +1008,7 @@ export function ReaderView({
                 onScroll={handleScroll}
                 className={cn(
                   "flex-1 overflow-y-auto no-scrollbar rounded-[36px] border border-[var(--border)] px-6 py-8 md:px-10 md:py-12",
-                  settings.theme === "nebula-drift"
+                  (settings.theme === "nebula-drift" || settings.theme === "rainy-window")
                     ? "bg-[color-mix(in_srgb,var(--panel-soft)_21%,transparent)]"
                     : "bg-[color-mix(in_srgb,var(--panel-soft)_68%,transparent)]"
                 )}
@@ -1202,9 +1216,9 @@ function SpreadPage({
     <div
       className={cn(
         "flex h-full flex-col overflow-hidden rounded-[34px] border border-[var(--border)] px-6 pb-0 pt-8 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]",
-        style.theme === "nebula-drift"
-          ? "bg-[linear-gradient(180deg,rgba(255,255,255,0.04),transparent)]"
-          : "bg-[linear-gradient(180deg,rgba(255,255,255,0.12),transparent)]",
+        (style.theme === "nebula-drift" || style.theme === "rainy-window")
+          ? "bg-[color-mix(in_srgb,var(--panel-soft)_21%,transparent)]"
+          : "bg-[color-mix(in_srgb,var(--panel-soft)_68%,transparent)]",
         "font-[var(--font-main)]",
       )}
       style={{ fontSize: `${style.baseFontSize}px`, lineHeight: `${lineHeightPx}px` }}

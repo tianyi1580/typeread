@@ -148,13 +148,27 @@ export const themeMap: Record<ThemeName, ThemeDefinition> = {
     background: "#0a0b1e",
     panel: "rgba(15, 17, 45, 0.82)",
     panelSoft: "rgba(25, 28, 65, 0.72)",
-    border: "rgba(192, 132, 252, 0.18)",
+    border: "rgba(165, 129, 218, 0.02)",
     text: "#e0e0ff",
     textMuted: "#94a3b8",
     accent: "#c084fc",
     accentSoft: "rgba(192, 132, 252, 0.15)",
     success: "#4ade80",
     danger: "#f87171",
+    shadow: "rgba(0, 0, 0, 0.5)",
+  },
+  "rainy-window": {
+    name: "Rainy Window",
+    background: "#1e293b",
+    panel: "rgba(30, 41, 59, 0.75)", // Base slate
+    panelSoft: "rgba(56, 43, 36, 0.2)", // Subtle wood-tinted secondary panel
+    border: "rgba(59, 47, 41, 0.64)", // Muted wood brown border
+    text: "#f1f5f9cd",
+    textMuted: "#94a3b8c6",
+    accent: "#66999B",
+    accentSoft: "rgba(102, 153, 155, 0.2)", // Updated to match the new accent tint
+    success: "#2dd4bf",
+    danger: "#fb7185",
     shadow: "rgba(0, 0, 0, 0.5)",
   },
 };
