@@ -9,3 +9,4 @@ research on effects of typing while reading
 
 window header so I can drag it around and resize easily
 graphics settings?
+hud alignment in type view 

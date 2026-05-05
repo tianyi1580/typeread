@@ -745,7 +745,7 @@ export function ReaderView({
               onMouseEnter={() => setIsHoveringHud(true)}
               onMouseLeave={() => setIsHoveringHud(false)}
               className={cn(
-                "fixed left-4 right-4 top-4 z-40 mx-auto flex max-w-[1360px] items-center justify-between gap-4 rounded-full px-4 py-3 md:left-6 md:right-6 pointer-events-auto",
+                "fixed left-4 right-4 top-10 z-40 mx-auto flex max-w-[1360px] items-center justify-between gap-4 rounded-full px-4 py-3 md:left-6 md:right-6 pointer-events-auto",
                 "border border-[var(--border)] bg-[color-mix(in_srgb,var(--bg)_95%,transparent)] shadow-[0_8px_32px_rgba(0,0,0,0.3)] backdrop-blur-3xl transform-gpu",
               )}
             >

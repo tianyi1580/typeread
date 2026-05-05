@@ -16,6 +16,8 @@ import { cn } from "./lib/utils";
 import { applyTheme, themeMap } from "./theme";
 import { useAppStore } from "./store/app-store";
 import { OnboardingTutorial } from "./components/OnboardingTutorial";
+import { Titlebar } from "./components/Titlebar";
+
 import type { ActiveTab, AppSettings, BookRecord, ParsedBook, ProcessKeystrokeBatchInput, ProcessKeystrokeBatchResult } from "./types";
 
 function resolveBookToLoad(
@@ -527,7 +529,7 @@ export default function App() {
         className={cn(
           activeTab === "reader"
             ? "flex h-full flex-col overflow-hidden"
-            : "min-h-screen px-4 py-4 md:px-6 md:py-6",
+            : "min-h-screen px-4 pt-10 pb-4 md:px-6 md:pt-12 md:pb-6",
         )}
       >
         {showWindowShell && (
@@ -664,6 +666,7 @@ export default function App() {
         />
       )}
       <OnboardingTutorial />
+      <Titlebar />
     </div>
   );
 }
@@ -737,7 +740,6 @@ function WindowShell({
   return (
     <div className="mx-auto max-w-[1480px] space-y-4">
       <div className="relative z-20 rounded-[30px] border border-[var(--border)] bg-[color-mix(in_srgb,var(--panel)_86%,transparent)] px-4 py-3 shadow-panel backdrop-blur-2xl">
-        <div data-tauri-drag-region className="absolute inset-0" />
         <div className="relative z-10 grid gap-3 md:grid-cols-[220px_1fr_220px] md:items-center">
           <div className="flex items-center gap-3">
             {activeTab !== "library" ? (
