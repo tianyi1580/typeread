@@ -61,7 +61,7 @@ export const RainParticles = memo(function RainParticles({
   return (
     <div className={cn("absolute inset-0 pointer-events-none overflow-hidden", className)} style={{ opacity }}>
       {showLightning && <LightningTrigger />}
-      {showSplats && <GlassSplats density={activeSplatDensity} splatSize={splatSize} />}
+      {showSplats && <GlassSplats density={activeSplatDensity} splatSize={splatSize} speed={speed} />}
 
       {/* Background Rain Layer */}
       <div className="absolute inset-0 scale-110 pointer-events-none" style={{ opacity: bgOpacity }}>
@@ -114,7 +114,7 @@ const LightningTrigger = memo(function LightningTrigger() {
 /**
  * GlassSplats - Manages dynamic raindrops on the glass.
  */
-const GlassSplats = memo(function GlassSplats({ density = 1, splatSize = 1 }: { density?: number, splatSize?: number }) {
+const GlassSplats = memo(function GlassSplats({ density = 1, splatSize = 1, speed = 1 }: { density?: number, splatSize?: number, speed?: number }) {
   const [splats, setSplats] = useState<{ id: number; x: number; y: number; r: number }[]>([]);
   const idCounter = React.useRef(0);
 
@@ -127,28 +127,32 @@ const GlassSplats = memo(function GlassSplats({ density = 1, splatSize = 1 }: { 
     };
     setSplats(prev => {
       const next = [...prev, newSplat];
-      return next.length > 60 ? next.slice(-60) : next;
+      const maxSplats = Math.floor(60 * density);
+      return next.length > maxSplats ? next.slice(-maxSplats) : next;
     });
-  }, [splatSize]);
+  }, [splatSize, density]);
 
   useEffect(() => {
-    // Initial batch - make it feel like it's been raining already
-    const initialSplats = Array.from({ length: Math.floor(15 * density) }).map(() => ({
-      id: ++idCounter.current,
-      x: Math.random() * 100,
-      y: Math.random() * 100,
-      r: (1 + Math.random() * 4) * splatSize
-    }));
-    setSplats(initialSplats);
+    // Initial batch - only run once or when density increases significantly
+    setSplats(prev => {
+      if (prev.length > 0) return prev;
+      return Array.from({ length: Math.floor(20 * density) }).map(() => ({
+        id: ++idCounter.current,
+        x: Math.random() * 100,
+        y: Math.random() * 100,
+        r: (1 + Math.random() * 4) * splatSize
+      }));
+    });
 
     const interval = setInterval(() => {
-      if (Math.random() < 0.5 * density) {
+      // Scale splat frequency by both density and speed
+      if (Math.random() < 0.6 * density * speed) {
         addSplat();
-        if (Math.random() < 0.3 * density) addSplat();
+        if (Math.random() < 0.4 * density * speed) addSplat();
       }
-    }, 200);
+    }, 250);
     return () => clearInterval(interval);
-  }, [addSplat, density, splatSize]);
+  }, [addSplat, density, splatSize, speed]);
 
   return (
     <div className="absolute inset-0 z-20 pointer-events-none">
@@ -171,10 +175,27 @@ const GlassSplats = memo(function GlassSplats({ density = 1, splatSize = 1 }: { 
 /**
  * RainyWindowBackground - Main background component.
  */
-export const RainyWindowBackground = memo(function RainyWindowBackground() {
+export const RainyWindowBackground = memo(function RainyWindowBackground({ 
+  density = 1,
+  speed = 1,
+  splatDensity = 0.4,
+  splatSize = 1.5 
+}: { 
+  density?: number;
+  speed?: number;
+  splatDensity?: number;
+  splatSize?: number;
+}) {
   return (
     <div className="fixed inset-0 z-0 overflow-hidden bg-[#1e293b] transform-gpu">
-      <RainParticles density={1} speed={1} showLightning={true} showSplats={true} splatSize={1.5} splatDensity={0.4} />
+      <RainParticles 
+        density={density} 
+        speed={speed} 
+        showLightning={true} 
+        showSplats={true} 
+        splatSize={splatSize} 
+        splatDensity={splatDensity} 
+      />
 
       {/* Background Ambience Blobs - No blurring/filters for performance */}
       <div className="absolute top-[20%] left-[15%] w-[60vw] h-[60vw] bg-[#66999B]/05 rounded-full pointer-events-none" />

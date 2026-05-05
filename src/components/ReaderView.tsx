@@ -107,7 +107,7 @@ const READER_CHROME_TRANSITION = {
 } as const;
 
 const READER_CHROME_SURFACE_CLASS =
-  "border border-white/20 bg-gradient-to-b from-white/15 to-white/5 shadow-[0_8px_32px_rgba(0,0,0,0.15)] backdrop-blur-2xl transform-gpu";
+  "border border-white/20 bg-gradient-to-b from-white/15 to-white/5 shadow-[0_8px_32px_rgba(0,0,0,0.15)] transform-gpu";
 
 const READER_CHROME_BUTTON_CLASS =
   "pointer-events-auto flex items-center justify-center rounded-full font-medium text-[var(--text)] transition-colors duration-300 hover:border-[var(--accent)] hover:from-white/20 hover:to-white/10 hover:text-[var(--accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] disabled:cursor-not-allowed";
@@ -1007,10 +1007,15 @@ export function ReaderView({
                 ref={scrollContainerRef}
                 onScroll={handleScroll}
                 className={cn(
-                  "flex-1 overflow-y-auto no-scrollbar rounded-[36px] border border-[var(--border)] px-6 py-8 md:px-10 md:py-12",
-                  (settings.theme === "nebula-drift" || settings.theme === "rainy-window")
-                    ? "bg-[color-mix(in_srgb,var(--panel-soft)_21%,transparent)]"
-                    : "bg-[color-mix(in_srgb,var(--panel-soft)_68%,transparent)]"
+                  "flex-1 overflow-y-auto no-scrollbar rounded-[36px] px-6 py-8 md:px-10 md:py-12",
+                  settings.theme === "rainy-window"
+                    ? "liquid-glass-soft"
+                    : cn(
+                        "border border-[var(--border)]",
+                        settings.theme === "nebula-drift"
+                          ? "bg-[color-mix(in_srgb,var(--panel-soft)_21%,transparent)]"
+                          : "bg-[color-mix(in_srgb,var(--panel-soft)_68%,transparent)]"
+                      )
                 )}
                 style={{ fontSize: `${settings.baseFontSize}px`, lineHeight: settings.lineHeight }}
               >
@@ -1215,11 +1220,15 @@ function SpreadPage({
   return (
     <div
       className={cn(
-        "flex h-full flex-col overflow-hidden rounded-[34px] border border-[var(--border)] px-6 pb-0 pt-8 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]",
-        (style.theme === "nebula-drift" || style.theme === "rainy-window")
-          ? "bg-[color-mix(in_srgb,var(--panel-soft)_21%,transparent)]"
-          : "bg-[color-mix(in_srgb,var(--panel-soft)_68%,transparent)]",
-        "font-[var(--font-main)]",
+        "flex h-full flex-col overflow-hidden rounded-[34px] px-6 pb-0 pt-8 font-[var(--font-main)]",
+        style.theme === "rainy-window"
+          ? "liquid-glass-soft"
+          : cn(
+              "border border-[var(--border)] shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]",
+              (style.theme === "nebula-drift")
+                ? "bg-[color-mix(in_srgb,var(--panel-soft)_21%,transparent)]"
+                : "bg-[color-mix(in_srgb,var(--panel-soft)_68%,transparent)]"
+            )
       )}
       style={{ fontSize: `${style.baseFontSize}px`, lineHeight: `${lineHeightPx}px` }}
     >

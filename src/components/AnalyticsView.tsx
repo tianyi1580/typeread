@@ -1,6 +1,6 @@
 import { useMemo, useState, useEffect } from "react";
 import { resolveKeyboardLayout } from "../lib/keyboard-layouts";
-import { formatDuration } from "../lib/utils";
+import { formatDuration, cn } from "../lib/utils";
 import type { AnalyticsSummary, AppSettings, ConfusionPair, KeyAccuracy, KeyboardLayoutDefinition, TransitionStat, WpmSample } from "../types";
 import { Card } from "./ui/card";
 import { InfoTooltip, InfoIcon } from "./ui/InfoTooltip";
@@ -174,7 +174,12 @@ export function AnalyticsView({
   return (
     <div className="space-y-6 pb-12">
       {/* 1. Profile Section */}
-      <Card className="relative overflow-hidden border-none bg-gradient-to-br from-[rgba(138,173,244,0.15)] to-transparent p-8 shadow-2xl">
+      <Card className={cn(
+        "relative overflow-hidden p-8",
+        settings?.theme === "rainy-window"
+          ? "liquid-glass shadow-2xl"
+          : "border-none bg-gradient-to-br from-[rgba(138,173,244,0.15)] to-transparent shadow-2xl"
+      )}>
         <div className="absolute -right-20 -top-20 h-64 w-64 rounded-full bg-[var(--accent)] opacity-5 blur-[100px]" />
 
         <div className="grid gap-8 lg:grid-cols-[minmax(0,1.2fr)_minmax(320px,0.8fr)]">
@@ -231,7 +236,12 @@ export function AnalyticsView({
       </Card>
 
       {/* Tab Selector */}
-      <div className="flex flex-wrap gap-2 rounded-[28px] border border-[var(--border)] bg-black/10 p-2 backdrop-blur-md">
+      <div className={cn(
+        "flex flex-wrap gap-2 rounded-[28px] p-2",
+        settings?.theme === "rainy-window"
+          ? "liquid-glass-soft"
+          : "border border-[var(--border)] bg-black/10 backdrop-blur-md"
+      )}>
         <TabButton active={activeTab === "session"} onClick={() => setActiveTab("session")} label="Session Stats" />
         <TabButton active={activeTab === "lifetime"} onClick={() => setActiveTab("lifetime")} label="Lifetime Stats" />
         <TabButton active={activeTab === "heatmap"} onClick={() => setActiveTab("heatmap")} label="Keyboard Heatmap" />
@@ -423,7 +433,12 @@ export function AnalyticsView({
                     <ToggleButton active={keyAccuracySortOrder === "desc"} onClick={() => setKeyAccuracySortOrder("desc")} label="Highest First" />
                   </div>
                 )}
-                <div className="rounded-full border border-[var(--border)] bg-white/5 px-5 py-2 text-xs font-semibold tracking-wide text-[var(--text-muted)] backdrop-blur-md">
+                <div className={cn(
+                  "rounded-full px-5 py-2 text-xs font-semibold tracking-wide text-[var(--text-muted)]",
+                  settings?.theme === "rainy-window"
+                    ? "liquid-glass-soft"
+                    : "border border-[var(--border)] bg-white/5 backdrop-blur-md"
+                )}>
                   {layout.name}
                 </div>
               </div>

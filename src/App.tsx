@@ -526,7 +526,9 @@ export default function App() {
       }}
     >
       {settings?.theme === "nebula-drift" && <NebulaBackground />}
-      {settings?.theme === "rainy-window" && <RainyWindowBackground />}
+      {settings?.theme === "rainy-window" && (
+        <RainyWindowBackground density={activeTab === "reader" ? 0 : 1} />
+      )}
       <div
         className={cn(
           activeTab === "reader"

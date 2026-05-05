@@ -160,16 +160,16 @@ export const themeMap: Record<ThemeName, ThemeDefinition> = {
   "rainy-window": {
     name: "Rainy Window",
     background: "#1e293b",
-    panel: "rgba(30, 41, 59, 0.75)", // Base slate
-    panelSoft: "rgba(56, 43, 36, 0.2)", // Subtle wood-tinted secondary panel
-    border: "rgba(59, 47, 41, 0.64)", // Muted wood brown border
+    panel: "rgba(36, 39, 58, 0.45)",
+    panelSoft: "rgba(54, 58, 79, 0.32)",
+    border: "rgba(145, 215, 227, 0.12)",
     text: "#f1f5f9cd",
     textMuted: "#94a3b8c6",
     accent: "#66999B",
-    accentSoft: "rgba(102, 153, 155, 0.2)", // Updated to match the new accent tint
+    accentSoft: "rgba(102, 153, 155, 0.15)",
     success: "#2dd4bf",
     danger: "#fb7185",
-    shadow: "rgba(0, 0, 0, 0.5)",
+    shadow: "rgba(0, 0, 0, 0.4)",
   },
 };
 
@@ -208,4 +208,5 @@ export function applyTheme(settings: AppSettings) {
 
   const appFont = fontFamilyMap[settings.font] ?? fontFamilyMap["jetbrains-mono"];
   root.style.setProperty("--font-main", `"${appFont}", ui-monospace, monospace`);
+  root.setAttribute("data-theme", settings.theme);
 }

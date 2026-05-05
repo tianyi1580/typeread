@@ -97,7 +97,12 @@ export function SettingsView({
         aria-labelledby="settings-title"
         className="relative grid h-[min(860px,88vh)] w-full max-w-[1180px] overflow-hidden lg:grid-cols-[260px_minmax(0,1fr)]"
       >
-        <aside className="border-r border-[var(--border)] bg-[color-mix(in_srgb,var(--panel-soft)_80%,transparent)] p-5">
+        <aside className={cn(
+          "border-r p-5",
+          settings.theme === "rainy-window"
+            ? "liquid-glass-soft"
+            : "border-[var(--border)] bg-[color-mix(in_srgb,var(--panel-soft)_80%,transparent)]"
+        )}>
           <div className="flex flex-col">
             <button
               type="button"
@@ -122,7 +127,10 @@ export function SettingsView({
           </nav>
         </aside>
 
-        <div className="overflow-y-auto p-6 lg:p-8">
+        <div className={cn(
+          "overflow-y-auto p-6 lg:p-8",
+          settings.theme === "rainy-window" ? "bg-[var(--panel)]" : ""
+        )}>
           {section === "appearance" && (
             <div className="space-y-8">
               <SectionTitle
@@ -230,6 +238,7 @@ export function SettingsView({
                 description="Unlocked at level 5. Keeps the caret motion less harsh during dense typing runs."
                 checked={settings.smoothCaret}
                 disabled={!unlocks.smoothCaret}
+                theme={settings.theme}
                 onChange={(checked) => onChange({ ...settings, smoothCaret: checked })}
               />
 
@@ -244,7 +253,12 @@ export function SettingsView({
                   />
                   <div className="flex flex-col justify-end">
                     <span className="mb-3 text-[10px] uppercase tracking-[0.28em] text-[var(--text-muted)]">Live Preview</span>
-                    <div className="flex h-12 items-center rounded-[18px] border border-[var(--border)] bg-[var(--panel-soft)] px-5">
+                    <div className={cn(
+                      "flex h-12 items-center rounded-[18px] px-5",
+                      settings.theme === "rainy-window"
+                        ? "liquid-glass-soft"
+                        : "border border-[var(--border)] bg-[var(--panel-soft)]"
+                    )}>
                       <p className="text-sm font-medium" style={{ fontFamily: `var(--font-main)` }}>
                         Sphinx of black <span className="rounded-sm px-0.5" style={{ backgroundColor: `${settings.errorColor}33`, color: settings.errorColor, borderBottom: `2px solid ${settings.errorColor}` }}>quartz</span>, judge my vow.
                       </p>
@@ -267,7 +281,12 @@ export function SettingsView({
                   />
                   <div className="flex flex-col justify-end">
                     <span className="mb-3 text-[10px] uppercase tracking-[0.28em] text-[var(--text-muted)]">Live Preview</span>
-                    <div className="flex h-12 items-center rounded-[18px] border border-[var(--border)] bg-[var(--panel-soft)] px-5">
+                    <div className={cn(
+                      "flex h-12 items-center rounded-[18px] px-5",
+                      settings.theme === "rainy-window"
+                        ? "liquid-glass-soft"
+                        : "border border-[var(--border)] bg-[var(--panel-soft)]"
+                    )}>
                       <p className="text-sm font-medium" style={{ fontFamily: `var(--font-main)` }}>
                         Sphinx of <span style={{ color: settings.successColor }}>black quartz</span>, judge my vow.
                       </p>
@@ -304,6 +323,7 @@ export function SettingsView({
                 label="Enable Tab-to-Skip"
                 description="Skipped words are still excluded from analytics. Turning this off makes Tab inert."
                 checked={settings.tabToSkip}
+                theme={settings.theme}
                 onChange={(checked) => onChange({ ...settings, tabToSkip: checked })}
               />
 
@@ -366,6 +386,7 @@ export function SettingsView({
                   description="Back up the local SQLite database to a file you choose."
                   actionLabel="Export"
                   disabled={!desktopReady}
+                  theme={settings.theme}
                   onAction={onExportDatabase}
                 />
                 <StorageCard
@@ -373,6 +394,7 @@ export function SettingsView({
                   description="Replace the current local database with a previous backup."
                   actionLabel="Import"
                   disabled={!desktopReady}
+                  theme={settings.theme}
                   onAction={onImportDatabase}
                 />
               </div>
@@ -386,8 +408,8 @@ export function SettingsView({
                   <Button variant="danger" onClick={onDeleteLibrary} disabled={!desktopReady}>
                     Delete Library
                   </Button>
-                  <Button 
-                    variant="secondary" 
+                  <Button
+                    variant="secondary"
                     onClick={async () => {
                       try {
                         await api.gainOneLevel();
@@ -396,7 +418,7 @@ export function SettingsView({
                         console.error("Failed to gain level:", err);
                         alert("Failed to gain level. Check console.");
                       }
-                    }} 
+                    }}
                     disabled={!desktopReady}
                   >
                     Gain 1 Level (Cheat)
@@ -585,18 +607,23 @@ function ToggleRow({
   description,
   checked,
   disabled = false,
+  theme,
   onChange,
 }: {
   label: string;
   description: string;
   checked: boolean;
   disabled?: boolean;
+  theme: string;
   onChange: (checked: boolean) => void;
 }) {
   return (
     <div
       className={cn(
-        "flex items-center justify-between gap-6 rounded-[26px] border border-[var(--border)] bg-[var(--panel-soft)] px-5 py-4",
+        "flex items-center justify-between gap-6 rounded-[26px] px-5 py-4",
+        theme === "rainy-window"
+          ? "liquid-glass-soft"
+          : "border border-[var(--border)] bg-[var(--panel-soft)]",
         disabled && "opacity-55",
       )}
     >
@@ -632,16 +659,23 @@ function StorageCard({
   description,
   actionLabel,
   disabled,
+  theme,
   onAction,
 }: {
   title: string;
   description: string;
   actionLabel: string;
   disabled: boolean;
+  theme: string;
   onAction: () => void;
 }) {
   return (
-    <div className="rounded-[28px] border border-[var(--border)] bg-[var(--panel-soft)] p-5">
+    <div className={cn(
+      "rounded-[28px] p-5",
+      theme === "rainy-window"
+        ? "liquid-glass-soft"
+        : "border border-[var(--border)] bg-[var(--panel-soft)]"
+    )}>
       <p className="text-lg font-semibold">{title}</p>
       <p className="mt-3 text-sm leading-7 text-[var(--text-muted)]">{description}</p>
       <Button className="mt-5" variant="secondary" onClick={onAction} disabled={disabled}>

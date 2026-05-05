@@ -75,6 +75,8 @@ export function unlocksForLevel(level: number): UnlockState {
     premiumTypography: level >= 15,
     customSuccessColors: level >= 2,
     customErrorColors: level >= 10,
+    nebulaDriftTheme: level >= 20,
+    rainyWindowTheme: level >= 25,
   };
 }
 
