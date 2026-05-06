@@ -97,6 +97,13 @@ export const CelestialParticles = memo(function CelestialParticles({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const spritesRef = useRef<HTMLCanvasElement[]>([]);
 
+  const starsRef = useRef<any[]>([]);
+  const propsRef = useRef({ speed, baseOpacity, enableTwinkle });
+
+  useEffect(() => {
+    propsRef.current = { speed, baseOpacity, enableTwinkle };
+  }, [speed, baseOpacity, enableTwinkle]);
+
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -155,8 +162,8 @@ export const CelestialParticles = memo(function CelestialParticles({
     window.addEventListener("resize", resize);
     resize();
 
-    const speedMultiplier = (speed || 80) / 80;
-    const stars = Array.from({ length: count }).map(() => {
+    // Re-seed stars only when count changes
+    starsRef.current = Array.from({ length: count }).map(() => {
       const isLarge = Math.random() > 0.8;
       const s = isLarge ? baseSize * 1.3 : baseSize * 0.7;
       return {
@@ -164,11 +171,11 @@ export const CelestialParticles = memo(function CelestialParticles({
         y: Math.random() * 100,
         spriteIdx: isLarge ? 1 : 0,
         glowSize: s * 8,
-        opacity: (baseOpacity * 0.3) + Math.random() * (baseOpacity * 0.7),
+        opacityBase: 0.3 + Math.random() * 0.7,
         twinkleDuration: 6 + Math.random() * 4,
         twinklePhase: Math.random() * Math.PI * 2,
-        driftX: (Math.random() - 0.5) * 50 * speedMultiplier,
-        driftY: (Math.random() - 0.5) * 50 * speedMultiplier,
+        driftX: (Math.random() - 0.5) * 50,
+        driftY: (Math.random() - 0.5) * 50,
         driftFreq: 0.1 + Math.random() * 0.2,
       };
     });
@@ -176,19 +183,22 @@ export const CelestialParticles = memo(function CelestialParticles({
     const render = (time: number) => {
       ctx.clearRect(0, 0, width, height);
       const t = time * 0.001;
+      const { speed: currentSpeed, baseOpacity: currentBaseOpacity, enableTwinkle: currentTwinkle } = propsRef.current;
+      const speedMultiplier = (currentSpeed || 80) / 80;
+      const stars = starsRef.current;
 
-      for (let i = 0; i < count; i++) {
+      for (let i = 0; i < stars.length; i++) {
         const s = stars[i];
-        const xOffset = Math.sin(t * s.driftFreq + i) * s.driftX;
-        const yOffset = Math.cos(t * s.driftFreq + i) * s.driftY;
+        const xOffset = Math.sin(t * s.driftFreq + i) * s.driftX * speedMultiplier;
+        const yOffset = Math.cos(t * s.driftFreq + i) * s.driftY * speedMultiplier;
 
         const x = (s.x / 100) * width + xOffset;
         const y = (s.y / 100) * height + yOffset;
 
-        const twinkle = enableTwinkle
+        const twinkle = currentTwinkle
           ? Math.sin((t * Math.PI * 2) / s.twinkleDuration + s.twinklePhase)
           : 0.5;
-        const currentOpacity = s.opacity * (0.6 + twinkle * 0.4);
+        const currentOpacity = s.opacityBase * currentBaseOpacity * (0.6 + twinkle * 0.4);
 
         const sprite = spritesRef.current[s.spriteIdx];
         if (sprite) {
@@ -208,7 +218,7 @@ export const CelestialParticles = memo(function CelestialParticles({
       window.removeEventListener("resize", resize);
       cancelAnimationFrame(animationFrameId);
     };
-  }, [count, baseSize, baseOpacity, speed, enableTwinkle]);
+  }, [count, baseSize]);
 
   return (
     <canvas

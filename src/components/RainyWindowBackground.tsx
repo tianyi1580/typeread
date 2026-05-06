@@ -249,6 +249,29 @@ export const RainParticles = memo(function RainParticles({
   // Track the actual splat density used
   const activeSplatDensity = splatDensity ?? density;
 
+  // Refs for smooth prop updates without loop restarts
+  const propsRef = useRef({
+    speed,
+    bgOpacity,
+    midOpacity,
+    fgOpacity,
+    opacity,
+    activeSplatDensity,
+    splatSize
+  });
+
+  useEffect(() => {
+    propsRef.current = {
+      speed,
+      bgOpacity,
+      midOpacity,
+      fgOpacity,
+      opacity,
+      activeSplatDensity,
+      splatSize
+    };
+  }, [speed, bgOpacity, midOpacity, fgOpacity, opacity, activeSplatDensity, splatSize]);
+
   // Initialize drops only once or when density/speed changes
   const syncDrops = (width: number, height: number, targetDensity: number, currentSpeed: number) => {
     const bgTarget = Math.floor(BASE_BG_COUNT * targetDensity);
@@ -436,7 +459,14 @@ export const RainParticles = memo(function RainParticles({
       }
 
       // ── Update & Draw Rain Drops ──────────────────────────────────────
-      const layerOpacities = [bgOpacity, midOpacity, fgOpacity];
+      const { 
+        bgOpacity: bgO, 
+        midOpacity: midO, 
+        fgOpacity: fgO,
+        speed: currentSpeed 
+      } = propsRef.current;
+      
+      const layerOpacities = [bgO, midO, fgO];
       const dropsList = dropsRef.current;
       
       for (let i = 0; i < dropsList.length; i++) {
@@ -444,7 +474,7 @@ export const RainParticles = memo(function RainParticles({
         d.y += d.speed * dt;
 
         if (d.y > h + 20) {
-          resetDrop(d, w, h, d.layerIdx, speed, false);
+          resetDrop(d, w, h, d.layerIdx, currentSpeed, false);
         }
 
         const sprite = drops[d.layerIdx];
@@ -475,9 +505,10 @@ export const RainParticles = memo(function RainParticles({
       if (showSplats && splatSprite) {
         if (time - lastSplatTick > SPLAT_TICK_INTERVAL_MS) {
           lastSplatTick = time;
-          const spawnChance = 0.6 * activeSplatDensity * speed;
+          const { activeSplatDensity: aSD, speed: s } = propsRef.current;
+          const spawnChance = 0.6 * aSD * s;
           if (Math.random() < spawnChance) {
-            const maxSplats = Math.floor(BASE_SPLAT_MAX * activeSplatDensity);
+            const maxSplats = Math.floor(BASE_SPLAT_MAX * aSD);
             for (let j = 0; j < 2; j++) {
               if (splats.length < maxSplats && (j === 0 || Math.random() < 0.4)) {
                 splats.push({
@@ -520,7 +551,7 @@ export const RainParticles = memo(function RainParticles({
       window.removeEventListener("resize", resize);
       cancelAnimationFrame(animId);
     };
-  }, [density, speed, bgOpacity, midOpacity, fgOpacity, activeSplatDensity, splatSize, showSplats, showAtmospherics]);
+  }, [splatSize, showSplats, showAtmospherics]);
 
   // Sync density/speed changes without restarting the animation loop
   useEffect(() => {
