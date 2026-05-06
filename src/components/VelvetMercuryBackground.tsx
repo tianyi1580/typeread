@@ -3,139 +3,78 @@ import { cn } from "../lib/utils";
 
 // ─── Configuration & Types ──────────────────────────────────────────────────
 
-/** Maximum particles at full density. Reader uses isSubtle for reduced count. */
-const MAX_PARTICLES = 800;
-const SUBTLE_PARTICLES = 180;
+/** Maximum hearts at full density. Reader uses isSubtle for reduced count. */
+const MAX_HEARTS = 55;
+const SUBTLE_HEARTS = 18;
 
-/** Heart path sampling resolution — higher = smoother attractor surface. */
-const HEART_SAMPLES = 400;
-
-/** Simplex-style noise via fast sine harmonics (avoids external deps). */
-function flowNoise(x: number, y: number, t: number, seed: number): number {
-  return (
-    Math.sin(x * 0.013 + t * 0.3 + seed) * 0.5 +
-    Math.cos(y * 0.017 + t * 0.23 + seed * 1.3) * 0.5 +
-    Math.sin((x + y) * 0.009 + t * 0.17 + seed * 0.7) * 0.3
-  );
-}
-
-interface Particle {
+interface FloatingHeart {
   x: number;
   y: number;
-  vx: number;
-  vy: number;
-  /** Relative rendering size multiplier (0.3 – 1.6). */
+  vx: number; // Sway amplitude
+  vy: number; // Upward speed
+  currentVx: number; // Real-time x velocity
+  currentVy: number; // Real-time y velocity
   size: number;
-  /** Unique noise seed for organic flow. */
-  seed: number;
-  /** Index into the heart attractor path. */
-  targetIdx: number;
-  /** Current base opacity (shimmer modulated per-frame). */
-  baseOpacity: number;
-  /** Sprite variant index (0–3). */
   spriteIdx: number;
-  /** Phase offset for shimmer sinusoid. */
-  shimmerPhase: number;
-}
-
-interface HeartPoint {
-  x: number;
-  y: number;
-}
-
-// ─── Heart Path ─────────────────────────────────────────────────────────────
-
-function generateHeartPath(
-  cx: number,
-  cy: number,
-  scale: number,
-  count: number,
-): HeartPoint[] {
-  const points: HeartPoint[] = [];
-  for (let i = 0; i < count; i++) {
-    const t = (i / count) * Math.PI * 2;
-    // Classic parametric heart — symmetric, no sharp edges
-    const hx = 16 * Math.pow(Math.sin(t), 3);
-    const hy = -(
-      13 * Math.cos(t) -
-      5 * Math.cos(2 * t) -
-      2 * Math.cos(3 * t) -
-      Math.cos(4 * t)
-    );
-    points.push({ x: cx + hx * scale, y: cy + hy * scale });
-  }
-  return points;
-}
-
-/**
- * Also generate interior fill points so particles aren't only on the edge.
- * This creates the dense "cloud" effect inside the heart silhouette.
- */
-function generateInteriorPoints(
-  cx: number,
-  cy: number,
-  scale: number,
-  count: number,
-): HeartPoint[] {
-  const points: HeartPoint[] = [];
-  for (let i = 0; i < count; i++) {
-    const t = (i / count) * Math.PI * 2;
-    const r = Math.random() * 0.85; // 0 = center, 1 = edge
-    const hx = 16 * Math.pow(Math.sin(t), 3);
-    const hy = -(
-      13 * Math.cos(t) -
-      5 * Math.cos(2 * t) -
-      2 * Math.cos(3 * t) -
-      Math.cos(4 * t)
-    );
-    points.push({ x: cx + hx * scale * r, y: cy + hy * scale * r });
-  }
-  return points;
+  phase: number;
+  rot: number;
+  rotV: number;
+  baseOpacity: number;
+  depth: number;
 }
 
 // ─── Sprite Generation ──────────────────────────────────────────────────────
 
 /**
- * Pre-renders 4 ethereal particle sprites to off-screen canvases.
- * Each is a soft radial glow — no hard edges.
- * Variants: warm pink, hot red core, cool white, tiny sparkle.
+ * Pre-renders 5 soft heart sprites to off-screen canvases.
  */
-function createSprites(dpr: number): HTMLCanvasElement[] {
+function createHeartSprites(dpr: number): HTMLCanvasElement[] {
   const configs = [
-    { radius: 5, color: [255, 180, 200] },  // Warm blush
-    { radius: 4, color: [232, 55, 90] },     // Hot red core
-    { radius: 6, color: [255, 245, 248] },   // Cool white
-    { radius: 3, color: [255, 130, 170] },   // Tiny sparkle
+    { color: "rgba(255, 182, 193, 0.9)", blur: 0, scale: 1.2 },    // Soft pink
+    { color: "rgba(255, 105, 180, 0.8)", blur: 2, scale: 1.0 },    // Hot pink
+    { color: "rgba(219, 112, 147, 0.95)", blur: 1, scale: 0.9 },   // Pale violet red
+    { color: "rgba(232, 55, 90, 0.85)", blur: 0, scale: 0.8 },     // Crimson accent
+    { color: "rgba(255, 240, 245, 0.95)", blur: 4, scale: 1.4 },   // Glowing blush/white
   ];
 
-  return configs.map(({ radius, color }) => {
-    const pad = radius * 3;
-    const size = (radius + pad) * 2;
+  return configs.map(({ color, blur, scale }) => {
+    const heartScale = 1.5 * scale;
+    const pad = 12 + blur * 2;
+    // Bounding box for the parametric heart is roughly [-16, 16] for X and [-17, 12] for Y.
+    const width = 32 * heartScale + pad * 2;
+    const height = 30 * heartScale + pad * 2;
+
     const c = document.createElement("canvas");
-    c.width = Math.ceil(size * dpr);
-    c.height = Math.ceil(size * dpr);
+    c.width = Math.ceil(width * dpr);
+    c.height = Math.ceil(height * dpr);
     const ctx = c.getContext("2d");
     if (!ctx) return c;
 
     ctx.scale(dpr, dpr);
-    const center = size / 2;
 
-    const g = ctx.createRadialGradient(center, center, 0, center, center, radius + pad * 0.6);
-    g.addColorStop(0, `rgba(${color[0]}, ${color[1]}, ${color[2]}, 0.9)`);
-    g.addColorStop(0.25, `rgba(${color[0]}, ${color[1]}, ${color[2]}, 0.45)`);
-    g.addColorStop(0.55, `rgba(${color[0]}, ${color[1]}, ${color[2]}, 0.12)`);
-    g.addColorStop(1, `rgba(${color[0]}, ${color[1]}, ${color[2]}, 0)`);
+    // Center it (compensating slightly for the bounding box offset)
+    ctx.translate(width / 2, height / 2 + 2.5 * heartScale);
 
-    ctx.fillStyle = g;
+    if (blur > 0) {
+      ctx.shadowColor = color;
+      ctx.shadowBlur = blur * 4;
+      ctx.shadowOffsetX = 0;
+      ctx.shadowOffsetY = 2;
+    }
+
+    ctx.fillStyle = color;
     ctx.beginPath();
-    ctx.arc(center, center, radius + pad * 0.6, 0, Math.PI * 2);
+    for (let t = 0; t <= Math.PI * 2; t += 0.05) {
+      const hx = 16 * Math.pow(Math.sin(t), 3);
+      const hy = -(13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t));
+      if (t === 0) ctx.moveTo(hx * heartScale, hy * heartScale);
+      else ctx.lineTo(hx * heartScale, hy * heartScale);
+    }
     ctx.fill();
 
     return c;
   });
 }
-
-// ─── Sprite draw-size cache ─────────────────────────────────────────────────
 
 interface SpriteMetric {
   sw: number;
@@ -158,14 +97,14 @@ export const VelvetMercuryParticles = memo(function VelvetMercuryParticles({
   wpm?: number;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const particlesRef = useRef<Particle[]>([]);
-  const heartPathRef = useRef<HeartPoint[]>([]);
+  const heartsRef = useRef<FloatingHeart[]>([]);
   const spritesRef = useRef<HTMLCanvasElement[]>([]);
   const spriteMetricsRef = useRef<SpriteMetric[]>([]);
   const metricsRef = useRef({ w: 0, h: 0, dpr: 1 });
   const lastTimeRef = useRef(0);
+  const mouseRef = useRef({ x: -1000, y: -1000, active: false, lastMoveAt: 0 });
 
-  // Smooth props access (avoids loop restarts)
+  // Smooth props access
   const propsRef = useRef({ density, opacity, isSubtle, wpm });
   useEffect(() => {
     propsRef.current = { density, opacity, isSubtle, wpm };
@@ -179,6 +118,20 @@ export const VelvetMercuryParticles = memo(function VelvetMercuryParticles({
 
     let animId: number;
 
+    const handleMouseMove = (e: MouseEvent) => {
+      mouseRef.current.x = e.clientX;
+      mouseRef.current.y = e.clientY;
+      mouseRef.current.active = true;
+      mouseRef.current.lastMoveAt = Date.now();
+    };
+
+    const handleMouseLeave = () => {
+      mouseRef.current.active = false;
+    };
+
+    window.addEventListener("mousemove", handleMouseMove);
+    document.addEventListener("mouseleave", handleMouseLeave);
+
     const resize = () => {
       const dpr = window.devicePixelRatio || 1;
       const w = window.innerWidth;
@@ -190,50 +143,36 @@ export const VelvetMercuryParticles = memo(function VelvetMercuryParticles({
       canvas.style.height = `${h}px`;
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-      // Heart scale: fills ~35% of the smaller dimension
-      const heartScale = Math.min(w, h) * 0.018;
-      const cx = w / 2;
-      const cy = h * 0.46;
-
-      // Mix of edge + interior points for dense cloud fill
-      const edgePts = generateHeartPath(cx, cy, heartScale, HEART_SAMPLES);
-      const interiorPts = generateInteriorPoints(cx, cy, heartScale, HEART_SAMPLES);
-      heartPathRef.current = [...edgePts, ...interiorPts];
-
-      // Generate sprites
-      spritesRef.current = createSprites(dpr);
+      spritesRef.current = createHeartSprites(dpr);
       spriteMetricsRef.current = spritesRef.current.map((s) => ({
         sw: s.width / dpr,
         sh: s.height / dpr,
       }));
 
-      // Initialize particle pool
       const count = isSubtle
-        ? SUBTLE_PARTICLES
-        : Math.floor(MAX_PARTICLES * density);
-      const totalTargets = heartPathRef.current.length;
-      const pool: Particle[] = [];
+        ? SUBTLE_HEARTS
+        : Math.floor(MAX_HEARTS * density);
+
+      const pool: FloatingHeart[] = [];
 
       for (let i = 0; i < count; i++) {
-        // Distribute ~70% on heart, ~30% drifting nearby for ambient haze
-        const onHeart = Math.random() < 0.7;
-        const targetIdx = Math.floor(Math.random() * totalTargets);
-        const target = heartPathRef.current[targetIdx];
-
         pool.push({
-          x: onHeart ? target.x + (Math.random() - 0.5) * 40 : Math.random() * w,
-          y: onHeart ? target.y + (Math.random() - 0.5) * 40 : Math.random() * h,
-          vx: (Math.random() - 0.5) * 20,
-          vy: (Math.random() - 0.5) * 20,
-          size: 0.3 + Math.random() * 1.3,
-          seed: Math.random() * 6283,
-          targetIdx,
-          baseOpacity: 0.15 + Math.random() * 0.55,
-          spriteIdx: Math.floor(Math.random() * 4),
-          shimmerPhase: Math.random() * Math.PI * 2,
+          x: Math.random() * w,
+          y: Math.random() * h, // Initial random spread across screen
+          vx: 0.2 + Math.random() * 0.8, // Sway amplitude
+          vy: 20 + Math.random() * 50, // Upward speed
+          currentVx: 0,
+          currentVy: -(20 + Math.random() * 50),
+          size: 0.4 + Math.random() * 1.0,
+          spriteIdx: Math.floor(Math.random() * 5),
+          phase: Math.random() * Math.PI * 2,
+          rot: (Math.random() - 0.5) * 0.5, // Initial rotation
+          rotV: (Math.random() - 0.5) * 0.02, // Rotation velocity
+          baseOpacity: 0.4 + Math.random() * 0.6,
+          depth: 0.3 + Math.random() * 0.7,
         });
       }
-      particlesRef.current = pool;
+      heartsRef.current = pool;
     };
 
     window.addEventListener("resize", resize);
@@ -246,77 +185,91 @@ export const VelvetMercuryParticles = memo(function VelvetMercuryParticles({
       const { w, h } = metricsRef.current;
       const { opacity: opac, isSubtle: subtle, wpm: currentWpm } = propsRef.current;
       const t = time * 0.001;
-      const wpmAgitation = 1 + Math.min(currentWpm, 200) * 0.003;
-      const noiseStrength = subtle ? 8 : 18 * wpmAgitation;
-      const attractForce = subtle ? 0.015 : 0.04;
-      const friction = subtle ? 2.5 : 2.0;
+      const now = Date.now();
+      const mouse = mouseRef.current;
 
-      // Fade: clear with translucent background to leave soft trails
-      ctx.globalCompositeOperation = "source-over";
-      ctx.fillStyle = subtle
-        ? "rgba(255, 240, 245, 0.55)"
-        : "rgba(255, 240, 245, 0.22)";
-      ctx.fillRect(0, 0, w, h);
+      // Disable mouse tracking if idle for 1 seconds
+      if (mouse.active && now - mouse.lastMoveAt > 1000) {
+        mouse.active = false;
+      }
 
-      // Use "multiply" for gentle shimmering on a light background
-      ctx.globalCompositeOperation = "multiply";
+      // Clear canvas fully every frame
+      ctx.clearRect(0, 0, w, h);
 
-      const heartPath = heartPathRef.current;
-      const particles = particlesRef.current;
+      const hearts = heartsRef.current;
       const sprites = spritesRef.current;
       const sMetrics = spriteMetricsRef.current;
-      const totalTargets = heartPath.length;
 
-      for (let i = 0; i < particles.length; i++) {
-        const p = particles[i];
+      for (let i = 0; i < hearts.length; i++) {
+        const p = hearts[i];
 
-        // ── 1. Attractor Force (soft spring to heart point) ──
-        const target = heartPath[p.targetIdx];
-        const dx = target.x - p.x;
-        const dy = target.y - p.y;
-        const dist = Math.sqrt(dx * dx + dy * dy) + 0.001;
+        const speedBoost = 1 + Math.min(currentWpm, 150) * 0.005;
 
-        // Soft elastic — closer particles feel less pull (prevents clustering)
-        const pull = Math.min(dist * attractForce, 3.0);
-        p.vx += (dx / dist) * pull * dt * 60;
-        p.vy += (dy / dist) * pull * dt * 60;
+        // Base idle velocities
+        let idealVx = Math.sin(t * 1.5 + p.phase) * (p.vx * p.depth) * speedBoost * 60;
+        let idealVy = -p.vy * p.depth * speedBoost;
 
-        // ── 2. Swarm Flow Noise ──
-        const nx = flowNoise(p.x, p.y, t, p.seed) * noiseStrength;
-        const ny = flowNoise(p.y, p.x, t * 0.7, p.seed + 100) * noiseStrength;
-        p.vx += nx * dt;
-        p.vy += ny * dt;
+        if (mouse.active) {
+          const mdx = mouse.x - p.x;
+          const mdy = mouse.y - p.y;
+          const dist = Math.sqrt(mdx * mdx + mdy * mdy);
 
-        // ── 3. Friction ──
-        p.vx *= 1 - friction * dt;
-        p.vy *= 1 - friction * dt;
+          // Significantly dampen the natural upward float and sway when tracking
+          idealVy *= 0.15;
+          idealVx *= 0.3;
 
-        // ── 4. Integration ──
-        p.x += p.vx * dt;
-        p.y += p.vy * dt;
+          if (dist > 5) {
+            // Stronger attraction pull, scaled by depth so distant hearts still feel heavier
+            const pull = 100 * p.depth;
+            idealVx += (mdx / dist) * pull;
+            idealVy += (mdy / dist) * pull;
+          }
+        }
 
-        // ── 5. Shimmer / sparkle modulation ──
-        const shimmer = 0.5 + 0.5 * Math.sin(t * 2.5 + p.shimmerPhase);
-        const alpha = p.baseOpacity * shimmer * opac * (subtle ? 0.35 : 0.85);
+        // Smoothly interpolate current velocity towards ideal velocity
+        const lerpFactor = mouse.active ? 2.5 : 1.5;
+        p.currentVx += (idealVx - p.currentVx) * dt * lerpFactor;
+        p.currentVy += (idealVy - p.currentVy) * dt * lerpFactor;
 
-        // ── 6. Draw ──
+        // Apply velocities
+        p.x += p.currentVx * dt;
+        p.y += p.currentVy * dt;
+        p.rot += p.rotV * dt * 60;
+
+        // Wrap around gracefully if out of bounds
+        if (p.y < -150 && p.currentVy < 0) {
+          p.y = h + 100;
+          p.x = Math.random() * w;
+        } else if (p.y > h + 150 && p.currentVy > 0) {
+          p.y = -100;
+          p.x = Math.random() * w;
+        }
+
+        if (p.x < -150) {
+          p.x = w + 100;
+        } else if (p.x > w + 150) {
+          p.x = -100;
+        }
+
+        // Draw
         const sprite = sprites[p.spriteIdx];
         const sm = sMetrics[p.spriteIdx];
         if (sprite && sm) {
-          const drawW = sm.sw * p.size;
-          const drawH = sm.sh * p.size;
-          ctx.globalAlpha = alpha;
-          ctx.drawImage(sprite, p.x - drawW / 2, p.y - drawH / 2, drawW, drawH);
-        }
+          ctx.save();
+          ctx.translate(p.x, p.y);
+          ctx.rotate(p.rot);
 
-        // ── 7. Slowly migrate target for organic flow ──
-        if (Math.random() < 0.005) {
-          p.targetIdx = (p.targetIdx + 1 + Math.floor(Math.random() * 3)) % totalTargets;
+          // Gentle pulse
+          const pulse = 1 + 0.03 * Math.sin(t * 2 + p.phase);
+          const renderScale = p.size * p.depth * pulse;
+
+          ctx.globalAlpha = p.baseOpacity * opac * (subtle ? 0.35 : 1.0);
+          ctx.scale(renderScale, renderScale);
+
+          ctx.drawImage(sprite, -sm.sw / 2, -sm.sh / 2, sm.sw, sm.sh);
+          ctx.restore();
         }
       }
-
-      ctx.globalAlpha = 1;
-      ctx.globalCompositeOperation = "source-over";
 
       animId = requestAnimationFrame(render);
     };
@@ -324,9 +277,11 @@ export const VelvetMercuryParticles = memo(function VelvetMercuryParticles({
     animId = requestAnimationFrame(render);
     return () => {
       window.removeEventListener("resize", resize);
+      window.removeEventListener("mousemove", handleMouseMove);
+      document.removeEventListener("mouseleave", handleMouseLeave);
       cancelAnimationFrame(animId);
     };
-  }, []); // Stable loop — props read through ref
+  }, []);
 
   return (
     <canvas
