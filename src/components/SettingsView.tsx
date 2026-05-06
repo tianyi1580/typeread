@@ -6,6 +6,7 @@ import { ColorPicker } from "./ui/color-picker";
 import { themeMap } from "../theme";
 import { cn, clamp } from "../lib/utils";
 import { api } from "../lib/tauri";
+import { defaultSettings } from "../store/app-store";
 import type { AppSettings, AppFont, ProfileProgress, ThemeName } from "../types";
 
 type SettingsSection = "appearance" | "reading" | "storage";
@@ -140,8 +141,8 @@ export function SettingsView({
               />
 
               <div className="space-y-3">
-                <p className="text-[10px] font-black uppercase tracking-[0.4em] text-[var(--text-muted)]">Premium Themes</p>
-                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                <p className="text-[10px] font-black uppercase tracking-[0.4em] text-[var(--text-muted)]">Themes</p>
+                <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
                   {themeEntries.map(([key, theme]) => {
                     const locked =
                       (key === "dracula" && !unlocks.draculaTheme) ||
@@ -161,6 +162,8 @@ export function SettingsView({
                       return 0;
                     };
 
+                    const isActive = settings.theme === key;
+
                     return (
                       <button
                         key={key}
@@ -168,24 +171,94 @@ export function SettingsView({
                         disabled={locked}
                         onClick={() => onChange({ ...settings, theme: key })}
                         className={cn(
-                          "liquid-glass-soft group relative rounded-[28px] p-4 text-left transition-all duration-300 disabled:cursor-not-allowed disabled:opacity-55",
-                          settings.theme === key 
-                            ? "border-[var(--accent)] scale-[1.02] !shadow-[0_0_12px_color-mix(in_srgb,var(--accent)_30%,transparent)] z-10" 
-                            : "border-[var(--border)] hover:border-[var(--accent)]/50 hover:scale-[1.01]"
+                          "group relative flex flex-col overflow-hidden rounded-[28px] border transition-all duration-500 disabled:cursor-not-allowed",
+                          isActive
+                            ? "border-[var(--accent)] bg-[color-mix(in_srgb,var(--accent)_10%,transparent)] scale-[1.02] !shadow-[0_20px_40px_rgba(0,0,0,0.2),0_0_20px_color-mix(in_srgb,var(--accent)_20%,transparent)] z-10"
+                            : "border-[var(--border)] bg-[var(--panel-soft)] hover:border-[var(--accent)]/40 hover:scale-[1.01] hover:shadow-xl"
                         )}
                       >
-                        <div className="grid grid-cols-4 gap-1.5">
-                          <span className="h-10 rounded-xl shadow-inner transition-transform group-hover:scale-105" style={{ background: theme.background }} />
-                          <span className="h-10 rounded-xl shadow-inner transition-transform group-hover:scale-105" style={{ background: theme.panel }} />
-                          <span className="h-10 rounded-xl shadow-inner transition-transform group-hover:scale-105" style={{ background: theme.accent }} />
-                          <span className="h-10 rounded-xl shadow-inner transition-transform group-hover:scale-105" style={{ background: theme.text }} />
+                        {/* High-Fidelity Theme Preview Area */}
+                        <div
+                          className="relative h-32 w-full p-4 overflow-hidden transition-transform duration-700"
+                          style={{ background: theme.background }}
+                        >
+                          {/* Mini UI Layout Mockup */}
+                          <div
+                            className="absolute right-0 bottom-0 left-10 top-6 rounded-tl-2xl p-4 shadow-2xl transition-all duration-500 group-hover:-translate-x-1 group-hover:-translate-y-1"
+                            style={{
+                              background: theme.panel,
+                              borderLeft: `1px solid ${theme.border}`,
+                              borderTop: `1px solid ${theme.border}`,
+                              boxShadow: `0 12px 30px ${theme.shadow}`
+                            }}
+                          >
+                            <div className="space-y-3">
+                              {/* Mock Header/Accent element */}
+                              <div className="h-2 w-16 rounded-full" style={{ background: theme.accent }} />
+
+                              {/* Mock Content lines */}
+                              <div className="space-y-1.5">
+                                <div className="h-1.5 w-full rounded-full" style={{ background: theme.text }} />
+                                <div className="h-1.5 w-4/5 rounded-full" style={{ background: theme.text }} />
+                                <div className="h-1.5 w-3/5 rounded-full opacity-40" style={{ background: theme.textMuted }} />
+                              </div>
+
+                              {/* Status indicators */}
+                              <div className="mt-4 flex gap-2">
+                                <div className="h-2 w-2 rounded-full" style={{ background: theme.success }} />
+                                <div className="h-2 w-2 rounded-full" style={{ background: theme.danger }} />
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Accent Glow Dot */}
+                          <div
+                            className="absolute left-4 top-4 h-3.5 w-3.5 rounded-full shadow-lg transition-transform duration-500 group-hover:scale-125"
+                            style={{
+                              background: theme.accent,
+                              boxShadow: `0 0 15px ${theme.accent}80`
+                            }}
+                          />
+
+                          {/* Selected Checkmark Overlay */}
+                          {isActive && (
+                            <div className="absolute right-4 top-4 z-20 flex h-7 w-7 items-center justify-center rounded-full bg-[var(--accent)] text-black shadow-lg animate-in zoom-in duration-300">
+                              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg>
+                            </div>
+                          )}
+
+                          {/* Lock Overlay */}
+                          {locked && (
+                            <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/65 backdrop-blur-[2px] transition-all duration-300 group-hover:bg-black/55">
+                              <div className="rounded-full bg-white/10 p-3 shadow-2xl backdrop-blur-md border border-white/20">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="opacity-90"><rect width="18" height="11" x="3" y="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg>
+                              </div>
+                            </div>
+                          )}
                         </div>
-                        <div className="mt-4 flex items-center justify-between gap-3">
-                          <p className={cn(
-                            "text-sm font-black transition-colors",
-                            settings.theme === key ? "text-[var(--accent)]" : "group-hover:text-[var(--accent)]"
-                          )}>{theme.name}</p>
-                          {locked && <span className="text-[9px] font-black uppercase tracking-[0.2em] text-[var(--text-muted)]">Lvl {getThemeLevel(key)}</span>}
+
+                        {/* Theme Metadata Footer */}
+                        <div className="flex items-center justify-between px-5 py-4">
+                          <div className="flex flex-col gap-0.5">
+                            <span className={cn(
+                              "text-[13px] font-black tracking-tight transition-colors",
+                              isActive ? "text-[var(--accent)]" : "text-[var(--text)] group-hover:text-[var(--accent)]"
+                            )}>
+                              {theme.name}
+                            </span>
+                            {(key === "nebula-drift" || key === "rainy-window" || key === "satin-heart") && !locked && (
+                              <span className="text-[9px] font-bold uppercase tracking-[0.1em] text-[var(--text-muted)] opacity-60">
+                                Premium Theme
+                              </span>
+                            )}
+                          </div>
+                          {locked && (
+                            <div className="flex items-center gap-1.5 rounded-full bg-black/10 px-2.5 py-1 dark:bg-white/5">
+                              <span className="text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)]">
+                                Lvl {getThemeLevel(key)}
+                              </span>
+                            </div>
+                          )}
                         </div>
                       </button>
                     );
@@ -295,6 +368,20 @@ export function SettingsView({
                         </p>
                       </div>
                     </div>
+                  </div>
+
+                  <div className="flex justify-end pt-2">
+                    <button
+                      type="button"
+                      onClick={() => onChange({ 
+                        ...settings, 
+                        successColor: defaultSettings.successColor, 
+                        errorColor: defaultSettings.errorColor 
+                      })}
+                      className="text-[10px] font-black uppercase tracking-[0.2em] text-[var(--text-muted)] hover:text-[var(--accent)] transition-colors"
+                    >
+                      Reset to Theme Defaults
+                    </button>
                   </div>
                 </div>
               </div>
@@ -537,8 +624,8 @@ function FontPreviewCard({
       onClick={() => onClick(value)}
       className={cn(
         "liquid-glass-soft relative rounded-[24px] border p-5 text-left transition-all duration-300 disabled:cursor-not-allowed disabled:opacity-55",
-        active 
-          ? "border-[var(--accent)] scale-[1.03] !shadow-[0_0_12px_color-mix(in_srgb,var(--accent)_30%,transparent)] z-10" 
+        active
+          ? "border-[var(--accent)] scale-[1.03] !shadow-[0_0_12px_color-mix(in_srgb,var(--accent)_30%,transparent)] z-10"
           : "border-[var(--border)] hover:border-[var(--accent)]/50 hover:scale-[1.01]",
       )}
     >
