@@ -123,21 +123,6 @@ export const themeMap: Record<ThemeName, ThemeDefinition> = {
     danger: "#ff8b94",
     shadow: "rgba(0, 0, 0, 0.4)",
   },
-  "sakura-tea": {
-    name: "Sakura Tea",
-    background: "#fff5f5",
-    panel: "rgba(255, 255, 255, 0.94)",
-    panelSoft: "rgba(255, 240, 240, 0.78)",
-    panelPopout: "rgba(255, 255, 255, 0.98)",
-    border: "rgba(139, 115, 115, 0.12)",
-    text: "#5d4037",
-    textMuted: "#8d6e63",
-    accent: "#f06292",
-    accentSoft: "rgba(240, 98, 146, 0.12)",
-    success: "#66bb6a",
-    danger: "#ef5350",
-    shadow: "rgba(139, 115, 115, 0.15)",
-  },
   "mocha-blush": {
     name: "Mocha Blush",
     background: "#4e342e",
@@ -183,8 +168,8 @@ export const themeMap: Record<ThemeName, ThemeDefinition> = {
     danger: "#fb7185",
     shadow: "rgba(0, 0, 0, 0.4)",
   },
-  "velvet-mercury": {
-    name: "Velvet Mercury",
+  "satin-heart": {
+    name: "Satin Heart",
     background: "#fff0f5",
     panel: "rgba(255, 255, 255, 0.55)",
     panelSoft: "rgba(255, 228, 235, 0.30)",

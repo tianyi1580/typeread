@@ -81,9 +81,9 @@ interface SpriteMetric {
   sh: number;
 }
 
-// ─── VelvetMercuryParticles ─────────────────────────────────────────────────
+// ─── SatinHeartParticles ─────────────────────────────────────────────────
 
-export const VelvetMercuryParticles = memo(function VelvetMercuryParticles({
+export const SatinHeartParticles = memo(function SatinHeartParticles({
   density = 1,
   opacity = 1,
   isSubtle = false,
@@ -312,14 +312,14 @@ export const VelvetMercuryParticles = memo(function VelvetMercuryParticles({
 // ─── Ambient Wisps (CSS-only, zero-CPU) ────────────────────────────────────
 
 const WISP_STYLES = `
-  @keyframes velvet-drift {
+  @keyframes satin-drift {
     0% { transform: translate3d(0, 0, 0) scale(1); }
     50% { transform: translate3d(40px, -30px, 0) scale(1.08); }
     100% { transform: translate3d(0, 0, 0) scale(1); }
   }
 `;
 
-const VelvetWisps = memo(function VelvetWisps() {
+const SatinHeartWisps = memo(function SatinHeartWisps() {
   return (
     <>
       <style>{WISP_STYLES}</style>
@@ -333,7 +333,7 @@ const VelvetWisps = memo(function VelvetWisps() {
             top: "-10%",
             background: "radial-gradient(circle, rgba(255,180,200,0.14) 0%, transparent 70%)",
             filter: "blur(80px)",
-            animation: "velvet-drift 35s ease-in-out infinite",
+            animation: "satin-drift 35s ease-in-out infinite",
             willChange: "transform",
           }}
         />
@@ -346,7 +346,7 @@ const VelvetWisps = memo(function VelvetWisps() {
             bottom: "-5%",
             background: "radial-gradient(circle, rgba(232,55,90,0.08) 0%, transparent 70%)",
             filter: "blur(90px)",
-            animation: "velvet-drift 45s ease-in-out infinite reverse",
+            animation: "satin-drift 45s ease-in-out infinite reverse",
             willChange: "transform",
           }}
         />
@@ -359,7 +359,7 @@ const VelvetWisps = memo(function VelvetWisps() {
             top: "25%",
             background: "radial-gradient(circle, rgba(255,255,255,0.18) 0%, transparent 65%)",
             filter: "blur(70px)",
-            animation: "velvet-drift 50s ease-in-out infinite",
+            animation: "satin-drift 50s ease-in-out infinite",
             willChange: "transform",
           }}
         />
@@ -383,7 +383,7 @@ const NoiseOverlay = memo(function NoiseOverlay() {
 
 // ─── Main Background Component ──────────────────────────────────────────────
 
-export const VelvetMercuryBackground = memo(function VelvetMercuryBackground({
+export const SatinHeartBackground = memo(function SatinHeartBackground({
   density = 1,
 }: {
   density?: number;
@@ -393,8 +393,8 @@ export const VelvetMercuryBackground = memo(function VelvetMercuryBackground({
       {/* Soft radial centre glow */}
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_45%,rgba(255,255,255,0.85)_0%,transparent_70%)]" />
 
-      <VelvetWisps />
-      <VelvetMercuryParticles density={density} />
+      <SatinHeartWisps />
+      <SatinHeartParticles density={density} />
 
       {/* Depth vignette — very gentle pink tint at edges */}
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_35%,rgba(255,200,215,0.12)_100%)] pointer-events-none" />

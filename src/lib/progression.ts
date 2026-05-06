@@ -7,7 +7,7 @@ export const LEVEL_REWARDS = [
   { level: 10, label: "Custom error colors unlocked" },
   { level: 15, label: "Nord and Mocha Blush themes unlocked" },
   { level: 15, label: "Premium typography unlocked" },
-  { level: 30, label: "Velvet Mercury theme unlocked" },
+  { level: 30, label: "Satin Heart theme unlocked" },
 ] as const;
 
 /**
@@ -78,7 +78,7 @@ export function unlocksForLevel(level: number): UnlockState {
     customErrorColors: level >= 10,
     nebulaDriftTheme: level >= 20,
     rainyWindowTheme: level >= 25,
-    velvetMercuryTheme: level >= 30,
+    satinHeartTheme: level >= 30,
   };
 }
 

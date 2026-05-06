@@ -176,7 +176,7 @@ export function AnalyticsView({
       {/* 1. Profile Section */}
       <Card className={cn(
         "relative overflow-hidden p-8",
-        settings?.theme === "rainy-window" || settings?.theme === "nebula-drift" || settings?.theme === "velvet-mercury"
+        settings?.theme === "rainy-window" || settings?.theme === "nebula-drift" || settings?.theme === "satin-heart"
           ? "liquid-glass shadow-2xl"
           : "border-none bg-gradient-to-br from-[rgba(138,173,244,0.15)] to-transparent shadow-2xl"
       )}>
@@ -238,7 +238,7 @@ export function AnalyticsView({
       {/* Tab Selector */}
       <div className={cn(
         "flex flex-wrap gap-2 rounded-[28px] p-2",
-        settings?.theme === "rainy-window" || settings?.theme === "nebula-drift" || settings?.theme === "velvet-mercury"
+        settings?.theme === "rainy-window" || settings?.theme === "nebula-drift" || settings?.theme === "satin-heart"
           ? "liquid-glass-soft"
           : "border border-[var(--border)] bg-[var(--panel-soft)] backdrop-blur-md"
       )}>
@@ -435,7 +435,7 @@ export function AnalyticsView({
                 )}
                 <div className={cn(
                   "rounded-full px-5 py-2 text-xs font-semibold tracking-wide text-[var(--text-muted)]",
-                  settings?.theme === "rainy-window" || settings?.theme === "nebula-drift" || settings?.theme === "velvet-mercury"
+                  settings?.theme === "rainy-window" || settings?.theme === "nebula-drift" || settings?.theme === "satin-heart"
                     ? "liquid-glass-soft"
                     : "border border-[var(--border)] bg-[var(--panel-soft)] backdrop-blur-md"
                 )}>

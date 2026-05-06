@@ -9,7 +9,7 @@ import { SettingsView } from "./components/SettingsView";
 import { ShopView } from "./components/ShopView";
 import { NebulaBackground } from "./components/NebulaBackground";
 import { RainyWindowBackground } from "./components/RainyWindowBackground";
-import { VelvetMercuryBackground } from "./components/VelvetMercuryBackground";
+import { SatinHeartBackground } from "./components/SatinHeartBackground";
 import { Button } from "./components/ui/button";
 import { Card } from "./components/ui/card";
 import { demoAnalytics, demoBook, demoSettings } from "./lib/demo";
@@ -195,7 +195,7 @@ export default function App() {
   const theme = settings ? themeMap[settings.theme] : themeMap["catppuccin-macchiato"];
   const filteredBooks = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
-    
+
     // Filter out virtual books that might have been created for practice modes in older versions
     const actualBooks = books.filter(
       (book) =>
@@ -521,8 +521,8 @@ export default function App() {
         activeTab === "reader" ? "flex h-screen flex-col overflow-hidden" : "min-h-screen",
       )}
       style={{
-        backgroundImage: settings?.theme === "nebula-drift" || settings?.theme === "rainy-window" || settings?.theme === "velvet-mercury"
-          ? "none" 
+        backgroundImage: settings?.theme === "nebula-drift" || settings?.theme === "rainy-window" || settings?.theme === "satin-heart"
+          ? "none"
           : `radial-gradient(circle at top left, ${theme.accentSoft}, transparent 26%), radial-gradient(circle at bottom right, ${theme.panelSoft}, transparent 22%)`,
       }}
     >
@@ -530,8 +530,8 @@ export default function App() {
       {settings?.theme === "rainy-window" && (
         <RainyWindowBackground density={activeTab === "reader" ? 0 : 1} />
       )}
-      {settings?.theme === "velvet-mercury" && (
-        <VelvetMercuryBackground density={activeTab === "reader" ? 0 : 1} />
+      {settings?.theme === "satin-heart" && (
+        <SatinHeartBackground density={activeTab === "reader" ? 0 : 1} />
       )}
       <div
         className={cn(
@@ -791,7 +791,7 @@ function WindowShell({
             </button>
 
             {menuOpen && (
-              <div 
+              <div
                 ref={menuRef}
                 className="absolute right-0 top-12 z-30 min-w-[240px] rounded-[24px] border border-[var(--border)] bg-[color-mix(in_srgb,var(--bg)_95%,transparent)] p-2 shadow-panel backdrop-blur-xl"
               >
