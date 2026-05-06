@@ -645,7 +645,7 @@ function SessionGraph({
   const maxAt = points[points.length - 1]?.at ?? minAt + 1;
   const values = points.map((point) => point.value);
   const minValue = 0;
-  const maxValue = Math.max(...values, unit === "%" ? 100 : 80);
+  const maxValue = values.length > 0 ? Math.max(...values, unit === "%" ? 100 : 80) : (unit === "%" ? 100 : 80);
 
   const chartPoints = points.map((point) => ({
     x: padding.left + ((point.at - minAt) / Math.max(maxAt - minAt, 0.0001)) * (width - padding.left - padding.right),
@@ -655,6 +655,11 @@ function SessionGraph({
       ((point.value - minValue) / Math.max(maxValue - minValue, 1)) * (height - padding.top - padding.bottom),
     raw: point
   }));
+
+  const pointsToPath = (pts: { x: number; y: number }[]) => {
+    if (pts.length === 0) return "";
+    return `M ${pts[0].x},${pts[1]?.y ?? pts[0].y} ` + pts.slice(1).map((p) => `L ${p.x},${p.y}`).join(" ");
+  };
 
   const handleMouseMove = (e: React.MouseEvent<SVGSVGElement>) => {
     const svg = e.currentTarget;
@@ -691,8 +696,12 @@ function SessionGraph({
             <stop offset="0%" stopColor="var(--accent)" />
             <stop offset="100%" stopColor="#b8d0ff" />
           </linearGradient>
-          <filter id="glow">
-            <feGaussianBlur stdDeviation="3" result="blur" />
+          <linearGradient id="areaGradient" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="var(--accent)" stopOpacity="0.15" />
+            <stop offset="100%" stopColor="var(--accent)" stopOpacity="0" />
+          </linearGradient>
+          <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+            <feGaussianBlur stdDeviation="4" result="blur" />
             <feComposite in="SourceGraphic" in2="blur" operator="over" />
           </filter>
         </defs>
@@ -769,19 +778,27 @@ function SessionGraph({
           opacity="0.5"
         />
 
+        {/* The Graph Area */}
+        {chartPoints.length > 1 && (
+          <path
+            d={`${pointsToPath(chartPoints)} L ${chartPoints[chartPoints.length - 1].x},${height - padding.bottom} L ${chartPoints[0].x},${height - padding.bottom} Z`}
+            fill="url(#areaGradient)"
+          />
+        )}
+
         {/* The Graph Path */}
         {chartPoints.length > 1 ? (
-          <polyline
+          <path
             fill="none"
             stroke="url(#lineGradient)"
-            strokeWidth="4"
+            strokeWidth="5"
             strokeLinecap="round"
             strokeLinejoin="round"
-            points={chartPoints.map((point) => `${point.x},${point.y}`).join(" ")}
-            className="drop-shadow-[0_0_8px_rgba(138,173,244,0.4)]"
+            d={pointsToPath(chartPoints)}
+            filter="url(#glow)"
           />
         ) : chartPoints.length === 1 ? (
-          <circle cx={chartPoints[0].x} cy={chartPoints[0].y} r="4" fill="var(--accent)" />
+          <circle cx={chartPoints[0].x} cy={chartPoints[0].y} r="5" fill="var(--accent)" filter="url(#glow)" />
         ) : null}
 
         {/* Hover Interaction Elements */}

@@ -249,8 +249,8 @@ export function ReaderView({
     // 1. ReaderView top/bottom padding: pt-20 (80px) + pb-6 (24px) = 104px
     // 2. SpreadPage top/bottom padding: pt-8 (32px) + pb-5 (20px) = 52px
     // 3. SpreadPage title: approx 16px height + mb-4 (16px) = 32px
-    // Total vertical overhead: 104 (grid) + 32 (page pt) + 32 (title) + 2 (buffer) = 170px
-    const verticalOverhead = 170;
+    // Total vertical overhead: 104 (grid) + 32 (page pt) + 32 (title) + 32 (buffer) = 200px
+    const verticalOverhead = 200;
     const measuredHeight = availableHeight || (typeof window !== "undefined" ? window.innerHeight : 800);
     const usableHeight = measuredHeight - verticalOverhead;
     const maxLines = Math.max(5, Math.floor(usableHeight / lineHeightPx));
@@ -263,8 +263,8 @@ export function ReaderView({
     const horizontalOverhead = 84;
     const usableWidth = (availableWidth || (typeof window !== "undefined" ? window.innerWidth : 1200)) / 2 - horizontalOverhead;
 
-    // Using 0.65 for a balance between fitting text and avoiding overflow.
-    const charsPerLine = Math.max(20, Math.floor(usableWidth / (fontSize * 0.65)));
+    // Using 0.7 for a more conservative balance to avoid overflow with wider fonts.
+    const charsPerLine = Math.max(20, Math.floor(usableWidth / (fontSize * 0.72)));
 
     return {
       maxLines,

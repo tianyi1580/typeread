@@ -113,25 +113,25 @@ export function SessionSummaryModal({ summary, onClose }: SessionSummaryModalPro
   };
 
   return (
-    <div className="fixed inset-0 z-[70] flex items-start justify-center overflow-y-auto bg-[rgba(6,8,14,0.85)] px-4 py-4 backdrop-blur-2xl md:py-12">
+    <div className="fixed inset-0 z-[70] overflow-y-auto bg-[rgba(6,8,14,0.85)] backdrop-blur-2xl no-scrollbar">
       <motion.button 
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         type="button" 
-        className="absolute inset-0 cursor-default" 
+        className="fixed inset-0 cursor-default" 
         onClick={onClose} 
       />
-      
-      <motion.div
-        variants={containerVariants}
-        initial="hidden"
-        animate="visible"
-        className={cn(
-          "relative w-full rounded-[40px] border border-white/10 bg-[var(--panel-popout)] shadow-[0_32px_120px_rgba(0,0,0,0.6)] backdrop-blur-3xl",
-          isTypeTest ? "max-w-3xl" : "max-w-5xl"
-        )}
-      >
+      <div className="flex min-h-full items-center justify-center p-4 md:p-12">
+        <motion.div
+          variants={containerVariants}
+          initial="hidden"
+          animate="visible"
+          className={cn(
+            "relative w-full rounded-[40px] border border-white/10 bg-[var(--panel-popout)] shadow-[0_32px_120px_rgba(0,0,0,0.6)] backdrop-blur-3xl",
+            isTypeTest ? "max-w-3xl" : "max-w-5xl"
+          )}
+        >
         <div className="absolute inset-0 bg-gradient-to-br from-[var(--accent)]/5 via-transparent to-transparent pointer-events-none" />
 
         <div className="relative p-6 md:p-10">
@@ -187,7 +187,7 @@ export function SessionSummaryModal({ summary, onClose }: SessionSummaryModalPro
 
           {/* Analytics & Multipliers */}
           <div className={cn("grid gap-6", isTypeTest ? "grid-cols-1" : "lg:grid-cols-[1fr_300px] mb-8")}>
-            <motion.div variants={itemVariants} className="rounded-[32px] border border-[var(--border)] bg-black/40 p-6 shadow-inner">
+            <motion.div variants={itemVariants} className="rounded-[32px] border border-[var(--border)] bg-[var(--panel)] p-6 shadow-inner">
               <div className="flex items-center justify-between gap-4">
                 <p className="text-[10px] font-black uppercase tracking-[0.3em] text-[var(--text-muted)]">Performance Over Time</p>
                 <div className="flex gap-1 rounded-full bg-white/5 p-1">
@@ -212,7 +212,7 @@ export function SessionSummaryModal({ summary, onClose }: SessionSummaryModalPro
 
             {!isTypeTest && (
               <div className="space-y-4">
-                <motion.div variants={itemVariants} className="rounded-[32px] border border-[var(--border)] bg-black/40 p-6">
+                <motion.div variants={itemVariants} className="rounded-[32px] border border-[var(--border)] bg-[var(--panel-soft)] p-6">
                   <div className="flex items-center justify-between">
                     <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[var(--text-muted)]">Multiplier Stack</p>
                     <div className="h-2 w-2 rounded-full bg-[var(--accent)] animate-pulse" />
@@ -238,7 +238,7 @@ export function SessionSummaryModal({ summary, onClose }: SessionSummaryModalPro
                 </motion.div>
 
                 {summary.deepAnalytics?.transitions.slowest.length > 0 && (
-                  <motion.div variants={itemVariants} className="rounded-[32px] border border-[var(--border)] bg-black/40 p-6">
+                  <motion.div variants={itemVariants} className="rounded-[32px] border border-[var(--border)] bg-[var(--panel-soft)] p-6">
                     <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[var(--text-muted)]">Slowest Transitions</p>
                     <div className="mt-4 space-y-2">
                       {summary.deepAnalytics.transitions.slowest.slice(0, 3).map((t) => (
@@ -287,7 +287,8 @@ export function SessionSummaryModal({ summary, onClose }: SessionSummaryModalPro
             </div>
           </motion.div>
         </div>
-      </motion.div>
+        </motion.div>
+      </div>
     </div>
   );
 }
@@ -355,7 +356,7 @@ function SimpleGraph({ points, unit }: { points: WpmSample[]; unit: string }) {
   const maxAt = points[points.length - 1].at;
   const values = points.map(p => p.value);
   const minVal = 0;
-  const maxVal = Math.max(...values, unit === "%" ? 100 : 60);
+  const maxVal = values.length > 0 ? Math.max(...values, unit === "%" ? 100 : 60) : (unit === "%" ? 100 : 60);
 
   const chartPoints = points.map(p => ({
     x: padding.left + ((p.at - minAt) / Math.max(1, maxAt - minAt)) * (width - padding.left - padding.right),
@@ -376,9 +377,13 @@ function SimpleGraph({ points, unit }: { points: WpmSample[]; unit: string }) {
     >
       <defs>
         <linearGradient id="graphGradient" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="var(--accent)" stopOpacity="0.3" />
+          <stop offset="0%" stopColor="var(--accent)" stopOpacity="0.4" />
           <stop offset="100%" stopColor="var(--accent)" stopOpacity="0" />
         </linearGradient>
+        <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+          <feGaussianBlur stdDeviation="4" result="blur" />
+          <feComposite in="SourceGraphic" in2="blur" operator="over" />
+        </filter>
       </defs>
 
       {[0, 0.5, 1].map((ratio) => {
@@ -386,7 +391,7 @@ function SimpleGraph({ points, unit }: { points: WpmSample[]; unit: string }) {
         const val = Math.round(minVal + ratio * (maxVal - minVal));
         return (
           <g key={ratio}>
-            <line x1={padding.left} x2={width - padding.right} y1={y} y2={y} stroke="var(--border)" strokeWidth="1" strokeDasharray="8 8" opacity="0.1" />
+            <line x1={padding.left} x2={width - padding.right} y1={y} y2={y} stroke="var(--border)" strokeWidth="1" strokeDasharray="8 8" opacity="0.15" />
             <text x={padding.left - 15} y={y} textAnchor="end" alignmentBaseline="middle" className="fill-[var(--text-muted)] text-[10px] tabular-nums font-black">{val}</text>
           </g>
         );
@@ -408,9 +413,10 @@ function SimpleGraph({ points, unit }: { points: WpmSample[]; unit: string }) {
             d={path} 
             fill="none" 
             stroke="var(--accent)" 
-            strokeWidth="4" 
+            strokeWidth="5" 
             strokeLinecap="round" 
             strokeLinejoin="round" 
+            filter="url(#glow)"
           />
         </>
       )}
@@ -423,7 +429,7 @@ function SimpleGraph({ points, unit }: { points: WpmSample[]; unit: string }) {
           key={i} 
           cx={p.x} 
           cy={p.y} 
-          r="3" 
+          r="4" 
           fill="var(--accent)" 
           className="shadow-lg shadow-[var(--accent)]"
         />

@@ -344,7 +344,7 @@ export function TypingLayer({
         paddingBottom: noScroll ? undefined : (interactionMode === "read" ? "100vh" : "50vh"),
       }}
       className={cn(
-        "relative whitespace-pre-wrap text-[var(--text)]",
+        "relative overflow-hidden whitespace-pre-wrap text-[var(--text)]",
         className,
       )}
     >

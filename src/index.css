@@ -192,6 +192,7 @@ textarea {
   box-shadow: 0 4px 24px -2px var(--shadow);
   position: relative;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden;
 }
 
 .liquid-glass-soft {
@@ -201,6 +202,7 @@ textarea {
     inset 0 1px 0 0 rgba(255, 255, 255, 0.05),
     0 4px 16px -2px var(--shadow);
   position: relative;
+  overflow: hidden;
 }
 
 .liquid-glass-popout {
@@ -212,32 +214,39 @@ textarea {
 }
 
 /* Theme-specific Liquid Glass Overrides */
-[data-theme="rainy-window"] .backdrop-blur-2xl,
-[data-theme="rainy-window"] .backdrop-blur-xl,
-[data-theme="rainy-window"] .backdrop-blur-lg,
-[data-theme="rainy-window"] .backdrop-blur-md,
-[data-theme="rainy-window"] .backdrop-blur-sm,
-[data-theme="rainy-window"] .backdrop-blur-none,
-[data-theme="nebula-drift"] .backdrop-blur-2xl,
-[data-theme="nebula-drift"] .backdrop-blur-xl,
-[data-theme="nebula-drift"] .backdrop-blur-lg,
-[data-theme="nebula-drift"] .backdrop-blur-md,
-[data-theme="nebula-drift"] .backdrop-blur-sm,
-[data-theme="nebula-drift"] .backdrop-blur-none,
-[data-theme="velvet-mercury"] .backdrop-blur-2xl,
-[data-theme="velvet-mercury"] .backdrop-blur-xl,
-[data-theme="velvet-mercury"] .backdrop-blur-lg,
-[data-theme="velvet-mercury"] .backdrop-blur-md,
-[data-theme="velvet-mercury"] .backdrop-blur-sm,
-[data-theme="velvet-mercury"] .backdrop-blur-none {
+[data-theme="rainy-window"] .backdrop-blur-2xl:not(.fixed),
+[data-theme="rainy-window"] .backdrop-blur-xl:not(.fixed),
+[data-theme="rainy-window"] .backdrop-blur-lg:not(.fixed),
+[data-theme="rainy-window"] .backdrop-blur-md:not(.fixed),
+[data-theme="rainy-window"] .backdrop-blur-sm:not(.fixed),
+[data-theme="rainy-window"] .backdrop-blur-none:not(.fixed),
+[data-theme="nebula-drift"] .backdrop-blur-2xl:not(.fixed),
+[data-theme="nebula-drift"] .backdrop-blur-xl:not(.fixed),
+[data-theme="nebula-drift"] .backdrop-blur-lg:not(.fixed),
+[data-theme="nebula-drift"] .backdrop-blur-md:not(.fixed),
+[data-theme="nebula-drift"] .backdrop-blur-sm:not(.fixed),
+[data-theme="nebula-drift"] .backdrop-blur-none:not(.fixed),
+[data-theme="velvet-mercury"] .backdrop-blur-2xl:not(.fixed),
+[data-theme="velvet-mercury"] .backdrop-blur-xl:not(.fixed),
+[data-theme="velvet-mercury"] .backdrop-blur-lg:not(.fixed),
+[data-theme="velvet-mercury"] .backdrop-blur-md:not(.fixed),
+[data-theme="velvet-mercury"] .backdrop-blur-sm:not(.fixed),
+[data-theme="velvet-mercury"] .backdrop-blur-none:not(.fixed) {
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
 }
 
 /* Ensure children are above the glass sheen */
-.liquid-glass>*,
-.liquid-glass-soft>* {
+.liquid-glass > *:not(.absolute):not(.fixed),
+.liquid-glass-soft > *:not(.absolute):not(.fixed) {
   position: relative;
+  z-index: 1;
+}
+
+.liquid-glass > .absolute,
+.liquid-glass-soft > .absolute,
+.liquid-glass > .fixed,
+.liquid-glass-soft > .fixed {
   z-index: 1;
 }
 
