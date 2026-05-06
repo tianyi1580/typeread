@@ -757,7 +757,7 @@ export function ReaderView({
         {/* Subtle Heart Swarm for Velvet Mercury Theme */}
         {settings.theme === "velvet-mercury" && (
           <div className="absolute inset-0 z-0 pointer-events-none">
-            <VelvetMercuryParticles isSubtle opacity={0.5} />
+            <VelvetMercuryParticles isSubtle opacity={0.9} />
           </div>
         )}
 

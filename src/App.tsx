@@ -530,7 +530,9 @@ export default function App() {
       {settings?.theme === "rainy-window" && (
         <RainyWindowBackground density={activeTab === "reader" ? 0 : 1} />
       )}
-      {settings?.theme === "velvet-mercury" && <VelvetMercuryBackground />}
+      {settings?.theme === "velvet-mercury" && (
+        <VelvetMercuryBackground density={activeTab === "reader" ? 0 : 1} />
+      )}
       <div
         className={cn(
           activeTab === "reader"

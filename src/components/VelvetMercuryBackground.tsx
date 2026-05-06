@@ -105,10 +105,10 @@ export const VelvetMercuryParticles = memo(function VelvetMercuryParticles({
   const mouseRef = useRef({ x: -1000, y: -1000, active: false, lastMoveAt: 0 });
 
   // Smooth props access
+  // Smooth props access
   const propsRef = useRef({ density, opacity, isSubtle, wpm });
-  useEffect(() => {
-    propsRef.current = { density, opacity, isSubtle, wpm };
-  }, [density, opacity, isSubtle, wpm]);
+  // Sync props to ref for the render loop
+  propsRef.current = { density, opacity, isSubtle, wpm };
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -220,7 +220,7 @@ export const VelvetMercuryParticles = memo(function VelvetMercuryParticles({
 
           if (dist > 5) {
             // Stronger attraction pull, scaled by depth so distant hearts still feel heavier
-            const pull = 100 * p.depth;
+            const pull = 50 * p.depth;
             idealVx += (mdx / dist) * pull;
             idealVy += (mdy / dist) * pull;
           }
@@ -299,7 +299,7 @@ export const VelvetMercuryParticles = memo(function VelvetMercuryParticles({
       document.removeEventListener("mouseleave", handleMouseLeave);
       cancelAnimationFrame(animId);
     };
-  }, []);
+  }, [density, isSubtle]);
 
   return (
     <canvas
@@ -383,14 +383,18 @@ const NoiseOverlay = memo(function NoiseOverlay() {
 
 // ─── Main Background Component ──────────────────────────────────────────────
 
-export const VelvetMercuryBackground = memo(function VelvetMercuryBackground() {
+export const VelvetMercuryBackground = memo(function VelvetMercuryBackground({
+  density = 1,
+}: {
+  density?: number;
+}) {
   return (
     <div className="fixed inset-0 z-0 overflow-hidden bg-[#fff0f5]">
       {/* Soft radial centre glow */}
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_45%,rgba(255,255,255,0.85)_0%,transparent_70%)]" />
 
       <VelvetWisps />
-      <VelvetMercuryParticles />
+      <VelvetMercuryParticles density={density} />
 
       {/* Depth vignette — very gentle pink tint at edges */}
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_35%,rgba(255,200,215,0.12)_100%)] pointer-events-none" />
