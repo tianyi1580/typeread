@@ -593,6 +593,7 @@ export default function App() {
               processBatch={handleProcessBatch}
               onSettingsChange={handleSettingsChange}
               onError={(message) => setError(message)}
+              disabled={settingsOpen}
             />
           )}
 
@@ -625,6 +626,7 @@ export default function App() {
               onReadProgress={handleReadProgress}
               onProcessBatch={handleProcessBatch}
               onError={(message) => setError(message)}
+              disabled={settingsOpen}
             />
           )}
 

@@ -138,164 +138,162 @@ export function SettingsView({
                 description="Customize your interface and typography."
               />
 
-              <div className="grid gap-4 md:grid-cols-2">
-                {themeEntries.map(([key, theme]) => {
-                  const locked =
-                    (key === "dracula" && !unlocks.draculaTheme) ||
-                    (key === "nord" && !unlocks.nordTheme) ||
-                    (key === "rosewood" && !unlocks.rosewoodTheme) ||
-                    (key === "mocha-blush" && !unlocks.mochaBlushTheme) ||
-                    (key === "nebula-drift" && !unlocks.nebulaDriftTheme) ||
-                    (key === "rainy-window" && !unlocks.rainyWindowTheme);
+              <div className="space-y-3">
+                <p className="text-[10px] font-black uppercase tracking-[0.4em] text-[var(--text-muted)]">Premium Themes</p>
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                  {themeEntries.map(([key, theme]) => {
+                    const locked =
+                      (key === "dracula" && !unlocks.draculaTheme) ||
+                      (key === "nord" && !unlocks.nordTheme) ||
+                      (key === "rosewood" && !unlocks.rosewoodTheme) ||
+                      (key === "mocha-blush" && !unlocks.mochaBlushTheme) ||
+                      (key === "nebula-drift" && !unlocks.nebulaDriftTheme) ||
+                      (key === "rainy-window" && !unlocks.rainyWindowTheme);
 
-                  const getThemeLevel = (themeKey: string) => {
-                    if (themeKey === "dracula" || themeKey === "rosewood") return 10;
-                    if (themeKey === "nord" || themeKey === "mocha-blush") return 15;
-                    if (themeKey === "nebula-drift") return 20;
-                    if (themeKey === "rainy-window") return 25;
-                    return 0;
-                  };
+                    const getThemeLevel = (themeKey: string) => {
+                      if (themeKey === "dracula" || themeKey === "rosewood") return 10;
+                      if (themeKey === "nord" || themeKey === "mocha-blush") return 15;
+                      if (themeKey === "nebula-drift") return 20;
+                      if (themeKey === "rainy-window") return 25;
+                      return 0;
+                    };
 
-                  return (
-                    <button
-                      key={key}
-                      type="button"
-                      disabled={locked}
-                      onClick={() => onChange({ ...settings, theme: key })}
-                      className={cn(
-                        "rounded-[28px] border p-5 text-left transition hover:border-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-55",
-                        settings.theme === key ? "border-[var(--accent)] bg-[var(--accent-soft)]" : "border-[var(--border)] bg-[var(--panel-soft)]",
-                      )}
-                    >
-                      <div className="grid grid-cols-4 gap-2">
-                        <span className="h-12 rounded-2xl" style={{ background: theme.background }} />
-                        <span className="h-12 rounded-2xl" style={{ background: theme.panel }} />
-                        <span className="h-12 rounded-2xl" style={{ background: theme.accent }} />
-                        <span className="h-12 rounded-2xl" style={{ background: theme.text }} />
-                      </div>
-                      <div className="mt-4 flex items-center justify-between gap-3">
-                        <p className="text-lg font-semibold">{theme.name}</p>
-                        {locked && <span className="text-xs uppercase tracking-[0.18em] text-[var(--text-muted)]">Lvl {getThemeLevel(key)}</span>}
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-
-              <div className="grid gap-6">
-                <div className="space-y-3">
-                  <p className="text-xs uppercase tracking-[0.28em] text-[var(--text-muted)]">Typing Font</p>
-                  <div className="grid gap-4 md:grid-cols-3">
-                    <FontPreviewCard
-                      label="JetBrains Mono"
-                      value="jetbrains-mono"
-                      active={settings.font === "jetbrains-mono"}
-                      sample="The quick brown fox hits 87 WPM."
-                      onClick={(font) => onChange({ ...settings, font })}
-                    />
-                    <FontPreviewCard
-                      label="Fira Code"
-                      value="fira-code"
-                      active={settings.font === "fira-code"}
-                      sample="Pack my box with five dozen liquor jugs."
-                      locked={!unlocks.premiumTypography}
-                      lockLabel="Lvl 15"
-                      onClick={(font) => onChange({ ...settings, font })}
-                    />
-                    <FontPreviewCard
-                      label="Geist Mono"
-                      value="geist-mono"
-                      active={settings.font === "geist-mono"}
-                      sample="Sphinx of black quartz, judge my vow."
-                      onClick={(font) => onChange({ ...settings, font })}
-                    />
-                  </div>
+                    return (
+                      <button
+                        key={key}
+                        type="button"
+                        disabled={locked}
+                        onClick={() => onChange({ ...settings, theme: key })}
+                        className={cn(
+                          "liquid-glass-soft group relative rounded-[28px] p-4 text-left transition-all duration-300 disabled:cursor-not-allowed disabled:opacity-55",
+                          settings.theme === key 
+                            ? "border-[var(--accent)] scale-[1.02] !shadow-[0_0_12px_color-mix(in_srgb,var(--accent)_30%,transparent)] z-10" 
+                            : "border-[var(--border)] hover:border-[var(--accent)]/50 hover:scale-[1.01]"
+                        )}
+                      >
+                        <div className="grid grid-cols-4 gap-1.5">
+                          <span className="h-10 rounded-xl shadow-inner transition-transform group-hover:scale-105" style={{ background: theme.background }} />
+                          <span className="h-10 rounded-xl shadow-inner transition-transform group-hover:scale-105" style={{ background: theme.panel }} />
+                          <span className="h-10 rounded-xl shadow-inner transition-transform group-hover:scale-105" style={{ background: theme.accent }} />
+                          <span className="h-10 rounded-xl shadow-inner transition-transform group-hover:scale-105" style={{ background: theme.text }} />
+                        </div>
+                        <div className="mt-4 flex items-center justify-between gap-3">
+                          <p className={cn(
+                            "text-sm font-black transition-colors",
+                            settings.theme === key ? "text-[var(--accent)]" : "group-hover:text-[var(--accent)]"
+                          )}>{theme.name}</p>
+                          {locked && <span className="text-[9px] font-black uppercase tracking-[0.2em] text-[var(--text-muted)]">Lvl {getThemeLevel(key)}</span>}
+                        </div>
+                      </button>
+                    );
+                  })}
                 </div>
-              </div>
-
-              <SliderField
-                label="Base Font Size"
-                value={settings.baseFontSize}
-                min={14}
-                max={24}
-                step={1}
-                format={(value) => `${value}px`}
-                onChange={(value) => onChange({ ...settings, baseFontSize: clamp(Math.round(value), 14, 24) })}
-              />
-
-              <SliderField
-                label="Line Spacing"
-                value={settings.lineHeight}
-                min={1.2}
-                max={2}
-                step={0.05}
-                format={(value) => value.toFixed(2)}
-                onChange={(value) => onChange({ ...settings, lineHeight: clamp(Number(value.toFixed(2)), 1.2, 2) })}
-              />
-
-              <ToggleRow
-                label="Smooth Caret"
-                description="Unlocked at level 5. Keeps the caret motion less harsh during dense typing runs."
-                checked={settings.smoothCaret}
-                disabled={!unlocks.smoothCaret}
-                theme={settings.theme}
-                onChange={(checked) => onChange({ ...settings, smoothCaret: checked })}
-              />
-
-              <div className="space-y-4">
-                <div className="grid gap-6 md:grid-cols-2">
-                  <ColorPicker
-                    label="Error Highlight Color"
-                    value={settings.errorColor}
-                    disabled={!unlocks.customErrorColors}
-                    levelLabel="Lvl 10"
-                    onChange={(color) => onChange({ ...settings, errorColor: color })}
-                  />
-                  <div className="flex flex-col justify-end">
-                    <span className="mb-3 text-[10px] uppercase tracking-[0.28em] text-[var(--text-muted)]">Live Preview</span>
-                    <div className={cn(
-                      "flex h-12 items-center rounded-[18px] px-5",
-                      settings.theme === "rainy-window" || settings.theme === "nebula-drift"
-                        ? "liquid-glass-soft"
-                        : "border border-[var(--border)] bg-[var(--panel-soft)]"
-                    )}>
-                      <p className="text-sm font-medium" style={{ fontFamily: `var(--font-main)` }}>
-                        Sphinx of black <span className="rounded-sm px-0.5" style={{ backgroundColor: `${settings.errorColor}33`, color: settings.errorColor, borderBottom: `2px solid ${settings.errorColor}` }}>quartz</span>, judge my vow.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-                {!unlocks.customErrorColors && (
-                  <p className="text-sm text-[var(--text-muted)]">Unlocks at level 10.</p>
-                )}
               </div>
 
               <div className="space-y-4">
-                <div className="grid gap-6 md:grid-cols-2">
-                  <ColorPicker
-                    label="Correct Character Color"
-                    value={settings.successColor}
-                    disabled={!unlocks.customSuccessColors}
-                    levelLabel="Lvl 2"
-                    onChange={(color) => onChange({ ...settings, successColor: color })}
+                <p className="text-[10px] font-black uppercase tracking-[0.4em] text-[var(--text-muted)]">Typography & Motion</p>
+                <div className="liquid-glass-soft space-y-8 rounded-[32px] p-8">
+                  <div className="space-y-3">
+                    <p className="text-xs font-black uppercase tracking-[0.2em] text-[var(--text-muted)]">Select Font</p>
+                    <div className="grid gap-4 md:grid-cols-3">
+                      <FontPreviewCard
+                        label="JetBrains Mono"
+                        value="jetbrains-mono"
+                        active={settings.font === "jetbrains-mono"}
+                        sample="The quick brown fox hits 87 WPM."
+                        onClick={(font) => onChange({ ...settings, font })}
+                      />
+                      <FontPreviewCard
+                        label="Fira Code"
+                        value="fira-code"
+                        active={settings.font === "fira-code"}
+                        sample="Pack my box with five dozen liquor jugs."
+                        locked={!unlocks.premiumTypography}
+                        lockLabel="Lvl 15"
+                        onClick={(font) => onChange({ ...settings, font })}
+                      />
+                      <FontPreviewCard
+                        label="Geist Mono"
+                        value="geist-mono"
+                        active={settings.font === "geist-mono"}
+                        sample="Sphinx of black quartz, judge my vow."
+                        onClick={(font) => onChange({ ...settings, font })}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid gap-8 md:grid-cols-2">
+                    <SliderField
+                      label="Base Font Size"
+                      value={settings.baseFontSize}
+                      min={14}
+                      max={24}
+                      step={1}
+                      format={(value) => `${value}px`}
+                      onChange={(value) => onChange({ ...settings, baseFontSize: clamp(Math.round(value), 14, 24) })}
+                    />
+
+                    <SliderField
+                      label="Line Spacing"
+                      value={settings.lineHeight}
+                      min={1.2}
+                      max={2}
+                      step={0.05}
+                      format={(value) => value.toFixed(2)}
+                      onChange={(value) => onChange({ ...settings, lineHeight: clamp(Number(value.toFixed(2)), 1.2, 2) })}
+                    />
+                  </div>
+
+                  <ToggleRow
+                    label="Smooth Caret"
+                    description="Unlocked at level 5. Keeps the caret motion less harsh during dense typing runs."
+                    checked={settings.smoothCaret}
+                    disabled={!unlocks.smoothCaret}
+                    theme={settings.theme}
+                    onChange={(checked) => onChange({ ...settings, smoothCaret: checked })}
                   />
-                  <div className="flex flex-col justify-end">
-                    <span className="mb-3 text-[10px] uppercase tracking-[0.28em] text-[var(--text-muted)]">Live Preview</span>
-                    <div className={cn(
-                      "flex h-12 items-center rounded-[18px] px-5",
-                      settings.theme === "rainy-window"
-                        ? "liquid-glass-soft"
-                        : "border border-[var(--border)] bg-[var(--panel-soft)]"
-                    )}>
-                      <p className="text-sm font-medium" style={{ fontFamily: `var(--font-main)` }}>
-                        Sphinx of <span style={{ color: settings.successColor }}>black quartz</span>, judge my vow.
-                      </p>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <p className="text-[10px] font-black uppercase tracking-[0.4em] text-[var(--text-muted)]">Interface Colors</p>
+                <div className="liquid-glass-soft space-y-6 rounded-[32px] p-8">
+                  <div className="grid gap-6 md:grid-cols-2">
+                    <ColorPicker
+                      label="Error Highlight Color"
+                      value={settings.errorColor}
+                      disabled={!unlocks.customErrorColors}
+                      levelLabel="Lvl 10"
+                      onChange={(color) => onChange({ ...settings, errorColor: color })}
+                    />
+                    <div className="flex flex-col justify-end">
+                      <span className="mb-3 text-[10px] uppercase tracking-[0.28em] text-[var(--text-muted)]">Live Preview</span>
+                      <div className="liquid-glass-soft flex h-14 items-center rounded-[20px] px-6">
+                        <p className="text-sm font-medium" style={{ fontFamily: `var(--font-main)` }}>
+                          Sphinx of black <span className="rounded-sm px-0.5" style={{ backgroundColor: `${settings.errorColor}33`, color: settings.errorColor, borderBottom: `2px solid ${settings.errorColor}` }}>quartz</span>, judge my vow.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid gap-6 md:grid-cols-2">
+                    <ColorPicker
+                      label="Correct Character Color"
+                      value={settings.successColor}
+                      disabled={!unlocks.customSuccessColors}
+                      levelLabel="Lvl 2"
+                      onChange={(color) => onChange({ ...settings, successColor: color })}
+                    />
+                    <div className="flex flex-col justify-end">
+                      <span className="mb-3 text-[10px] uppercase tracking-[0.28em] text-[var(--text-muted)]">Live Preview</span>
+                      <div className="liquid-glass-soft flex h-14 items-center rounded-[20px] px-6">
+                        <p className="text-sm font-medium" style={{ fontFamily: `var(--font-main)` }}>
+                          Sphinx of <span style={{ color: settings.successColor }}>black quartz</span>, judge my vow.
+                        </p>
+                      </div>
                     </div>
                   </div>
                 </div>
-                {!unlocks.customSuccessColors && (
-                  <p className="text-sm text-[var(--text-muted)]">Unlocks at level 2.</p>
-                )}
               </div>
             </div>
           )}
@@ -307,67 +305,61 @@ export function SettingsView({
                 description="Adjust how you read and interact with text."
               />
 
-              <div className="space-y-3">
-                <p className="text-xs uppercase tracking-[0.28em] text-[var(--text-muted)]">Default Layout</p>
-                <div className="inline-flex rounded-full border border-[var(--border)] bg-[var(--panel-soft)] p-1">
-                  <TogglePill active={settings.readerMode === "scroll"} onClick={() => onChange({ ...settings, readerMode: "scroll" })}>
-                    Single Page Scroll
-                  </TogglePill>
-                  <TogglePill active={settings.readerMode === "spread"} onClick={() => onChange({ ...settings, readerMode: "spread" })}>
-                    2-Page Spread
-                  </TogglePill>
+              <div className="liquid-glass-soft space-y-8 rounded-[32px] p-8">
+                <div className="space-y-3">
+                  <p className="text-xs font-black uppercase tracking-[0.3em] text-[var(--text-muted)]">Default Layout</p>
+                  <div className="inline-flex rounded-full border border-[var(--border)] bg-black/10 p-1.5 shadow-inner">
+                    <TogglePill active={settings.readerMode === "scroll"} onClick={() => onChange({ ...settings, readerMode: "scroll" })}>
+                      Single Page Scroll
+                    </TogglePill>
+                    <TogglePill active={settings.readerMode === "spread"} onClick={() => onChange({ ...settings, readerMode: "spread" })}>
+                      2-Page Spread
+                    </TogglePill>
+                  </div>
                 </div>
-              </div>
 
-              <ToggleRow
-                label="Enable Tab-to-Skip"
-                description="Skipped words are still excluded from analytics. Turning this off makes Tab inert."
-                checked={settings.tabToSkip}
-                theme={settings.theme}
-                onChange={(checked) => onChange({ ...settings, tabToSkip: checked })}
-              />
+                <SelectField
+                  label="Keyboard Layout"
+                  value={settings.keyboardLayout}
+                  options={[
+                    { value: "qwerty-us", label: keyboardLayoutPresets["qwerty-us"].name },
+                    { value: "colemak", label: keyboardLayoutPresets.colemak.name },
+                    { value: "dvorak", label: keyboardLayoutPresets.dvorak.name },
+                    { value: "custom", label: "Custom" },
+                  ]}
+                  onValueChange={(value) => onChange({ ...settings, keyboardLayout: value })}
+                />
 
-              <SelectField
-                label="Keyboard Layout"
-                value={settings.keyboardLayout}
-                options={[
-                  { value: "qwerty-us", label: keyboardLayoutPresets["qwerty-us"].name },
-                  { value: "colemak", label: keyboardLayoutPresets.colemak.name },
-                  { value: "dvorak", label: keyboardLayoutPresets.dvorak.name },
-                  { value: "custom", label: "Custom" },
-                ]}
-                onValueChange={(value) => onChange({ ...settings, keyboardLayout: value })}
-              />
+                {settings.keyboardLayout === "custom" && (
+                  <label className="block space-y-3">
+                    <span className="text-xs font-black uppercase tracking-[0.3em] text-[var(--text-muted)]">Custom Keyboard Layout</span>
+                    <p className="text-xs leading-5 text-[var(--text-muted)]">
+                      Enter one row per line. The analytics view uses this to compute directional drift arrows.
+                    </p>
+                    <textarea
+                      value={settings.customKeyboardLayout || ""}
+                      onChange={(event) => onChange({ ...settings, customKeyboardLayout: event.target.value })}
+                      rows={4}
+                      placeholder={"1234567890-=\nqwertyuiop[]\\\nasdfghjkl;'\nzxcvbnm,./"}
+                      className="w-full rounded-[24px] border border-[var(--border)] bg-black/10 px-5 py-4 outline-none transition focus:border-[var(--accent)] shadow-inner"
+                    />
+                  </label>
+                )}
 
-              {settings.keyboardLayout === "custom" && (
-                <label className="space-y-3">
-                  <span className="text-xs uppercase tracking-[0.28em] text-[var(--text-muted)]">Custom Keyboard Layout</span>
-                  <p className="text-sm leading-7 text-[var(--text-muted)]">
-                    Enter one row per line. The analytics view uses this to compute directional drift arrows.
+                <label className="block space-y-3">
+                  <span className="text-xs font-black uppercase tracking-[0.3em] text-[var(--text-muted)]">Ignored Characters</span>
+                  <p className="text-xs leading-5 text-[var(--text-muted)]">
+                    Enter characters to auto-skip while typing. Use the format <code>"a", "b", "c"</code>. They remain visible in the text but do not count as correct or incorrect input.
                   </p>
                   <textarea
-                    value={settings.customKeyboardLayout || ""}
-                    onChange={(event) => onChange({ ...settings, customKeyboardLayout: event.target.value })}
-                    rows={4}
-                    placeholder={"1234567890-=\nqwertyuiop[]\\\nasdfghjkl;'\nzxcvbnm,./"}
-                    className="w-full rounded-[22px] border border-[var(--border)] bg-[var(--panel-soft)] px-4 py-3 outline-none transition focus:border-[var(--accent)]"
+                    value={settings.ignoredCharacters || ""}
+                    onChange={(event) => onChange({ ...settings, ignoredCharacters: event.target.value })}
+                    rows={3}
+                    placeholder={`"${'"'}", "'", "“", "”"`}
+                    className="w-full rounded-[24px] border border-[var(--border)] bg-black/10 px-5 py-4 outline-none transition focus:border-[var(--accent)] shadow-inner"
                   />
                 </label>
-              )}
-
-              <label className="space-y-3">
-                <span className="text-xs uppercase tracking-[0.28em] text-[var(--text-muted)]">Ignored Characters</span>
-                <p className="text-sm leading-7 text-[var(--text-muted)]">
-                  Enter characters to auto-skip while typing. Use the format <code>"a", "b", "c"</code>. They remain visible in the text but do not count as correct or incorrect input.
-                </p>
-                <textarea
-                  value={settings.ignoredCharacters || ""}
-                  onChange={(event) => onChange({ ...settings, ignoredCharacters: event.target.value })}
-                  rows={3}
-                  placeholder={`"${'"'}", "'", "“", "”"`}
-                  className="w-full rounded-[22px] border border-[var(--border)] bg-[var(--panel-soft)] px-4 py-3 outline-none transition focus:border-[var(--accent)]"
-                />
-              </label>
+              </div>
 
 
             </div>
@@ -399,30 +391,33 @@ export function SettingsView({
                 />
               </div>
 
-              <div className="rounded-[28px] border border-[color-mix(in_srgb,var(--danger)_40%,var(--border))] bg-[color-mix(in_srgb,var(--danger)_10%,var(--panel))] p-5">
-                <p className="text-xs uppercase tracking-[0.28em] text-[var(--danger)]">Danger Zone</p>
-                <div className="mt-5 flex flex-wrap gap-3">
-                  <Button variant="danger" onClick={onClearSessionHistory} disabled={!desktopReady}>
-                    Clear Session History
-                  </Button>
-                  <Button variant="danger" onClick={onDeleteLibrary} disabled={!desktopReady}>
-                    Delete Library
-                  </Button>
-                  <Button
-                    variant="secondary"
-                    onClick={async () => {
-                      try {
-                        await api.gainOneLevel();
-                        await onRefresh();
-                      } catch (err) {
-                        console.error("Failed to gain level:", err);
-                        alert("Failed to gain level. Check console.");
-                      }
-                    }}
-                    disabled={!desktopReady}
-                  >
-                    Gain 1 Level (Cheat)
-                  </Button>
+              <div className="liquid-glass-soft overflow-hidden rounded-[32px] border border-[color-mix(in_srgb,var(--danger)_30%,var(--border))] shadow-lg shadow-[var(--danger)]/5">
+                <div className="bg-[color-mix(in_srgb,var(--danger)_15%,transparent)] p-6">
+                  <p className="text-[10px] font-black uppercase tracking-[0.4em] text-[var(--danger)]">Danger Zone</p>
+                  <p className="mt-2 text-xs font-medium text-[var(--text-muted)]">Irreversible actions that affect your local data and progress.</p>
+                  <div className="mt-6 flex flex-wrap gap-4">
+                    <Button variant="danger" onClick={onClearSessionHistory} disabled={!desktopReady} className="rounded-2xl px-6">
+                      Clear Session History
+                    </Button>
+                    <Button variant="danger" onClick={onDeleteLibrary} disabled={!desktopReady} className="rounded-2xl px-6">
+                      Delete Library
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      onClick={async () => {
+                        try {
+                          await api.gainOneLevel();
+                          await onRefresh();
+                        } catch (err) {
+                          console.error("Failed to gain level:", err);
+                        }
+                      }}
+                      disabled={!desktopReady}
+                      className="rounded-2xl px-6"
+                    >
+                      Gain 1 Level (Cheat)
+                    </Button>
+                  </div>
                 </div>
               </div>
 
@@ -453,20 +448,23 @@ function SidebarButton({
       type="button"
       onClick={onClick}
       className={cn(
-        "flex w-full items-center rounded-[20px] px-4 py-3 text-left text-sm transition",
-        active ? "bg-[var(--accent)] text-black" : "text-[var(--text-muted)] hover:bg-[var(--accent-soft)] hover:text-[var(--text)]",
+        "group relative flex w-full items-center rounded-[20px] px-4 py-3 text-left text-sm transition-all duration-300",
+        active ? "bg-[var(--accent)] text-black shadow-lg shadow-[var(--accent)]/20" : "text-[var(--text-muted)] hover:bg-[var(--accent-soft)] hover:text-[var(--text)]",
       )}
     >
-      {children}
+      <span className={cn("transition-transform duration-300", active ? "translate-x-1 font-bold" : "group-hover:translate-x-1")}>
+        {children}
+      </span>
     </button>
   );
 }
 
 function SectionTitle({ title, description }: { title: string; description: string }) {
   return (
-    <div>
-      <h3 className="text-3xl font-semibold">{title}</h3>
-      <p className="mt-3 max-w-3xl text-sm leading-7 text-[var(--text-muted)]">{description}</p>
+    <div className="relative pb-2">
+      <h3 className="text-4xl font-black tracking-tighter text-[var(--text)]">{title}</h3>
+      <p className="mt-3 max-w-2xl text-base font-medium leading-relaxed text-[var(--text-muted)]">{description}</p>
+      <div className="absolute -bottom-2 left-0 h-1 w-12 rounded-full bg-[var(--accent)]/40" />
     </div>
   );
 }
@@ -483,19 +481,24 @@ function SelectField<T extends string>({
   onValueChange: (value: T) => void;
 }) {
   return (
-    <label className="space-y-2">
-      <span className="text-xs uppercase tracking-[0.28em] text-[var(--text-muted)]">{label}</span>
-      <select
-        value={value}
-        onChange={(event) => onValueChange(event.target.value as T)}
-        className="w-full rounded-[22px] border border-[var(--border)] bg-[var(--panel-soft)] px-4 py-3 outline-none transition focus:border-[var(--accent)]"
-      >
-        {options.map((option) => (
-          <option key={option.value} value={option.value}>
-            {option.label}
-          </option>
-        ))}
-      </select>
+    <label className="block space-y-3">
+      <span className="text-xs font-black uppercase tracking-[0.3em] text-[var(--text-muted)]">{label}</span>
+      <div className="relative">
+        <select
+          value={value}
+          onChange={(event) => onValueChange(event.target.value as T)}
+          className="w-full rounded-[24px] border border-[var(--border)] bg-black/10 px-5 py-4 outline-none transition focus:border-[var(--accent)] shadow-inner appearance-none cursor-pointer pr-12"
+        >
+          {options.map((option) => (
+            <option key={option.value} value={option.value} className="bg-[var(--bg)] text-[var(--text)]">
+              {option.label}
+            </option>
+          ))}
+        </select>
+        <div className="pointer-events-none absolute right-5 top-1/2 -translate-y-1/2 text-[var(--text-muted)]">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg>
+        </div>
+      </div>
     </label>
   );
 }
@@ -530,15 +533,20 @@ function FontPreviewCard({
       disabled={locked}
       onClick={() => onClick(value)}
       className={cn(
-        "rounded-[24px] border p-4 text-left transition disabled:cursor-not-allowed disabled:opacity-55",
-        active ? "border-[var(--accent)] bg-[var(--accent-soft)]" : "border-[var(--border)] bg-[var(--panel-soft)] hover:border-[var(--accent)]",
+        "liquid-glass-soft relative rounded-[24px] border p-5 text-left transition-all duration-300 disabled:cursor-not-allowed disabled:opacity-55",
+        active 
+          ? "border-[var(--accent)] scale-[1.03] !shadow-[0_0_12px_color-mix(in_srgb,var(--accent)_30%,transparent)] z-10" 
+          : "border-[var(--border)] hover:border-[var(--accent)]/50 hover:scale-[1.01]",
       )}
     >
       <div className="flex items-center justify-between gap-3">
-        <p className="text-sm font-semibold">{label}</p>
-        {locked && lockLabel && <span className="text-xs uppercase tracking-[0.18em] text-[var(--text-muted)]">{lockLabel}</span>}
+        <p className={cn(
+          "text-sm font-bold transition-colors",
+          active ? "text-[var(--accent)]" : ""
+        )}>{label}</p>
+        {locked && lockLabel && <span className="text-[10px] font-black uppercase tracking-[0.2em] text-[var(--text-muted)]">{lockLabel}</span>}
       </div>
-      <p className="mt-3 text-sm leading-7 text-[var(--text-muted)]" style={{ fontFamily: previewFont }}>
+      <p className="mt-4 text-sm leading-relaxed text-[var(--text-muted)]" style={{ fontFamily: previewFont }}>
         {sample}
       </p>
     </button>
@@ -595,7 +603,12 @@ function TogglePill({
     <button
       type="button"
       onClick={onClick}
-      className={cn("rounded-full px-4 py-2 text-sm transition", active ? "bg-[var(--accent)] text-black" : "text-[var(--text-muted)] hover:text-[var(--text)]")}
+      className={cn(
+        "rounded-full px-5 py-2.5 text-sm font-bold transition-all duration-300",
+        active
+          ? "bg-[var(--accent)] text-black shadow-lg shadow-[var(--accent)]/30 scale-105 z-10"
+          : "text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-white/5"
+      )}
     >
       {children}
     </button>
@@ -620,10 +633,7 @@ function ToggleRow({
   return (
     <div
       className={cn(
-        "flex items-center justify-between gap-6 rounded-[26px] px-5 py-4",
-        theme === "rainy-window" || theme === "nebula-drift"
-          ? "liquid-glass-soft"
-          : "border border-[var(--border)] bg-[var(--panel-soft)]",
+        "liquid-glass-soft flex items-center justify-between gap-6 rounded-[30px] px-6 py-5",
         disabled && "opacity-55",
       )}
     >
@@ -670,12 +680,7 @@ function StorageCard({
   onAction: () => void;
 }) {
   return (
-    <div className={cn(
-      "rounded-[28px] p-5",
-      theme === "rainy-window" || theme === "nebula-drift"
-        ? "liquid-glass-soft"
-        : "border border-[var(--border)] bg-[var(--panel-soft)]"
-    )}>
+    <div className="liquid-glass-soft rounded-[32px] p-6">
       <p className="text-lg font-semibold">{title}</p>
       <p className="mt-3 text-sm leading-7 text-[var(--text-muted)]">{description}</p>
       <Button className="mt-5" variant="secondary" onClick={onAction} disabled={disabled}>

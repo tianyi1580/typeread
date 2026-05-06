@@ -159,7 +159,7 @@ export const themeMap: Record<ThemeName, ThemeDefinition> = {
     panel: "rgba(15, 17, 45, 0.45)",
     panelSoft: "rgba(25, 28, 65, 0.12)",
     panelPopout: "rgba(15, 17, 45, 0.96)",
-    border: "rgba(192, 132, 252, 0.12)",
+    border: "rgba(192, 132, 252, 0.02)",
     text: "#e0e0ff",
     textMuted: "#94a3b8",
     accent: "#c084fc",

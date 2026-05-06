@@ -48,6 +48,8 @@ interface PracticeViewProps {
   onSettingsChange: (settings: AppSettings) => void;
   /** Callback to report errors. */
   onError: (message: string) => void;
+  /** Whether typing interaction is disabled (e.g. when settings are open). */
+  disabled?: boolean;
 }
 
 
@@ -59,6 +61,7 @@ export function PracticeView({
   processBatch,
   onSettingsChange,
   onError,
+  disabled,
 }: PracticeViewProps) {
   const [seed, setSeed] = useState(() => Math.floor(Math.random() * 1000000));
   const practiceText = useMemo(() => buildPracticeText(seed, 600, settings.practiceWordBankType), [seed, settings.practiceWordBankType]);
@@ -218,6 +221,10 @@ export function PracticeView({
   }, [botCursorIndex, mode, practiceText.length, snapshot.words, status, tokens.length]);
 
   useEffect(() => {
+    if (disabled) {
+      return;
+    }
+
     const handleKeyDown = (event: KeyboardEvent) => {
       if (statusRef.current === "completed") {
         return;

@@ -87,6 +87,8 @@ interface ReaderViewProps {
   onError: (message: string) => void;
   /** Map of chapter progress percentages. */
   chapterProgressMap: Record<string, number>;
+  /** Whether typing interaction is disabled (e.g. when settings are open). */
+  disabled?: boolean;
 }
 
 
@@ -135,6 +137,7 @@ export function ReaderView({
   onProcessBatch,
   onError,
   chapterProgressMap,
+  disabled,
 }: ReaderViewProps) {
   const chapter = book.chapters[chapterIndex];
   const normalizedText = useMemo(() => normalizeTypingText(chapter.text), [chapter.text]);
@@ -394,7 +397,7 @@ export function ReaderView({
   }, [interactionMode, normalizedText.length, sessionStartAt, settings.versusBotCpm, tokens]);
 
   useEffect(() => {
-    if (interactionMode === "read") {
+    if (interactionMode === "read" || disabled) {
       return;
     }
 
