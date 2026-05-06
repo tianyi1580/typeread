@@ -421,7 +421,7 @@ export function PracticeView({
                       i
                     </button>
                     <div className="absolute top-full right-0 mt-3 w-64 -translate-y-2 opacity-0 transition group-hover:translate-y-0 group-hover:opacity-100 pointer-events-none z-[60]">
-                      <div className="rounded-2xl border border-[var(--border)] bg-[var(--panel)] p-4 shadow-2xl backdrop-blur-xl">
+                      <div className="rounded-2xl border border-[var(--border)] bg-[var(--panel-popout)] p-4 shadow-2xl backdrop-blur-xl">
                         <p className="text-xs font-semibold uppercase tracking-widest text-[var(--accent)]">Word Bank Difficulty</p>
                         <div className="mt-3 space-y-2 text-xs leading-5 text-[var(--text-muted)]">
                           <p><span className="text-[var(--text)] font-medium">Easy:</span> Top 200 words repeated. Mostly 4-5 letters. Clean & fast.</p>

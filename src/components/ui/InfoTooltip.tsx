@@ -168,7 +168,7 @@ export function InfoTooltip({
         <div
           ref={tooltipRef}
           className={cn(
-            "fixed z-[10000] px-4 py-3 text-[13px] leading-relaxed text-[var(--text)] bg-[rgba(36,39,58,0.95)] border border-[rgba(145,215,227,0.3)] rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] backdrop-blur-2xl animate-tooltip-in",
+            "fixed z-[10000] px-4 py-3 text-[13px] leading-relaxed text-[var(--text)] bg-[var(--panel-popout)] border border-[var(--border)] rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] backdrop-blur-2xl animate-tooltip-in",
             trigger === "hover" ? "pointer-events-none" : "pointer-events-auto"
           )}
           style={{
@@ -182,7 +182,7 @@ export function InfoTooltip({
           <div className="relative z-10">{content}</div>
           {trigger === "click" && (
             <div 
-              className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-1/2 w-3 h-3 rotate-45 bg-[rgba(36,39,58,0.95)] border-r border-b border-[rgba(145,215,227,0.3)]"
+              className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-1/2 w-3 h-3 rotate-45 bg-[var(--panel-popout)] border-r border-b border-[var(--border)]"
             />
           )}
         </div>,

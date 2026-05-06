@@ -128,7 +128,7 @@ export function SessionSummaryModal({ summary, onClose }: SessionSummaryModalPro
         initial="hidden"
         animate="visible"
         className={cn(
-          "relative w-full rounded-[40px] border border-white/10 bg-[color-mix(in_srgb,var(--panel)_92%,transparent)] shadow-[0_32px_120px_rgba(0,0,0,0.6)] backdrop-blur-3xl",
+          "relative w-full rounded-[40px] border border-white/10 bg-[var(--panel-popout)] shadow-[0_32px_120px_rgba(0,0,0,0.6)] backdrop-blur-3xl",
           isTypeTest ? "max-w-3xl" : "max-w-5xl"
         )}
       >

@@ -6,6 +6,7 @@ export interface ThemeDefinition {
   background: string;
   panel: string;
   panelSoft: string;
+  panelPopout: string;
   border: string;
   text: string;
   textMuted: string;
@@ -22,6 +23,7 @@ export const themeMap: Record<ThemeName, ThemeDefinition> = {
     background: "#1e2030",
     panel: "rgba(36, 39, 58, 0.86)",
     panelSoft: "rgba(54, 58, 79, 0.72)",
+    panelPopout: "rgba(36, 39, 58, 0.98)",
     border: "rgba(145, 215, 227, 0.16)",
     text: "#cad3f5",
     textMuted: "#a5adce",
@@ -36,6 +38,7 @@ export const themeMap: Record<ThemeName, ThemeDefinition> = {
     background: "#1d2021",
     panel: "rgba(40, 40, 40, 0.9)",
     panelSoft: "rgba(60, 56, 54, 0.74)",
+    panelPopout: "rgba(40, 40, 40, 0.98)",
     border: "rgba(250, 189, 47, 0.16)",
     text: "#ebdbb2",
     textMuted: "#bdae93",
@@ -50,6 +53,7 @@ export const themeMap: Record<ThemeName, ThemeDefinition> = {
     background: "#f4ead6",
     panel: "rgba(255, 250, 241, 0.92)",
     panelSoft: "rgba(241, 228, 198, 0.74)",
+    panelPopout: "rgba(255, 250, 241, 0.98)",
     border: "rgba(111, 78, 55, 0.12)",
     text: "#3d2c1f",
     textMuted: "#71543c",
@@ -64,6 +68,7 @@ export const themeMap: Record<ThemeName, ThemeDefinition> = {
     background: "#fdf6e3",
     panel: "rgba(255, 251, 239, 0.94)",
     panelSoft: "rgba(238, 232, 213, 0.72)",
+    panelPopout: "rgba(255, 251, 239, 0.98)",
     border: "rgba(38, 139, 210, 0.14)",
     text: "#586e75",
     textMuted: "#657b83",
@@ -78,6 +83,7 @@ export const themeMap: Record<ThemeName, ThemeDefinition> = {
     background: "#17181f",
     panel: "rgba(34, 36, 48, 0.9)",
     panelSoft: "rgba(52, 55, 71, 0.76)",
+    panelPopout: "rgba(34, 36, 48, 0.98)",
     border: "rgba(189, 147, 249, 0.18)",
     text: "#f8f8f2",
     textMuted: "#b9b6d3",
@@ -92,6 +98,7 @@ export const themeMap: Record<ThemeName, ThemeDefinition> = {
     background: "#111922",
     panel: "rgba(34, 44, 56, 0.9)",
     panelSoft: "rgba(59, 74, 93, 0.72)",
+    panelPopout: "rgba(34, 44, 56, 0.98)",
     border: "rgba(136, 192, 208, 0.16)",
     text: "#e5eef6",
     textMuted: "#aab9cb",
@@ -106,6 +113,7 @@ export const themeMap: Record<ThemeName, ThemeDefinition> = {
     background: "#2d2424",
     panel: "rgba(54, 43, 43, 0.88)",
     panelSoft: "rgba(74, 59, 59, 0.75)",
+    panelPopout: "rgba(54, 43, 43, 0.98)",
     border: "rgba(255, 183, 197, 0.15)",
     text: "#fce4ec",
     textMuted: "#b39393",
@@ -120,6 +128,7 @@ export const themeMap: Record<ThemeName, ThemeDefinition> = {
     background: "#fff5f5",
     panel: "rgba(255, 255, 255, 0.94)",
     panelSoft: "rgba(255, 240, 240, 0.78)",
+    panelPopout: "rgba(255, 255, 255, 0.98)",
     border: "rgba(139, 115, 115, 0.12)",
     text: "#5d4037",
     textMuted: "#8d6e63",
@@ -134,6 +143,7 @@ export const themeMap: Record<ThemeName, ThemeDefinition> = {
     background: "#4e342e",
     panel: "rgba(93, 64, 55, 0.88)",
     panelSoft: "rgba(121, 85, 72, 0.72)",
+    panelPopout: "rgba(93, 64, 55, 0.98)",
     border: "rgba(244, 143, 177, 0.16)",
     text: "#f8bbd0",
     textMuted: "#ba6b6c",
@@ -148,7 +158,8 @@ export const themeMap: Record<ThemeName, ThemeDefinition> = {
     background: "#0a0b1e",
     panel: "rgba(15, 17, 45, 0.45)",
     panelSoft: "rgba(25, 28, 65, 0.12)",
-    border: "rgba(165, 129, 218, 0.02)",
+    panelPopout: "rgba(15, 17, 45, 0.96)",
+    border: "rgba(192, 132, 252, 0.12)",
     text: "#e0e0ff",
     textMuted: "#94a3b8",
     accent: "#c084fc",
@@ -162,7 +173,8 @@ export const themeMap: Record<ThemeName, ThemeDefinition> = {
     background: "#1e293b",
     panel: "rgba(36, 39, 58, 0.45)",
     panelSoft: "rgba(54, 58, 79, 0.12)",
-    border: "rgba(70, 45, 28, 0.07)",
+    panelPopout: "rgba(36, 39, 58, 0.96)",
+    border: "rgba(102, 153, 155, 0.12)",
     text: "#f1f5f9cd",
     textMuted: "#94a3b8c6",
     accent: "#66999B",
@@ -188,6 +200,7 @@ export function applyTheme(settings: AppSettings) {
   root.style.setProperty("--bg", theme.background);
   root.style.setProperty("--panel", theme.panel);
   root.style.setProperty("--panel-soft", theme.panelSoft);
+  root.style.setProperty("--panel-popout", theme.panelPopout);
   root.style.setProperty("--border", theme.border);
   root.style.setProperty("--text", theme.text);
   root.style.setProperty("--text-muted", theme.textMuted);

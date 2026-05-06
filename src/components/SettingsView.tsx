@@ -95,13 +95,13 @@ export function SettingsView({
         role="dialog"
         aria-modal="true"
         aria-labelledby="settings-title"
-        className="relative grid h-[min(860px,88vh)] w-full max-w-[1180px] overflow-hidden lg:grid-cols-[260px_minmax(0,1fr)]"
+        className="relative grid h-[min(860px,88vh)] w-full max-w-[1180px] overflow-hidden lg:grid-cols-[260px_minmax(0,1fr)] !bg-[var(--panel-popout)]"
       >
         <aside className={cn(
-          "border-r p-5",
+          "border-r border-[var(--border)] p-5",
           settings.theme === "rainy-window" || settings.theme === "nebula-drift"
-            ? "liquid-glass-soft"
-            : "border-[var(--border)] bg-[color-mix(in_srgb,var(--panel-soft)_80%,transparent)]"
+            ? "bg-[color-mix(in_srgb,var(--bg)_98%,transparent)]"
+            : "bg-[color-mix(in_srgb,var(--panel-soft)_80%,transparent)]"
         )}>
           <div className="flex flex-col">
             <button
@@ -129,7 +129,7 @@ export function SettingsView({
 
         <div className={cn(
           "overflow-y-auto p-6 lg:p-8",
-          settings.theme === "rainy-window" || settings.theme === "nebula-drift" ? "bg-[var(--panel)]" : ""
+          settings.theme === "rainy-window" || settings.theme === "nebula-drift" ? "bg-[var(--panel-popout)]" : ""
         )}>
           {section === "appearance" && (
             <div className="space-y-8">

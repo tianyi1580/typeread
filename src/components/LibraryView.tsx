@@ -307,7 +307,7 @@ export function LibraryView({
                     {menuBookId === book.id && (
                       <div
                         ref={menuRef}
-                        className="absolute right-0 top-12 z-20 min-w-[180px] rounded-[22px] border border-[var(--border)] bg-[var(--panel)] p-2 shadow-panel backdrop-blur-2xl"
+                        className="absolute right-0 top-12 z-20 min-w-[180px] rounded-[22px] border border-[var(--border)] bg-[color-mix(in_srgb,var(--bg)_95%,transparent)] p-2 shadow-panel backdrop-blur-2xl"
                       >
                         <BookActionButton
                           onClick={async (event) => {
@@ -398,7 +398,7 @@ export function LibraryView({
             }
           }}
         >
-          <div className="w-full max-w-md rounded-[30px] border border-[var(--border)] bg-[var(--panel)] p-6 shadow-panel backdrop-blur-2xl">
+          <div className="w-full max-w-md rounded-[30px] border border-[var(--border)] bg-[var(--panel-popout)] p-6 shadow-panel backdrop-blur-2xl">
             <p className="text-xs uppercase tracking-[0.28em] text-[var(--text-muted)]">Rename Book</p>
             <h2 className="mt-4 text-2xl font-semibold">{editingBook.title}</h2>
             <input
@@ -506,7 +506,7 @@ function LibraryTipsModal({ onClose }: { onClose: () => void }) {
         }
       }}
     >
-      <div className="relative w-full max-w-xl max-h-[90vh] overflow-y-auto rounded-[32px] border border-[var(--border)] bg-[var(--panel)] p-8 shadow-2xl backdrop-blur-2xl animate-in zoom-in-95 duration-200 no-scrollbar">
+      <div className="relative w-full max-w-xl max-h-[90vh] overflow-y-auto rounded-[32px] border border-[var(--border)] bg-[var(--panel-popout)] p-8 shadow-2xl backdrop-blur-2xl animate-in zoom-in-95 duration-200 no-scrollbar">
         <button
           onClick={onClose}
           className="absolute right-6 top-6 rounded-full p-2 text-[var(--text-muted)] hover:bg-[var(--accent-soft)] hover:text-[var(--text)] transition-colors"
@@ -877,7 +877,7 @@ function CoverManagementModal({
 }) {
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 px-4 backdrop-blur-md">
-      <div className="relative w-full max-w-md overflow-hidden rounded-[32px] border border-[var(--border)] bg-[var(--panel)] p-8 shadow-2xl">
+      <div className="relative w-full max-w-md overflow-hidden rounded-[32px] border border-[var(--border)] bg-[var(--panel-popout)] p-8 shadow-2xl">
         <div className="mb-8 text-center">
           <p className="text-[10px] uppercase tracking-[0.3em] text-[var(--accent)] font-bold">Customize</p>
           <h2 className="mt-1 text-2xl font-semibold">Book Cover</h2>
@@ -984,7 +984,7 @@ function CoverEditorModal({
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 px-4 backdrop-blur-md">
-      <div className="relative flex h-[80vh] w-full max-w-4xl flex-col overflow-hidden rounded-[32px] border border-[var(--border)] bg-[var(--panel)] shadow-2xl">
+      <div className="relative flex h-[80vh] w-full max-w-4xl flex-col overflow-hidden rounded-[32px] border border-[var(--border)] bg-[var(--panel-popout)] shadow-2xl">
         <div className="flex items-center justify-between border-b border-[var(--border)] px-8 py-6">
           <div>
             <p className="text-[10px] uppercase tracking-[0.3em] text-[var(--accent)] font-bold">Customize</p>

@@ -75,7 +75,7 @@ export function VersusConfigModal({
         role="dialog"
         aria-modal="true"
         aria-labelledby="versus-config-title"
-        className="relative w-full max-w-md overflow-hidden rounded-[32px] border border-white/10 bg-[var(--panel)] p-8 shadow-2xl animate-in zoom-in-95 duration-300"
+        className="relative w-full max-w-md overflow-hidden rounded-[32px] border border-white/10 bg-[var(--panel-popout)] p-8 shadow-2xl animate-in zoom-in-95 duration-300"
       >
         <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[var(--accent)] to-transparent opacity-50" />
         

@@ -787,7 +787,7 @@ function WindowShell({
             {menuOpen && (
               <div 
                 ref={menuRef}
-                className="absolute right-0 top-12 z-30 min-w-[240px] rounded-[24px] border border-[var(--border)] bg-[var(--panel)] p-2 shadow-panel backdrop-blur-xl"
+                className="absolute right-0 top-12 z-30 min-w-[240px] rounded-[24px] border border-[var(--border)] bg-[color-mix(in_srgb,var(--bg)_95%,transparent)] p-2 shadow-panel backdrop-blur-xl"
               >
                 <MenuButton onClick={() => onOpenTab("library")}>Library</MenuButton>
                 <MenuButton onClick={() => onOpenTab("analytics")}>Profile & Analytics</MenuButton>

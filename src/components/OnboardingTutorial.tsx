@@ -178,7 +178,7 @@ export function OnboardingTutorial() {
           top: cardY,
           width: cardWidth,
         }}
-        className="pointer-events-auto rounded-[28px] border border-[var(--border)] bg-[color-mix(in_srgb,var(--panel)_85%,transparent)] p-6 shadow-panel backdrop-blur-2xl"
+        className="pointer-events-auto rounded-[28px] border border-[var(--border)] bg-[color-mix(in_srgb,var(--bg)_95%,transparent)] p-6 shadow-panel backdrop-blur-2xl"
       >
         <div className="relative">
           {/* Arrow pointing to visual focus */}

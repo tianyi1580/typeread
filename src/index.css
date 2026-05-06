@@ -206,6 +206,15 @@ textarea {
   overflow: hidden;
 }
 
+.liquid-glass-popout {
+  background-color: var(--panel-popout) !important;
+  border: 1px solid var(--border) !important;
+  box-shadow:
+    0 8px 32px -4px var(--shadow) !important;
+  position: relative;
+  overflow: hidden;
+}
+
 /* Theme-specific Liquid Glass Overrides */
 [data-theme="rainy-window"] .backdrop-blur-2xl,
 [data-theme="rainy-window"] .backdrop-blur-xl,
