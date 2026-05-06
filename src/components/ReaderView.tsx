@@ -1124,7 +1124,7 @@ export function ReaderView({
                   onMouseEnter={() => setIsHoveringHud(true)}
                   onMouseLeave={() => setIsHoveringHud(false)}
                   className={cn(
-                    "justify-self-start whitespace-nowrap px-5 py-2 text-sm sm:col-start-1 sm:row-start-1 sm:px-6",
+                    "justify-self-start w-44 whitespace-nowrap px-5 py-2 text-sm sm:col-start-1 sm:row-start-1 sm:px-6",
                     READER_CHROME_SURFACE_CLASS,
                     READER_CHROME_BUTTON_CLASS,
                     !headerVisible && "pointer-events-none"
@@ -1143,7 +1143,7 @@ export function ReaderView({
                   onMouseEnter={() => setIsHoveringHud(true)}
                   onMouseLeave={() => setIsHoveringHud(false)}
                   className={cn(
-                    "justify-self-end whitespace-nowrap px-5 py-2 text-sm sm:col-start-3 sm:row-start-1 sm:px-6",
+                    "justify-self-end w-44 whitespace-nowrap px-5 py-2 text-sm sm:col-start-3 sm:row-start-1 sm:px-6",
                     READER_CHROME_SURFACE_CLASS,
                     READER_CHROME_BUTTON_CLASS,
                     !headerVisible && "pointer-events-none"

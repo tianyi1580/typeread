@@ -6,7 +6,6 @@ zen mode - no need to type caps or punctuation?
 
 graphics settings?
 make the chapter nav buttons the same size
-when in settings, the user is still able to type in the book typing interface. lock the typing to only in settings when settings page is active
 
 progression unlocks:
 
