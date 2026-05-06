@@ -224,6 +224,24 @@ export const VelvetMercuryParticles = memo(function VelvetMercuryParticles({
             idealVx += (mdx / dist) * pull;
             idealVy += (mdy / dist) * pull;
           }
+        } else {
+          // Horizontal repulsion to spread out if clumped (only when not tracking)
+          for (let j = 0; j < hearts.length; j++) {
+            if (i === j) continue;
+            const other = hearts[j];
+            const dx = p.x - other.x;
+            const dy = p.y - other.y;
+            const distSq = dx * dx + dy * dy;
+            const minDist = 70;
+            if (distSq < minDist * minDist) {
+              const dist = Math.sqrt(distSq) || 0.1;
+              const force = (minDist - dist) / minDist;
+              // Apply horizontal repulsion to spread them out
+              idealVx += (dx / dist) * force * 120 * p.depth;
+              // Minor vertical repulsion to help de-clumping
+              idealVy += (dy / dist) * force * 40 * p.depth;
+            }
+          }
         }
 
         // Smoothly interpolate current velocity towards ideal velocity
