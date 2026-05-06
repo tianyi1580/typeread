@@ -5,7 +5,6 @@ zen mode - no need to type caps or punctuation?
     doesnt show if you get a character right or wrong
 
 graphics settings?
-theme previews
 
 progression unlocks:
 
@@ -17,7 +16,6 @@ pixel art
     cats
 sakura tree
 SRL
-heart
 
 Pets:
 kaylie white cat
