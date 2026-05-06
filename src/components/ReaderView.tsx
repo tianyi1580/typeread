@@ -38,6 +38,7 @@ import { Button } from "./ui/button";
 import { VersusConfigModal } from "./VersusConfigModal";
 import { CelestialParticles } from "./NebulaBackground";
 import { RainParticles } from "./RainyWindowBackground";
+import { VelvetMercuryParticles } from "./VelvetMercuryBackground";
 
 /**
  * Properties for the ReaderView component.
@@ -724,7 +725,7 @@ export function ReaderView({
       <div
         className={cn(
           "relative flex flex-col rounded-[34px] border border-white/5 shadow-panel backdrop-blur-2xl",
-          settings.theme === "nebula-drift"
+          settings.theme === "nebula-drift" || settings.theme === "velvet-mercury"
             ? "bg-[color-mix(in_srgb,var(--panel)_18%,transparent)]"
             : "bg-[color-mix(in_srgb,var(--panel)_40%,transparent)]",
           "h-screen overflow-hidden",
@@ -751,6 +752,13 @@ export function ReaderView({
             fgOpacity={0.4}
             className="z-0"
           />
+        )}
+
+        {/* Subtle Heart Swarm for Velvet Mercury Theme */}
+        {settings.theme === "velvet-mercury" && (
+          <div className="absolute inset-0 z-0 pointer-events-none">
+            <VelvetMercuryParticles isSubtle opacity={0.5} />
+          </div>
         )}
 
 
@@ -1011,7 +1019,7 @@ export function ReaderView({
                 onScroll={handleScroll}
                 className={cn(
                   "flex-1 overflow-y-auto no-scrollbar rounded-[36px] px-6 py-8 md:px-10 md:py-12",
-                  settings.theme === "rainy-window"
+                  settings.theme === "rainy-window" || settings.theme === "velvet-mercury"
                     ? "liquid-glass-soft"
                     : cn(
                       "border border-[var(--border)]",
@@ -1224,7 +1232,7 @@ function SpreadPage({
     <div
       className={cn(
         "flex h-full flex-col overflow-hidden rounded-[34px] px-6 pb-0 pt-8 font-[var(--font-main)]",
-        style.theme === "rainy-window"
+        style.theme === "rainy-window" || style.theme === "velvet-mercury"
           ? "liquid-glass-soft"
           : cn(
             "border border-[var(--border)] shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]",

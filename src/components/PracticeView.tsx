@@ -464,7 +464,7 @@ export function PracticeView({
 
           <div className={cn(
             "relative mt-6 h-[440px] rounded-[34px]",
-            settings.theme === "nebula-drift" || settings.theme === "rainy-window"
+            settings.theme === "nebula-drift" || settings.theme === "rainy-window" || settings.theme === "velvet-mercury"
               ? "liquid-glass-soft"
               : "border border-[var(--border)] bg-[color-mix(in_srgb,var(--panel-soft)_74%,transparent)]"
           )}>

@@ -54,6 +54,7 @@ export const THEME_NAMES = [
   "mocha-blush",
   "nebula-drift",
   "rainy-window",
+  "velvet-mercury",
 ] as const;
 export type ThemeName = (typeof THEME_NAMES)[number];
 
@@ -361,6 +362,7 @@ export interface UnlockState {
   mochaBlushTheme: boolean;
   nebulaDriftTheme: boolean;
   rainyWindowTheme: boolean;
+  velvetMercuryTheme: boolean;
   smoothCaret: boolean;
   premiumTypography: boolean;
   customErrorColors: boolean;

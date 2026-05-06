@@ -9,6 +9,7 @@ import { SettingsView } from "./components/SettingsView";
 import { ShopView } from "./components/ShopView";
 import { NebulaBackground } from "./components/NebulaBackground";
 import { RainyWindowBackground } from "./components/RainyWindowBackground";
+import { VelvetMercuryBackground } from "./components/VelvetMercuryBackground";
 import { Button } from "./components/ui/button";
 import { Card } from "./components/ui/card";
 import { demoAnalytics, demoBook, demoSettings } from "./lib/demo";
@@ -520,7 +521,7 @@ export default function App() {
         activeTab === "reader" ? "flex h-screen flex-col overflow-hidden" : "min-h-screen",
       )}
       style={{
-        backgroundImage: settings?.theme === "nebula-drift" || settings?.theme === "rainy-window"
+        backgroundImage: settings?.theme === "nebula-drift" || settings?.theme === "rainy-window" || settings?.theme === "velvet-mercury"
           ? "none" 
           : `radial-gradient(circle at top left, ${theme.accentSoft}, transparent 26%), radial-gradient(circle at bottom right, ${theme.panelSoft}, transparent 22%)`,
       }}
@@ -529,6 +530,7 @@ export default function App() {
       {settings?.theme === "rainy-window" && (
         <RainyWindowBackground density={activeTab === "reader" ? 0 : 1} />
       )}
+      {settings?.theme === "velvet-mercury" && <VelvetMercuryBackground />}
       <div
         className={cn(
           activeTab === "reader"

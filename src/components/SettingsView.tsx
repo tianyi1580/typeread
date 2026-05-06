@@ -61,6 +61,7 @@ export function SettingsView({
     mochaBlushTheme: false,
     nebulaDriftTheme: true,
     rainyWindowTheme: true,
+    velvetMercuryTheme: true,
     smoothCaret: false,
     premiumTypography: false,
     customErrorColors: false,
@@ -99,7 +100,7 @@ export function SettingsView({
       >
         <aside className={cn(
           "border-r border-[var(--border)] p-5",
-          settings.theme === "rainy-window" || settings.theme === "nebula-drift"
+          settings.theme === "rainy-window" || settings.theme === "nebula-drift" || settings.theme === "velvet-mercury"
             ? "bg-[color-mix(in_srgb,var(--bg)_98%,transparent)]"
             : "bg-[color-mix(in_srgb,var(--panel-soft)_80%,transparent)]"
         )}>
@@ -129,7 +130,7 @@ export function SettingsView({
 
         <div className={cn(
           "overflow-y-auto p-6 lg:p-8",
-          settings.theme === "rainy-window" || settings.theme === "nebula-drift" ? "bg-[var(--panel-popout)]" : ""
+          settings.theme === "rainy-window" || settings.theme === "nebula-drift" || settings.theme === "velvet-mercury" ? "bg-[var(--panel-popout)]" : ""
         )}>
           {section === "appearance" && (
             <div className="space-y-8">
@@ -148,13 +149,15 @@ export function SettingsView({
                       (key === "rosewood" && !unlocks.rosewoodTheme) ||
                       (key === "mocha-blush" && !unlocks.mochaBlushTheme) ||
                       (key === "nebula-drift" && !unlocks.nebulaDriftTheme) ||
-                      (key === "rainy-window" && !unlocks.rainyWindowTheme);
+                      (key === "rainy-window" && !unlocks.rainyWindowTheme) ||
+                      (key === "velvet-mercury" && !unlocks.velvetMercuryTheme);
 
                     const getThemeLevel = (themeKey: string) => {
                       if (themeKey === "dracula" || themeKey === "rosewood") return 10;
                       if (themeKey === "nord" || themeKey === "mocha-blush") return 15;
                       if (themeKey === "nebula-drift") return 20;
                       if (themeKey === "rainy-window") return 25;
+                      if (themeKey === "velvet-mercury") return 30;
                       return 0;
                     };
 

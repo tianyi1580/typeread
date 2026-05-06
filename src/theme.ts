@@ -183,6 +183,21 @@ export const themeMap: Record<ThemeName, ThemeDefinition> = {
     danger: "#fb7185",
     shadow: "rgba(0, 0, 0, 0.4)",
   },
+  "velvet-mercury": {
+    name: "Velvet Mercury",
+    background: "#fff0f5",
+    panel: "rgba(255, 255, 255, 0.55)",
+    panelSoft: "rgba(255, 228, 235, 0.30)",
+    panelPopout: "rgba(255, 248, 250, 0.97)",
+    border: "rgba(220, 80, 120, 0.10)",
+    text: "#4a2030",
+    textMuted: "#9a6b7a",
+    accent: "#e8375a",
+    accentSoft: "rgba(232, 55, 90, 0.10)",
+    success: "#3cb371",
+    danger: "#e8375a",
+    shadow: "rgba(180, 100, 130, 0.12)",
+  },
 };
 
 const DEFAULT_THEME_NAME: ThemeName = "catppuccin-macchiato";
