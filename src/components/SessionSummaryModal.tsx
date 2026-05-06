@@ -113,7 +113,7 @@ export function SessionSummaryModal({ summary, onClose }: SessionSummaryModalPro
   };
 
   return (
-    <div className="fixed inset-0 z-[70] overflow-y-auto bg-[rgba(6,8,14,0.85)] backdrop-blur-2xl no-scrollbar">
+    <div className="fixed inset-0 z-[70] overflow-y-auto bg-[color-mix(in_srgb,var(--bg)_85%,transparent)] backdrop-blur-2xl no-scrollbar">
       <motion.button 
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
@@ -190,7 +190,7 @@ export function SessionSummaryModal({ summary, onClose }: SessionSummaryModalPro
             <motion.div variants={itemVariants} className="rounded-[32px] border border-[var(--border)] bg-[var(--panel)] p-6 shadow-inner">
               <div className="flex items-center justify-between gap-4">
                 <p className="text-[10px] font-black uppercase tracking-[0.3em] text-[var(--text-muted)]">Performance Over Time</p>
-                <div className="flex gap-1 rounded-full bg-white/5 p-1">
+                <div className="flex gap-1 rounded-full bg-[var(--panel-soft)] p-1">
                   {(["wpm", "accuracy"] as const).map((m) => (
                     <button
                       key={m}
@@ -242,7 +242,7 @@ export function SessionSummaryModal({ summary, onClose }: SessionSummaryModalPro
                     <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[var(--text-muted)]">Slowest Transitions</p>
                     <div className="mt-4 space-y-2">
                       {summary.deepAnalytics.transitions.slowest.slice(0, 3).map((t) => (
-                        <div key={t.combo} className="group flex items-center justify-between rounded-xl border border-white/5 bg-white/5 px-4 py-3 text-xs transition-all hover:border-[var(--accent)]/50 hover:bg-white/10">
+                        <div key={t.combo} className="group flex items-center justify-between rounded-xl border border-[var(--border)] bg-[var(--panel-soft)] px-4 py-3 text-xs transition-all hover:border-[var(--accent)]/50 hover:bg-[var(--panel)]">
                           <span className="font-black tracking-tight font-mono">{t.combo.replace(/ /g, "␣")}</span>
                           <span className="text-[var(--text-muted)] tabular-nums font-bold">{t.averageMs.toFixed(0)}ms</span>
                         </div>
@@ -282,7 +282,7 @@ export function SessionSummaryModal({ summary, onClose }: SessionSummaryModalPro
                 className="group relative min-w-[240px] overflow-hidden rounded-2xl py-6 text-lg font-black uppercase tracking-widest transition-all hover:scale-105 active:scale-95 bg-[var(--accent)] text-black"
               >
                 <span className="relative z-10">Continue</span>
-                <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300" />
+                <div className="absolute inset-0 bg-[var(--panel-soft)] translate-y-full group-hover:translate-y-0 transition-transform duration-300" />
               </Button>
             </div>
           </motion.div>
@@ -300,7 +300,7 @@ function HeroMetric({ label, value, description, highlight = false }: { label: s
         "group relative w-full cursor-help overflow-hidden rounded-[28px] border p-6 transition-all duration-500",
         highlight 
           ? "border-[var(--accent)] bg-[var(--accent)]/10 shadow-[0_0_40px_rgba(138,173,244,0.15)]" 
-          : "border-white/5 bg-white/5 hover:border-white/20 hover:bg-white/10"
+          : "border-[var(--border)] bg-[var(--panel-soft)] hover:border-[var(--accent)] hover:bg-[var(--panel)]"
       )}>
         <p className="text-[10px] font-black uppercase tracking-[0.4em] text-[var(--text-muted)] group-hover:text-[var(--accent)] transition-colors">{label}</p>
         <div className="mt-3 text-4xl font-black tracking-tighter tabular-nums text-[var(--text)]">
@@ -325,7 +325,7 @@ function SummaryMetric({
 
   return (
     <InfoTooltip content={description} trigger="hover" maxWidth="240px" className="w-full">
-      <div className="group relative w-full cursor-help overflow-hidden rounded-[20px] border border-white/5 bg-white/5 px-5 py-4 transition-all hover:border-[var(--accent)]/30 hover:bg-white/10">
+      <div className="group relative w-full cursor-help overflow-hidden rounded-[20px] border border-[var(--border)] bg-[var(--panel-soft)] px-5 py-4 transition-all hover:border-[var(--accent)]/30 hover:bg-[var(--panel)]">
         <p className="text-[9px] font-black uppercase tracking-[0.2em] text-[var(--text-muted)] group-hover:text-[var(--accent)] transition-colors">{label}</p>
         <p className="mt-2 text-xl font-bold tracking-tight">{value}</p>
       </div>

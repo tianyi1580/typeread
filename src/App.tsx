@@ -844,7 +844,7 @@ function ConfirmationModal({
   isLoading?: boolean;
 }) {
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 px-4 backdrop-blur-sm">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-[var(--panel-soft)] px-4 backdrop-blur-sm">
       <button type="button" className="absolute inset-0 cursor-default" onClick={onCancel} />
       <Card className="relative w-full max-w-md overflow-hidden rounded-[32px] p-8 shadow-2xl">
         <h3 className="text-2xl font-semibold">{title}</h3>

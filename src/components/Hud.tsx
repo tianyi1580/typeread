@@ -51,7 +51,7 @@ export function Hud({
         minimal ? "opacity-60" : "opacity-100"
       }`}
     >
-      <div className="absolute inset-x-0 top-0 h-[3px] bg-white/10">
+      <div className="absolute inset-x-0 top-0 h-[3px] bg-[var(--panel-soft)]">
         <div className="h-full bg-[var(--accent)] transition-all duration-300" style={{ width: `${metrics.progress * 100}%` }} />
       </div>
       <div className="absolute inset-x-0 top-[4px] h-[2px] bg-transparent">

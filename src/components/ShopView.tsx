@@ -182,7 +182,7 @@ function ShopItem({ title, description, price, currency, tag, isUnlocked }: Shop
             )} />
             <div className="relative z-10 flex flex-col items-center gap-2">
               <span className="text-sm font-bold uppercase tracking-widest text-white/50 group-hover:text-white/80 transition-colors">Preview</span>
-              <div className="h-[2px] w-8 bg-white/20 group-hover:w-12 transition-all" />
+              <div className="h-[2px] w-8 bg-[var(--panel-soft)] group-hover:w-12 transition-all" />
             </div>
           </div>
           <h3 className="text-lg font-bold group-hover:text-[var(--accent)] transition-colors">{title}</h3>

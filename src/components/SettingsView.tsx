@@ -90,7 +90,7 @@ export function SettingsView({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4 py-6">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--panel-soft)] px-4 py-6">
       <button type="button" aria-label="Close settings" className="absolute inset-0" onClick={onClose} />
       <Card
         role="dialog"
@@ -311,7 +311,7 @@ export function SettingsView({
               <div className="liquid-glass-soft space-y-8 rounded-[32px] p-8">
                 <div className="space-y-3">
                   <p className="text-xs font-black uppercase tracking-[0.3em] text-[var(--text-muted)]">Default Layout</p>
-                  <div className="inline-flex rounded-full border border-[var(--border)] bg-black/10 p-1.5 shadow-inner">
+                  <div className="inline-flex rounded-full border border-[var(--border)] bg-[var(--panel-soft)] p-1.5 shadow-inner">
                     <TogglePill active={settings.readerMode === "scroll"} onClick={() => onChange({ ...settings, readerMode: "scroll" })}>
                       Single Page Scroll
                     </TogglePill>
@@ -344,7 +344,7 @@ export function SettingsView({
                       onChange={(event) => onChange({ ...settings, customKeyboardLayout: event.target.value })}
                       rows={4}
                       placeholder={"1234567890-=\nqwertyuiop[]\\\nasdfghjkl;'\nzxcvbnm,./"}
-                      className="w-full rounded-[24px] border border-[var(--border)] bg-black/10 px-5 py-4 outline-none transition focus:border-[var(--accent)] shadow-inner"
+                      className="w-full rounded-[24px] border border-[var(--border)] bg-[var(--panel-soft)] px-5 py-4 outline-none transition focus:border-[var(--accent)] shadow-inner"
                     />
                   </label>
                 )}
@@ -359,7 +359,7 @@ export function SettingsView({
                     onChange={(event) => onChange({ ...settings, ignoredCharacters: event.target.value })}
                     rows={3}
                     placeholder={`"${'"'}", "'", "“", "”"`}
-                    className="w-full rounded-[24px] border border-[var(--border)] bg-black/10 px-5 py-4 outline-none transition focus:border-[var(--accent)] shadow-inner"
+                    className="w-full rounded-[24px] border border-[var(--border)] bg-[var(--panel-soft)] px-5 py-4 outline-none transition focus:border-[var(--accent)] shadow-inner"
                   />
                 </label>
               </div>
@@ -490,7 +490,7 @@ function SelectField<T extends string>({
         <select
           value={value}
           onChange={(event) => onValueChange(event.target.value as T)}
-          className="w-full rounded-[24px] border border-[var(--border)] bg-black/10 px-5 py-4 outline-none transition focus:border-[var(--accent)] shadow-inner appearance-none cursor-pointer pr-12"
+          className="w-full rounded-[24px] border border-[var(--border)] bg-[var(--panel-soft)] px-5 py-4 outline-none transition focus:border-[var(--accent)] shadow-inner appearance-none cursor-pointer pr-12"
         >
           {options.map((option) => (
             <option key={option.value} value={option.value} className="bg-[var(--bg)] text-[var(--text)]">
@@ -610,7 +610,7 @@ function TogglePill({
         "rounded-full px-5 py-2.5 text-sm font-bold transition-all duration-300",
         active
           ? "bg-[var(--accent)] text-black shadow-lg shadow-[var(--accent)]/30 scale-105 z-10"
-          : "text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-white/5"
+          : "text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-[var(--panel)]"
       )}
     >
       {children}

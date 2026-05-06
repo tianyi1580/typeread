@@ -201,7 +201,7 @@ export function AnalyticsView({
                 <span>Progress to Level {analytics.profile.level + 1}</span>
                 <span>{Math.round(analytics.profile.progressToNextLevel * 100)}%</span>
               </div>
-              <div className="mt-3 h-4 overflow-hidden rounded-full bg-black/20 p-1">
+              <div className="mt-3 h-4 overflow-hidden rounded-full bg-[var(--panel-soft)] p-1">
                 <div
                   className="h-full rounded-full bg-gradient-to-r from-[var(--accent)] to-[#b8d0ff] shadow-[0_0_15px_rgba(138,173,244,0.4)] transition-all duration-1000"
                   style={{ width: `${analytics.profile.progressToNextLevel * 100}%` }}
@@ -240,7 +240,7 @@ export function AnalyticsView({
         "flex flex-wrap gap-2 rounded-[28px] p-2",
         settings?.theme === "rainy-window" || settings?.theme === "nebula-drift" || settings?.theme === "velvet-mercury"
           ? "liquid-glass-soft"
-          : "border border-[var(--border)] bg-black/10 backdrop-blur-md"
+          : "border border-[var(--border)] bg-[var(--panel-soft)] backdrop-blur-md"
       )}>
         <TabButton active={activeTab === "session"} onClick={() => setActiveTab("session")} label="Session Stats" />
         <TabButton active={activeTab === "lifetime"} onClick={() => setActiveTab("lifetime")} label="Lifetime Stats" />
@@ -289,7 +289,7 @@ export function AnalyticsView({
                   <InfoIcon className="h-4 w-4" />
                 </InfoTooltip>
               </div>
-              <div className="flex gap-1 rounded-full bg-black/20 p-1">
+              <div className="flex gap-1 rounded-full bg-[var(--panel-soft)] p-1">
                 <ToggleButton active={sessionMetric === "wpm"} onClick={() => setSessionMetric("wpm")} label="WPM" />
                 <ToggleButton active={sessionMetric === "accuracy"} onClick={() => setSessionMetric("accuracy")} label="Accuracy" />
               </div>
@@ -336,14 +336,14 @@ export function AnalyticsView({
                 </InfoTooltip>
               </div>
               <div className="flex flex-wrap items-center gap-4">
-                <div className="flex gap-1 rounded-full bg-black/20 p-1">
+                <div className="flex gap-1 rounded-full bg-[var(--panel-soft)] p-1">
                   <ToggleButton active={timeRange === "7"} onClick={() => setTimeRange("7")} label="7d" />
                   <ToggleButton active={timeRange === "30"} onClick={() => setTimeRange("30")} label="30d" />
                   <ToggleButton active={timeRange === "90"} onClick={() => setTimeRange("90")} label="90d" />
                   <ToggleButton active={timeRange === "365"} onClick={() => setTimeRange("365")} label="1y" />
                   <ToggleButton active={timeRange === "all"} onClick={() => setTimeRange("all")} label="All" />
                 </div>
-                <div className="flex gap-1 rounded-full bg-black/20 p-1">
+                <div className="flex gap-1 rounded-full bg-[var(--panel-soft)] p-1">
                   <ToggleButton active={lifetimeMetric === "wpm"} onClick={() => setLifetimeMetric("wpm")} label="WPM" />
                   <ToggleButton active={lifetimeMetric === "accuracy"} onClick={() => setLifetimeMetric("accuracy")} label="Accuracy" />
                   <ToggleButton active={lifetimeMetric === "words"} onClick={() => setLifetimeMetric("words")} label="Words" />
@@ -382,7 +382,7 @@ export function AnalyticsView({
                 <h2 className="mt-3 text-3xl font-bold">Directional drift by key</h2>
               </div>
               <div className="flex items-center gap-4">
-                <div className="flex rounded-full border border-[var(--border)] bg-black/10 p-1">
+                <div className="flex rounded-full border border-[var(--border)] bg-[var(--panel-soft)] p-1">
                   <button
                     type="button"
                     onClick={() => setHeatmapView("keyboard")}
@@ -405,7 +405,7 @@ export function AnalyticsView({
                   </button>
                 </div>
                 {heatmapView === "keyboard" ? (
-                  <div className="flex rounded-full border border-[var(--border)] bg-black/10 p-1">
+                  <div className="flex rounded-full border border-[var(--border)] bg-[var(--panel-soft)] p-1">
                     <button
                       type="button"
                       onClick={() => setHeatmapMode("drift")}
@@ -428,7 +428,7 @@ export function AnalyticsView({
                     </button>
                   </div>
                 ) : (
-                  <div className="flex gap-1 rounded-full bg-black/10 p-1">
+                  <div className="flex gap-1 rounded-full bg-[var(--panel-soft)] p-1">
                     <ToggleButton active={keyAccuracySortOrder === "asc"} onClick={() => setKeyAccuracySortOrder("asc")} label="Lowest First" />
                     <ToggleButton active={keyAccuracySortOrder === "desc"} onClick={() => setKeyAccuracySortOrder("desc")} label="Highest First" />
                   </div>
@@ -437,14 +437,14 @@ export function AnalyticsView({
                   "rounded-full px-5 py-2 text-xs font-semibold tracking-wide text-[var(--text-muted)]",
                   settings?.theme === "rainy-window" || settings?.theme === "nebula-drift" || settings?.theme === "velvet-mercury"
                     ? "liquid-glass-soft"
-                    : "border border-[var(--border)] bg-white/5 backdrop-blur-md"
+                    : "border border-[var(--border)] bg-[var(--panel-soft)] backdrop-blur-md"
                 )}>
                   {layout.name}
                 </div>
               </div>
             </div>
             <div className="mt-10 grid gap-10 xl:grid-cols-[minmax(0,1fr)_340px]">
-              <div className={`flex items-center ${heatmapView === "keyboard" ? 'justify-center overflow-x-auto' : 'items-start'} rounded-[32px] border border-[var(--border)] bg-black/20 p-8 shadow-inner`}>
+              <div className={`flex items-center ${heatmapView === "keyboard" ? 'justify-center overflow-x-auto' : 'items-start'} rounded-[32px] border border-[var(--border)] bg-[var(--panel-soft)] p-8 shadow-inner`}>
                 {heatmapView === "keyboard" ? (
                   <KeyboardHeatmap
                     layout={layout}
@@ -477,8 +477,8 @@ export function AnalyticsView({
                           <button
                             key={acc.key}
                             onClick={() => setSelectedKey(acc.key)}
-                            className={`group flex flex-col items-center justify-center rounded-[20px] border p-4 transition-all hover:border-[var(--accent)] hover:bg-white/10 ${
-                              isSelected ? 'border-[var(--accent)] bg-white/10 shadow-[0_0_20px_rgba(138,173,244,0.15)]' : 'border-[var(--border)] bg-white/5'
+                            className={`group flex flex-col items-center justify-center rounded-[20px] border p-4 transition-all hover:border-[var(--accent)] hover:bg-[var(--panel)] ${
+                              isSelected ? 'border-[var(--accent)] bg-[var(--panel-soft)] shadow-[0_0_20px_rgba(138,173,244,0.15)]' : 'border-[var(--border)] bg-[var(--panel-soft)]'
                             }`}
                           >
                             <span className={`text-2xl font-bold tracking-tighter transition-colors ${
@@ -539,7 +539,7 @@ export function AnalyticsView({
               <InfoIcon className="h-3.5 w-3.5" />
             </InfoTooltip>
           </div>
-          <div className="mt-8 overflow-hidden rounded-[24px] border border-[var(--border)] bg-black/10">
+          <div className="mt-8 overflow-hidden rounded-[24px] border border-[var(--border)] bg-[var(--panel-soft)]">
             <table className="w-full border-collapse text-left">
               <thead className="bg-[var(--panel-soft)] text-xs uppercase tracking-[0.22em] text-[var(--text-muted)]">
                 <tr>
@@ -552,7 +552,7 @@ export function AnalyticsView({
               </thead>
               <tbody className="divide-y divide-[var(--border)]">
                 {filteredSessionPoints.slice(0, 10).map((session) => (
-                  <tr key={session.id} className="group transition-colors hover:bg-white/5">
+                  <tr key={session.id} className="group transition-colors hover:bg-[var(--panel)]">
                     <td className="px-6 py-4 text-sm tabular-nums">
                       {(() => {
                         const date = new Date(session.startTime);
@@ -582,7 +582,7 @@ function TabButton({ active, onClick, label }: { active: boolean; onClick: () =>
       onClick={onClick}
       className={`px-8 py-3 rounded-[20px] text-sm font-bold tracking-tight transition-all duration-300 ${active
           ? "bg-[var(--accent)] text-black shadow-lg shadow-[var(--accent)]/20"
-          : "text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-white/5"
+          : "text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-[var(--panel)]"
         }`}
     >
       {label}
@@ -610,7 +610,7 @@ function HeroMetric({ label, value }: { label: string; value: string }) {
 
   return (
     <InfoTooltip content={description} trigger="hover" maxWidth="280px" className="w-full">
-      <div className="group relative w-full cursor-help overflow-hidden rounded-[24px] border border-[var(--border)] bg-white/5 px-6 py-6 transition-all hover:border-[var(--accent)] hover:bg-white/10">
+      <div className="group relative w-full cursor-help overflow-hidden rounded-[24px] border border-[var(--border)] bg-[var(--panel-soft)] px-6 py-6 transition-all hover:border-[var(--accent)] hover:bg-[var(--panel)]">
         <div className="absolute -right-4 -top-4 h-12 w-12 rounded-full bg-[var(--accent)] opacity-0 blur-xl transition-opacity group-hover:opacity-20" />
         <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-[var(--text-muted)] group-hover:text-[var(--accent)] transition-colors">
           {label}
@@ -840,7 +840,7 @@ function SessionGraph({
               height="50"
               className="pointer-events-none"
             >
-              <div className="rounded-xl border border-[var(--border)] bg-[rgba(36,39,58,0.9)] px-3 py-2 shadow-2xl backdrop-blur-xl">
+              <div className="rounded-xl border border-[var(--border)] bg-[var(--panel-popout)] px-3 py-2 shadow-2xl backdrop-blur-xl">
                 <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--text-muted)]">
                   {xAxisType === "time" ? `${((hoveredPoint.raw.at - minAt) / 1000).toFixed(1)}s` : `Day ${Math.round(hoveredPoint.raw.at)}`}
                 </p>
@@ -964,7 +964,7 @@ function DirectionalPanel({
 
   return (
     <div className="space-y-5">
-      <div className="rounded-[32px] border border-[var(--border)] bg-white/5 p-6 backdrop-blur-sm">
+      <div className="rounded-[32px] border border-[var(--border)] bg-[var(--panel-soft)] p-6 backdrop-blur-sm">
         <div className="flex items-center gap-2">
           <p className="text-xs font-bold uppercase tracking-[0.24em] text-[var(--text-muted)]">
             {mode === "accuracy" ? "Key Accuracy" : "Directional Vectors"}
@@ -973,7 +973,7 @@ function DirectionalPanel({
             <InfoIcon className="h-3 w-3" />
           </InfoTooltip>
         </div>
-        <div className="relative mt-6 flex h-[180px] items-center justify-center rounded-2xl bg-black/20 overflow-hidden">
+        <div className="relative mt-6 flex h-[180px] items-center justify-center rounded-2xl bg-[var(--panel-soft)] overflow-hidden">
           {mode === "accuracy" ? (
             selectedKey ? (
               (() => {
@@ -1035,7 +1035,7 @@ function DirectionalPanel({
       </div>
 
 
-      <div className="rounded-[32px] border border-[var(--border)] bg-white/5 p-6 backdrop-blur-sm">
+      <div className="rounded-[32px] border border-[var(--border)] bg-[var(--panel-soft)] p-6 backdrop-blur-sm">
         <div className="flex items-center gap-2">
           <p className="text-xs font-bold uppercase tracking-[0.24em] text-[var(--text-muted)]">Top Misses</p>
           <InfoTooltip content={SECTION_DESCRIPTIONS.misses} trigger="click">
@@ -1047,7 +1047,7 @@ function DirectionalPanel({
             const drift = selectedKey ? drifts[i] : null;
             if (drift) {
               return (
-                <div key={`${drift.expected}-${drift.typed}`} className="flex h-[48px] items-center justify-between rounded-[20px] border border-[var(--border)] bg-black/10 px-5 text-sm font-medium transition-all">
+                <div key={`${drift.expected}-${drift.typed}`} className="flex h-[48px] items-center justify-between rounded-[20px] border border-[var(--border)] bg-[var(--panel-soft)] px-5 text-sm font-medium transition-all">
                   <span className="flex items-center gap-2">
                     <span className="text-[var(--text-muted)]">{drift.expected}</span>
                     <span className="text-[var(--accent)]">→</span>
@@ -1060,7 +1060,7 @@ function DirectionalPanel({
               );
             }
             return (
-              <div key={`empty-${i}`} className="flex h-[48px] items-center justify-between rounded-[20px] border border-[var(--border)] bg-black/5 px-5 text-sm font-medium opacity-30">
+              <div key={`empty-${i}`} className="flex h-[48px] items-center justify-between rounded-[20px] border border-[var(--border)] bg-[var(--panel-soft)] px-5 text-sm font-medium opacity-30">
                 <span className="text-[var(--text-muted)] italic">
                   {selectedKey ? "no drift recorded" : "select a key"}
                 </span>
@@ -1086,7 +1086,7 @@ function TransitionTable({
   description: string;
 }) {
   return (
-    <div className="flex flex-col rounded-[32px] border border-[var(--border)] bg-white/5 p-6">
+    <div className="flex flex-col rounded-[32px] border border-[var(--border)] bg-[var(--panel-soft)] p-6">
       <div className="flex items-center gap-2">
         <p className="text-sm font-bold uppercase tracking-widest text-[var(--text-muted)]">{title}</p>
         <InfoTooltip content={description} trigger="click">
@@ -1096,7 +1096,7 @@ function TransitionTable({
       <div className="mt-6 flex-1 space-y-3">
         {rows.length > 0 ? (
           rows.map((row) => (
-            <div key={row.combo} className="group flex items-center justify-between rounded-[20px] border border-[var(--border)] bg-black/10 px-5 py-4 transition-all hover:bg-white/5">
+            <div key={row.combo} className="group flex items-center justify-between rounded-[20px] border border-[var(--border)] bg-[var(--panel-soft)] px-5 py-4 transition-all hover:bg-[var(--panel)]">
               <div>
                 <span className="text-xl font-bold tracking-tighter text-[var(--text)]">{row.combo.replace(/ /g, "␣")}</span>
                 <p className="mt-1 text-[10px] font-bold uppercase tracking-widest text-[var(--text-muted)]">{row.samples} samples</p>

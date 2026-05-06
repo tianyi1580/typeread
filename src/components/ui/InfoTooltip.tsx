@@ -194,7 +194,7 @@ export function InfoTooltip({
 
 export function InfoIcon({ className }: { className?: string }) {
   return (
-    <div className={cn("flex items-center justify-center rounded-full hover:bg-white/10 transition-colors cursor-help", className)}>
+    <div className={cn("flex items-center justify-center rounded-full hover:bg-[var(--panel)] transition-colors cursor-help", className)}>
       <svg
         xmlns="http://www.w3.org/2000/svg"
         viewBox="0 0 24 24"

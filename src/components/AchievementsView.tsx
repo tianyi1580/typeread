@@ -52,14 +52,14 @@ export function AchievementsView({ earnedAwards }: AchievementsViewProps) {
                 </div>
                 <div
                   className={`rounded-full px-3 py-1 text-xs font-medium uppercase tracking-[0.18em] ${
-                    earnedAt ? "bg-[var(--accent)] text-black" : "bg-black/15 text-[var(--text-muted)]"
+                    earnedAt ? "bg-[var(--accent)] text-black" : "bg-[var(--panel-soft)] text-[var(--text-muted)]"
                   }`}
                 >
                   {earnedAt ? "Earned" : "Locked"}
                 </div>
               </div>
               <p className="mt-4 text-sm leading-7 text-[var(--text-muted)]">{achievement.description}</p>
-              <div className="mt-6 rounded-[20px] border border-[var(--border)] bg-black/10 px-4 py-3 text-sm">
+              <div className="mt-6 rounded-[20px] border border-[var(--border)] bg-[var(--panel-soft)] px-4 py-3 text-sm">
                 {earnedAt ? `Earned on ${new Date(earnedAt).toLocaleDateString()}` : "Not earned yet."}
               </div>
             </Card>

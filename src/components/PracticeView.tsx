@@ -423,7 +423,7 @@ export function PracticeView({
                   <div className="group relative">
                     <button
                       type="button"
-                      className="flex h-5 w-5 items-center justify-center rounded-full bg-white/5 text-[10px] font-bold text-[var(--text-muted)] transition hover:bg-[var(--accent)] hover:text-black"
+                      className="flex h-5 w-5 items-center justify-center rounded-full bg-[var(--panel-soft)] text-[10px] font-bold text-[var(--text-muted)] transition hover:bg-[var(--accent)] hover:text-black"
                     >
                       i
                     </button>
@@ -454,7 +454,7 @@ export function PracticeView({
                     }}
                     disabled={status !== "idle"}
                     aria-label="Word bank difficulty"
-                    className="h-1.5 w-32 cursor-pointer appearance-none rounded-full bg-white/10 accent-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-50"
+                    className="h-1.5 w-32 cursor-pointer appearance-none rounded-full bg-[var(--panel-soft)] accent-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-50"
                   />
                   <span className="text-[10px] text-[var(--text-muted)]">Hard</span>
                 </div>
@@ -482,7 +482,7 @@ export function PracticeView({
 
               {mode === "versus" && (
                 <div className="absolute inset-x-6 bottom-5 h-8 md:inset-x-10">
-                  <div className="absolute inset-x-0 top-1/2 h-px -translate-y-1/2 bg-white/10" />
+                  <div className="absolute inset-x-0 top-1/2 h-px -translate-y-1/2 bg-[var(--panel-soft)]" />
                   <div
                     className="absolute top-1/2 h-2 w-2 -translate-y-1/2 rounded-full bg-[var(--accent)] shadow-[0_0_18px_var(--accent)]"
                     style={{ left: `calc(${botProgress * 100}% - 4px)` }}
@@ -492,16 +492,16 @@ export function PracticeView({
             </div>
             
             {status === "completed" && (
-              <div className="absolute inset-0 flex items-center justify-center bg-black/40 backdrop-blur-md rounded-[34px] z-50">
+              <div className="absolute inset-0 flex items-center justify-center bg-[color-mix(in_srgb,var(--bg)_60%,transparent)] backdrop-blur-md rounded-[34px] z-50">
                 <div className="text-center animate-in fade-in zoom-in duration-500 max-w-sm px-6">
                   <p className="text-2xl font-bold">Session Finished</p>
                   
                   <div className="mt-6 grid grid-cols-2 gap-4">
-                    <div className="rounded-2xl bg-white/5 p-4 border border-white/10">
+                    <div className="rounded-2xl bg-[var(--panel-soft)] p-4 border border-[var(--border)]">
                       <p className="text-[10px] uppercase tracking-widest text-[var(--text-muted)]">WPM</p>
                       <p className="text-2xl font-bold mt-1">{metrics.wpm.toFixed(1)}</p>
                     </div>
-                    <div className="rounded-2xl bg-white/5 p-4 border border-white/10">
+                    <div className="rounded-2xl bg-[var(--panel-soft)] p-4 border border-[var(--border)]">
                       <p className="text-[10px] uppercase tracking-widest text-[var(--text-muted)]">Accuracy</p>
                       <p className="text-2xl font-bold mt-1">{formatPercent(metrics.accuracy)}</p>
                     </div>
@@ -570,7 +570,7 @@ function ModeChip({
       onClick={onClick}
       disabled={disabled}
       className={`rounded-full px-4 py-2 text-sm transition ${
-        active ? "bg-[var(--accent)] text-black" : "border border-[var(--border)] bg-black/10 text-[var(--text-muted)]"
+        active ? "bg-[var(--accent)] text-black" : "border border-[var(--border)] bg-[var(--panel-soft)] text-[var(--text-muted)]"
       } ${disabled ? "opacity-50 cursor-not-allowed" : ""}`}
     >
       {children}
@@ -580,7 +580,7 @@ function ModeChip({
 
 function Metric({ label, value, compact = false }: { label: string; value: string; compact?: boolean }) {
   return (
-    <div className="rounded-[22px] border border-[var(--border)] bg-black/10 px-4 py-3">
+    <div className="rounded-[22px] border border-[var(--border)] bg-[var(--panel-soft)] px-4 py-3">
       <p className="text-[10px] uppercase tracking-[0.24em] text-[var(--text-muted)]">{label}</p>
       <p className={compact ? "mt-2 text-xl font-semibold" : "mt-3 text-3xl font-semibold"}>{value}</p>
     </div>

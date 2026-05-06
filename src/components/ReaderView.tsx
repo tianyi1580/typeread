@@ -844,7 +844,7 @@ export function ReaderView({
                           "flex w-full items-center rounded-[20px] px-4 py-3 text-left text-sm transition",
                           idx === chapterIndex
                             ? "bg-[var(--accent-soft)] font-semibold text-[var(--text)]"
-                            : "text-[var(--text-muted)] hover:bg-white/5 hover:text-[var(--text)]",
+                            : "text-[var(--text-muted)] hover:bg-[var(--panel)] hover:text-[var(--text)]",
                         )}
                       >
                         <span className="mr-3 tabular-nums opacity-40">{idx + 1}</span>
@@ -868,7 +868,7 @@ export function ReaderView({
 
                           return (
                             <div className="ml-auto flex items-center gap-2 pl-4">
-                              <div className="h-1 w-10 overflow-hidden rounded-full bg-white/10">
+                              <div className="h-1 w-10 overflow-hidden rounded-full bg-[var(--panel-soft)]">
                                 <div
                                   className="h-full bg-[var(--accent)] transition-all duration-300"
                                   style={{ width: `${Math.min(1, progress) * 100}%` }}
@@ -1115,7 +1115,7 @@ export function ReaderView({
                     <div className="truncate text-center">
                       {Math.round(metrics.wpm)} WPM • {formatPercent(metrics.accuracy)} Acc
                     </div>
-                    <div className="absolute inset-x-0 bottom-0 h-[2px] overflow-hidden rounded-b-full bg-white/5">
+                    <div className="absolute inset-x-0 bottom-0 h-[2px] overflow-hidden rounded-b-full bg-[var(--panel-soft)]">
                       <div
                         className="h-full bg-[var(--accent)] transition-[width] duration-300"
                         style={{ width: `${metrics.chapterProgress * 100}%` }}

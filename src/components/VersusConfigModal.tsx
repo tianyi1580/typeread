@@ -67,7 +67,7 @@ export function VersusConfigModal({
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
       <div 
-        className="absolute inset-0 bg-black/60 backdrop-blur-md animate-in fade-in duration-300" 
+        className="absolute inset-0 bg-[color-mix(in_srgb,var(--bg)_60%,transparent)] backdrop-blur-md animate-in fade-in duration-300" 
         onClick={onClose} 
       />
       
@@ -101,7 +101,7 @@ export function VersusConfigModal({
               value={cpm}
               onChange={(e) => setCpm(clampBotCpm(Number(e.target.value)))}
               aria-label="Bot CPM speed"
-              className="h-1.5 w-full cursor-pointer appearance-none rounded-full bg-white/10 accent-[var(--accent)]"
+              className="h-1.5 w-full cursor-pointer appearance-none rounded-full bg-[var(--panel-soft)] accent-[var(--accent)]"
             />
             
             <div className="flex justify-between text-[10px] uppercase tracking-widest text-[var(--text-muted)]">
@@ -113,7 +113,7 @@ export function VersusConfigModal({
           <div className="flex flex-col gap-3">
             <Button 
               variant="secondary" 
-              className="w-full rounded-2xl border-white/5 bg-white/5 py-6 hover:bg-white/10"
+              className="w-full rounded-2xl border-[var(--border)] bg-[var(--panel-soft)] py-6 hover:bg-[var(--panel)]"
               onClick={() => setCpm(averageCpm)}
             >
               <div className="flex w-full items-center justify-between px-2">

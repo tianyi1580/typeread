@@ -246,7 +246,7 @@ export function LibraryView({
 
                       <div className="absolute left-4 top-4 flex gap-2">
                         {book.pinned && (
-                          <span className="rounded-full border border-white/20 bg-black/40 px-2.5 py-0.5 text-[9px] uppercase tracking-[0.2em] text-white backdrop-blur-md">
+                          <span className="rounded-full border border-white/20 bg-[var(--panel-soft)] px-2.5 py-0.5 text-[9px] uppercase tracking-[0.2em] text-white backdrop-blur-md">
                             Pinned
                           </span>
                         )}
@@ -278,7 +278,7 @@ export function LibraryView({
                   </div>
 
                   <div className="pointer-events-none absolute inset-x-0 bottom-1 z-20 h-1 px-5">
-                    <div className="relative h-full w-full overflow-hidden rounded-full bg-white/10">
+                    <div className="relative h-full w-full overflow-hidden rounded-full bg-[var(--panel-soft)]">
                       <div
                         className="absolute inset-y-0 left-0 bg-[var(--accent)] opacity-25 transition-all duration-500"
                         style={{ width: `${readProgress * 100}%` }}
@@ -391,7 +391,7 @@ export function LibraryView({
 
       {editingBook && (
         <div
-          className="fixed inset-0 z-40 flex items-center justify-center bg-black/45 px-4"
+          className="fixed inset-0 z-40 flex items-center justify-center bg-[var(--panel-soft)] px-4"
           onClick={(event) => {
             if (event.target === event.currentTarget) {
               setEditingBook(null);
@@ -499,7 +499,7 @@ function LibraryTipsModal({ onClose }: { onClose: () => void }) {
   };
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 backdrop-blur-sm animate-fade-in"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--panel-soft)] px-4 backdrop-blur-sm animate-fade-in"
       onClick={(event) => {
         if (event.target === event.currentTarget) {
           onClose();
@@ -876,7 +876,7 @@ function CoverManagementModal({
   onRemove: () => void;
 }) {
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 px-4 backdrop-blur-md">
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-[var(--panel-soft)] px-4 backdrop-blur-md">
       <div className="relative w-full max-w-md overflow-hidden rounded-[32px] border border-[var(--border)] bg-[var(--panel-popout)] p-8 shadow-2xl">
         <div className="mb-8 text-center">
           <p className="text-[10px] uppercase tracking-[0.3em] text-[var(--accent)] font-bold">Customize</p>
@@ -884,7 +884,7 @@ function CoverManagementModal({
         </div>
 
         <div className="mb-8 flex justify-center">
-          <div className="h-48 w-32 overflow-hidden rounded-xl border border-[var(--border)] bg-black/20 shadow-inner">
+          <div className="h-48 w-32 overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--panel-soft)] shadow-inner">
             {book.coverPath ? (
               <CoverImage path={book.coverPath} />
             ) : (
@@ -939,7 +939,7 @@ function CoverImage({ path }: { path: string }) {
     };
   }, [path]);
 
-  if (!url) return <div className="h-full w-full animate-pulse bg-white/5" />;
+  if (!url) return <div className="h-full w-full animate-pulse bg-[var(--panel-soft)]" />;
   return <img src={url} alt="" className="h-full w-full object-cover" />;
 }
 
@@ -983,7 +983,7 @@ function CoverEditorModal({
   };
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 px-4 backdrop-blur-md">
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-[var(--panel-soft)] px-4 backdrop-blur-md">
       <div className="relative flex h-[80vh] w-full max-w-4xl flex-col overflow-hidden rounded-[32px] border border-[var(--border)] bg-[var(--panel-popout)] shadow-2xl">
         <div className="flex items-center justify-between border-b border-[var(--border)] px-8 py-6">
           <div>
