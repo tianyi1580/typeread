@@ -1,57 +1,50 @@
-# Implementation Plan: Velvet Mercury Theme (Ethereal Swarm)
+# Pet System Implementation Plan: Kaylie (High-Performance Rive Path)
 
-## 1. Aesthetic Goal
-- **Color Palette**: 
-  - Background: Light Pink (`#fff0f5` / `rgba(255, 240, 245, 1)`)
-  - Accent: Vibrant Red (`#ff2d55`) / Clean White (`#ffffff`)
-  - Glows: Soft Magenta and Pink gradients.
-- **Central Feature**: A shimmering, flowy heart shape formed entirely by a dense swarm of tiny ethereal particles (krill/fish school style).
-- **Atmosphere**: Gentle sparkles, wispy flow lines, and an "edge-less" organic feel.
-- **ReaderView**: Extremely subtle, reducing swarm density and using high-transparency particles to ensure text clarity.
+This plan prioritizes **Application Performance (#1)** while delivering a **Premium & Alive** feel for our first companion: **Kaylie**, the white cat.
 
-## 2. Technical Architecture
+## 1. System Architecture
 
-### Swarm Particle System
-- **Heart Path Logic**:
-  - Define a mathematical heart path (e.g., parametric heart curve).
-  - Each particle has a "target point" on the path or is attracted to the nearest point on the path using a soft spring force.
-  - Add **Perlin/Simplex Noise** to the particle velocities to create the "flowy" organic movement seen in swarms.
-- **Zero-GC Loop**:
-  - Pre-allocate a pool of 500–1000 particles.
-  - Mutate properties directly in each frame.
-- **Sprite-Based Rendering**:
-  - Pre-render 3-4 variations of "ethereal bits" (small ovals with glow, tiny sparkles) to an offscreen canvas.
-  - Draw particles using `drawImage` for maximum performance.
+### 1.1 State Management (`src/store/pet-store.ts`) [DONE]
+A new Zustand store managed as a tab in the shop/profile to handle:
+- `activePetId`: string | null
+- `unlockedPetIds`: string[]
+- `petStats`: Record<string, { happiness: number, experience: number }>
 
-### Background Layers
-1. **Base Layer**: Solid light pink or very soft radial gradient.
-2. **Wisps Layer**: 2-3 large, slow-moving canvas wisps (bezier curves with shadow blur) to simulate gaseous flow.
-3. **Swarm Layer**: The main heart-shaped particle system.
-4. **Overlay**: Very subtle noise texture for premium "paper-like" depth.
+### 1.2 Data Models (`src/types.ts`) [DONE]
+Added `PetDefinition` for metadata and rarity.
+
+## 2. Component Design (High Fidelity)
+
+### 2.1 `TypeBuddy` Component (`src/components/ui/TypeBuddy.tsx`)
+A dedicated container using **Rive** for high-performance interactive animations.
+- **Positioning**: Fixed in the margins (bottom-right) of the Reader and Practice views.
+- **Visuals**: A "Glass-Morph" pedestal with a Rive runtime canvas.
+- **Interactions**: State Machine inputs drive behavior (Mouse hover, Typing speed).
+
+### 2.2 `Kaylie` Implementation (Rive)
+Kaylie will be implemented as a Rive State Machine to ensure organic, fluid movement with zero CPU overhead for logic.
+- **States**: 
+  - `Idle`: Soft breathing, looking around, occasional blink.
+  - `Typing`: Concentrated look, head tracking the "caret" via Rive inputs.
+  - `Fast`: High-energy tail wag, "zoomie" eyes, glowing aura.
+  - `Error`: Subtle "paws-over-eyes" or disappointment posture.
 
 ## 3. Integration Plan
 
-### src/theme.ts
-- Update `velvet-mercury` color constants:
-  - Background: `#fff0f5` (Lavender Blush / Light Pink)
-  - Panel: `rgba(255, 255, 255, 0.7)` (Glassy White)
-  - Accent: `#ff2d55` (Pinkish Red)
+### Phase 1: Foundation (Current)
+1.  **Dependencies**: Install `@rive-app/react-canvas`.
+2.  **Infrastructure**: Update `TypeBuddy.tsx` to handle Rive runtimes.
+3.  **Mock Assets**: Use a high-quality placeholder `.riv` while Kaylie's specific asset is finalized.
 
-### src/components/VelvetMercuryBackground.tsx
-- Rewrite `VelvetMercuryParticles`:
-  - Implement the heart-attraction force.
-  - Implement swarm behavior (cohesion/noise).
-  - Pass `isSubtle` to drastically reduce particle count and speed for `ReaderView`.
-- Update `VelvetMercuryBackground`:
-  - New ambient glows matching the light pink theme.
+### Phase 2: "Alive" Interactivity
+1.  **State Machine Inputs**: Map `wpm`, `accuracy`, and `isTyping` to Rive inputs (`Number` and `Boolean`).
+2.  **Cursor Tracking**: Pass mouse coordinates to Rive for real-time head tracking.
 
-### Optimization Strategy
-- **Offscreen Canvas**: Only the particles will be dynamic. Background wisps can be very slow or even static CSS/SVG.
-- **Density Multiplier**: Support a density setting to allow lower-end machines to reduce the particle count.
-- **WPM Scaling**: Link the swarm "agitation" or noise intensity to WPM for a reactive feel.
+### Phase 3: Premium Polish
+1.  **Aura System**: Use CSS filters (drop-shadow/glow) on the Rive canvas that change color based on `theme.accent`.
+2.  **Theme Adaptation**: Detect "Rainy Window" theme to trigger "paws-on-glass" or "umbrella" states in Rive.
 
-## 4. Quality Checklist
-- [ ] No sharp edges on the heart; it should feel like a cloud.
-- [ ] Text in `ReaderView` must be 100% readable.
-- [ ] 60 FPS on standard hardware.
-- [ ] Colors feel "premium" and cohesive (not generic bubblegum pink).
+## 4. Next Steps
+1.  [ ] Install `@rive-app/react-canvas`.
+2.  [ ] Update `TypeBuddy.tsx` to use `useRive` hook.
+3.  [ ] Implement Rive input mapping for metrics.

@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef } from "react";
 import { cn } from "../lib/utils";
 import type { InteractionMode, TokenizedWord, TypingSnapshot, WordTypingState } from "../types";
 import { normalizeForCompare } from "../utils/typing";
+import { useAppStore } from "../store/app-store";
 
 /**
  * Properties for the TypingLayer component.
@@ -50,6 +51,10 @@ export function TypingLayer({
   smoothCaret = false,
   botCursorIndex = null,
 }: TypingLayerProps) {
+  const { settings } = useAppStore();
+  const isPremiumTheme = settings.theme === "nebula-drift" || settings.theme === "rainy-window" || settings.theme === "satin-heart";
+  const effectiveSmoothCaret = smoothCaret || isPremiumTheme;
+
   const currentWordRef = useRef<HTMLSpanElement | null>(null);
   const WINDOW_SIZE = 300;
   const BUFFER = 80;
@@ -335,6 +340,37 @@ export function TypingLayer({
     return () => window.removeEventListener("resize", updateCaret);
   }, [snapshot.currentWordIndex, snapshot.words[snapshot.currentWordIndex]?.typed.length, interactionMode]);
 
+  // Particle emission logic for premium carets
+  const particlesRef = useRef<any[]>([]);
+  const lastCaretPos = useRef({ left: 0, top: 0 });
+
+  useEffect(() => {
+    if (settings.theme !== "nebula-drift" || caretStyle.opacity === 0) return;
+
+    const dx = caretStyle.left - lastCaretPos.current.left;
+    const dy = caretStyle.top - lastCaretPos.current.top;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+
+    if (dist > 1) {
+      // Emit particles along the path if it's a large jump, or just at the new position
+      const count = dist > 20 ? 8 : 3;
+      for (let i = 0; i < count; i++) {
+        const t = i / count;
+        particlesRef.current.push({
+          x: lastCaretPos.current.left + dx * t + (Math.random() - 0.5) * 4,
+          y: lastCaretPos.current.top + dy * t + (Math.random() - 0.5) * caretStyle.height,
+          vx: (Math.random() - 0.5) * 0.5,
+          vy: (Math.random() - 0.5) * 0.5 - 0.2,
+          life: 1.0,
+          decay: 0.02 + Math.random() * 0.03,
+          size: 1 + Math.random() * 1.5,
+          color: Math.random() > 0.5 ? "#c084fc" : "#818cf8",
+        });
+      }
+    }
+    lastCaretPos.current = { left: caretStyle.left, top: caretStyle.top };
+  }, [caretStyle.left, caretStyle.top, settings.theme]);
+
 
   return (
     <div
@@ -348,9 +384,12 @@ export function TypingLayer({
         className,
       )}
     >
-      {smoothCaret && (
+      {effectiveSmoothCaret && (
         <div
-          className="absolute z-50 w-[2px] bg-[var(--accent)] transition-all duration-100 ease-out"
+          className={cn(
+            "absolute z-50 w-[2px] bg-[var(--accent)] transition-all duration-100 ease-out",
+            settings.theme === "nebula-drift" && "caret-cosmic-pulse"
+          )}
           style={{
             top: caretStyle.top + (caretStyle.height * 0.1),
             left: caretStyle.left - 0.5,
@@ -358,6 +397,10 @@ export function TypingLayer({
             opacity: caretStyle.opacity,
           }}
         />
+      )}
+
+      {settings.theme === "nebula-drift" && caretStyle.opacity > 0 && (
+        <CaretTrail particles={particlesRef.current} />
       )}
 
       {visibleRange && visibleTokens.length > 0 && tokens[visibleTokens[0].index].start > visibleRange.start && (
@@ -380,7 +423,7 @@ export function TypingLayer({
           compareOptions={compareOptions}
           onClick={onWordClick}
           interactionMode={interactionMode}
-          smoothCaret={smoothCaret}
+          smoothCaret={effectiveSmoothCaret}
           botCursorIndex={botCursorIndex}
         />
       ))}
@@ -493,12 +536,86 @@ const Word = React.memo(
           isCompleted,
           state?.skipped ?? false,
           compareOptions?.ignoredCharacters,
-          smoothCaret ?? false,
+          smoothCaret,
           botCursorIndex !== null && botCursorIndex !== undefined && botCursorIndex >= token.start && botCursorIndex <= token.end ? Math.floor(botCursorIndex) - token.start : null,
         )}
       </span>
     );
   }));
+
+function CaretTrail({ particles }: { particles: any[] }) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    let animationFrameId: number;
+
+    const render = () => {
+      if (particles.length === 0) {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        animationFrameId = requestAnimationFrame(render);
+        return;
+      }
+
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      for (let i = particles.length - 1; i >= 0; i--) {
+        const p = particles[i];
+        p.x += p.vx;
+        p.y += p.vy;
+        p.life -= p.decay;
+
+        if (p.life <= 0) {
+          particles.splice(i, 1);
+          continue;
+        }
+
+        ctx.globalAlpha = p.life;
+        ctx.fillStyle = p.color;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      animationFrameId = requestAnimationFrame(render);
+    };
+
+    const resize = () => {
+      const parent = canvas.parentElement;
+      if (parent) {
+        const dpr = window.devicePixelRatio || 1;
+        canvas.width = parent.offsetWidth * dpr;
+        canvas.height = parent.offsetHeight * dpr;
+        canvas.style.width = `${parent.offsetWidth}px`;
+        canvas.style.height = `${parent.offsetHeight}px`;
+        ctx.scale(dpr, dpr);
+      }
+    };
+
+    const observer = new ResizeObserver(resize);
+    if (canvas.parentElement) {
+      observer.observe(canvas.parentElement);
+    }
+
+    animationFrameId = requestAnimationFrame(render);
+
+    return () => {
+      observer.disconnect();
+      cancelAnimationFrame(animationFrameId);
+    };
+  }, [particles]);
+
+  return (
+    <canvas
+      ref={canvasRef}
+      className="absolute inset-0 pointer-events-none z-40"
+    />
+  );
+}
 
 function renderWordParts(
   expected: string,
