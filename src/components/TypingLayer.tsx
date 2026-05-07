@@ -291,6 +291,26 @@ export function TypingLayer({
   }, []);
 
   const [isJumping, setIsJumping] = React.useState(false);
+  const jumpTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Pre-allocated particle pool for zero-allocation typing effects
+  const PARTICLE_POOL_SIZE = 200;
+  const particlePool = useRef<any[]>([]);
+  useEffect(() => {
+    particlePool.current = Array.from({ length: PARTICLE_POOL_SIZE }, () => ({
+      x: 0,
+      y: 0,
+      vx: 0,
+      vy: 0,
+      life: 0,
+      decay: 0,
+      size: 0,
+      color: "",
+      active: false,
+    }));
+  }, []);
+
+  const caretTrailRef = useRef<{ wake: () => void } | null>(null);
 
   useEffect(() => {
     const updateCaret = () => {
@@ -318,10 +338,14 @@ export function TypingLayer({
           // Detect unreasonable jumps (layout shifts / line wraps / stale positions)
           const verticalJump = Math.abs(newTop - prev.top);
           const wasHidden = prev.opacity === 0;
-          
+
           if (verticalJump > 100 || wasHidden) {
             setIsJumping(true);
-            setTimeout(() => setIsJumping(false), 50);
+            if (jumpTimeoutRef.current) clearTimeout(jumpTimeoutRef.current);
+            jumpTimeoutRef.current = setTimeout(() => {
+              setIsJumping(false);
+              jumpTimeoutRef.current = null;
+            }, 50);
           }
 
           return {
@@ -342,7 +366,6 @@ export function TypingLayer({
   }, [snapshot.currentWordIndex, snapshot.words[snapshot.currentWordIndex]?.typed.length, interactionMode]);
 
   // Particle emission logic for premium carets
-  const particlesRef = useRef<any[]>([]);
   const lastCaretPos = useRef({ left: 0, top: 0 });
 
   useEffect(() => {
@@ -359,18 +382,26 @@ export function TypingLayer({
     if (dist > 1 && dist < 250) {
       const baseSize = caretStyle.height * 0.05;
       const count = dist > 30 ? 4 : 2;
+      let emitted = false;
       for (let i = 0; i < count; i++) {
         const t = i / count;
-        particlesRef.current.push({
-          x: lastCaretPos.current.left + dx * t + (Math.random() - 0.5) * 2,
-          y: lastCaretPos.current.top + dy * t + (Math.random() * caretStyle.height),
-          vx: (Math.random() - 0.5) * 0.4,
-          vy: (Math.random() - 0.5) * 0.6, // Symmetric vertical velocity
-          life: 1.0,
-          decay: 0.015 + Math.random() * 0.025,
-          size: (0.7 + Math.random() * 0.7) * baseSize,
-          color: Math.random() > 0.5 ? "#c084fc" : "#a78bfa",
-        });
+        // Find first available particle in pool
+        const p = particlePool.current.find(p => !p.active);
+        if (p) {
+          p.active = true;
+          p.x = lastCaretPos.current.left + dx * t + (Math.random() - 0.5) * 2;
+          p.y = lastCaretPos.current.top + dy * t + (Math.random() * caretStyle.height);
+          p.vx = (Math.random() - 0.5) * 0.4;
+          p.vy = (Math.random() - 0.5) * 0.6;
+          p.life = 1.0;
+          p.decay = 0.015 + Math.random() * 0.025;
+          p.size = (0.7 + Math.random() * 0.7) * baseSize;
+          p.color = Math.random() > 0.5 ? "#c084fc" : "#a78bfa";
+          emitted = true;
+        }
+      }
+      if (emitted) {
+        caretTrailRef.current?.wake();
       }
     }
     lastCaretPos.current = { left: caretStyle.left, top: caretStyle.top };
@@ -406,7 +437,7 @@ export function TypingLayer({
       )}
 
       {settings.theme === "nebula-drift" && caretStyle.opacity > 0 && (
-        <CaretTrail particles={particlesRef.current} />
+        <CaretTrail ref={caretTrailRef} particles={particlePool.current} />
       )}
 
       {visibleRange && visibleTokens.length > 0 && tokens[visibleTokens[0].index].start > visibleRange.start && (
@@ -549,54 +580,72 @@ const Word = React.memo(
     );
   }));
 
-function CaretTrail({ particles }: { particles: any[] }) {
+const CaretTrail = React.forwardRef(({ particles }: { particles: any[] }, ref) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const animationFrameId = useRef<number>(0);
+  const isLoopRunning = useRef(false);
+
+  const render = () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    let hasActive = false;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    for (let i = 0; i < particles.length; i++) {
+      const p = particles[i];
+      if (!p.active) continue;
+
+      p.x += p.vx;
+      p.y += p.vy;
+      p.life -= p.decay;
+
+      if (p.life <= 0) {
+        p.active = false;
+        continue;
+      }
+
+      hasActive = true;
+      ctx.fillStyle = p.color;
+
+      // Draw subtle glow (larger, lower opacity)
+      ctx.globalAlpha = p.life * 0.25;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.size * 3, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Draw core
+      ctx.globalAlpha = p.life;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    if (hasActive) {
+      animationFrameId.current = requestAnimationFrame(render);
+    } else {
+      isLoopRunning.current = false;
+      animationFrameId.current = 0;
+    }
+  };
+
+  React.useImperativeHandle(ref, () => ({
+    wake: () => {
+      if (!isLoopRunning.current) {
+        isLoopRunning.current = true;
+        if (animationFrameId.current) cancelAnimationFrame(animationFrameId.current);
+        animationFrameId.current = requestAnimationFrame(render);
+      }
+    }
+  }));
 
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
-
-    let animationFrameId: number;
-
-    const render = () => {
-      if (particles.length === 0) {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        animationFrameId = requestAnimationFrame(render);
-        return;
-      }
-
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-      for (let i = particles.length - 1; i >= 0; i--) {
-        const p = particles[i];
-        p.x += p.vx;
-        p.y += p.vy;
-        p.life -= p.decay;
-
-        if (p.life <= 0) {
-          particles.splice(i, 1);
-          continue;
-        }
-
-        ctx.fillStyle = p.color;
-
-        // Draw subtle glow (larger, lower opacity)
-        ctx.globalAlpha = p.life * 0.25;
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, p.size * 3, 0, Math.PI * 2);
-        ctx.fill();
-
-        // Draw core
-        ctx.globalAlpha = p.life;
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
-        ctx.fill();
-      }
-
-      animationFrameId = requestAnimationFrame(render);
-    };
 
     const resize = () => {
       const parent = canvas.parentElement;
@@ -614,14 +663,13 @@ function CaretTrail({ particles }: { particles: any[] }) {
     if (canvas.parentElement) {
       observer.observe(canvas.parentElement);
     }
-
-    animationFrameId = requestAnimationFrame(render);
+    resize();
 
     return () => {
       observer.disconnect();
-      cancelAnimationFrame(animationFrameId);
+      if (animationFrameId.current) cancelAnimationFrame(animationFrameId.current);
     };
-  }, [particles]);
+  }, []);
 
   return (
     <canvas
@@ -629,7 +677,7 @@ function CaretTrail({ particles }: { particles: any[] }) {
       className="absolute inset-0 pointer-events-none z-40"
     />
   );
-}
+});
 
 function renderWordParts(
   expected: string,

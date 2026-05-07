@@ -5,6 +5,7 @@ zen mode - no need to type caps or punctuation?
     doesnt show if you get a character right or wrong
 
 graphics settings?
+remove transition time analytics involving spacebar
 
 progression unlocks:
 
