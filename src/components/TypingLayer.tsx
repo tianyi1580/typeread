@@ -365,7 +365,12 @@ export function TypingLayer({
         if (jumpTimeoutRef.current) clearTimeout(jumpTimeoutRef.current);
         jumpTimeoutRef.current = setTimeout(() => {
           isJumpingRef.current = false;
-          if (caretRef.current) caretRef.current.style.transition = "transform 60ms ease-out, height 60ms ease-out, opacity 100ms";
+          if (caretRef.current) {
+            const isSilk = settings.theme === "satin-heart";
+            caretRef.current.style.transition = isSilk 
+              ? "transform 50ms cubic-bezier(0.34, 1.56, 0.64, 1), height 50ms cubic-bezier(0.34, 1.56, 0.64, 1), opacity 100ms" 
+              : "transform 60ms ease-out, height 60ms ease-out, opacity 100ms";
+          }
           jumpTimeoutRef.current = null;
         }, 50);
       }
@@ -375,12 +380,17 @@ export function TypingLayer({
       const dy = newTop - prev.top;
       const dist = Math.sqrt(dx * dx + dy * dy);
 
+      const isSilk = settings.theme === "satin-heart";
       if (caretRef.current) {
         const style = caretRef.current.style;
         style.transform = `translate3d(${newLeft - 0.5}px, ${newTop + (newHeight * 0.1)}px, 0)`;
         style.height = `${newHeight}px`;
         style.opacity = "1";
-        style.transition = isJumping ? "none" : (isStretchingRef.current ? "transform 40ms ease-out, height 40ms ease-out" : "transform 60ms ease-out, height 60ms ease-out, opacity 100ms");
+        const defaultTransition = isSilk 
+          ? "transform 50ms cubic-bezier(0.34, 1.56, 0.64, 1), height 50ms cubic-bezier(0.34, 1.56, 0.64, 1), opacity 100ms"
+          : "transform 60ms ease-out, height 60ms ease-out, opacity 100ms";
+          
+        style.transition = isJumping ? "none" : (isStretchingRef.current ? "transform 40ms ease-out, height 40ms ease-out" : defaultTransition);
       }
       
       // Update the ref after the DOM so the next React render is in sync
@@ -390,7 +400,7 @@ export function TypingLayer({
       const isNebula = settings.theme === "nebula-drift";
       const isRainy = settings.theme === "rainy-window";
 
-      if ((isNebula || isRainy) && dist > 0.1 && dist < 350) {
+      if ((isNebula || isRainy || isSilk) && dist > 0.1 && dist < 350) {
         const baseSize = Math.max(1, newHeight * 0.06);
         let emitted = false;
 
@@ -470,6 +480,30 @@ export function TypingLayer({
               emitted = true;
             }
           }
+        } else if (isSilk && dist > 1) {
+          // Increased density and randomness for heart particles
+          const count = dist > 30 ? (Math.random() > 0.5 ? 2 : 1) : 1;
+          for (let i = 0; i < count; i++) {
+            if (Math.random() > 0.15) {
+              const p = getInactiveParticle(particlePool.current, nextParticleIdx);
+              if (p) {
+                p.active = true;
+                p.isWater = false;
+                p.isHeart = true;
+                p.isSilk = true;
+                p.x = newLeft + (Math.random() - 0.5) * 8;
+                p.y = newTop + (newHeight / 2) + (Math.random() - 0.5) * 10;
+                p.vx = (Math.random() - 0.5) * 0.4;
+                p.vy = -(0.4 + Math.random() * 0.5); // Slightly faster drift
+                p.life = 1.0;
+                p.decay = 0.01 + Math.random() * 0.015; // Longer life
+                p.size = (0.8 + Math.random() * 0.8) * baseSize; // Larger size
+                p.color = Math.random() > 0.5 ? "#f43f5e" : "#fb7185";
+                p.gravity = 0;
+                emitted = true;
+              }
+            }
+          }
         }
 
         if (emitted) caretTrailRef.current?.wake();
@@ -532,7 +566,8 @@ export function TypingLayer({
           className={cn(
             "absolute z-50 w-[2px] bg-[var(--accent)]",
             settings.theme === "nebula-drift" && "caret-cosmic-pulse",
-            settings.theme === "rainy-window" && "caret-liquid-bead"
+            settings.theme === "rainy-window" && "caret-liquid-bead",
+            settings.theme === "satin-heart" && "caret-silk-glint"
           )}
           style={{
             position: "absolute",
@@ -542,14 +577,14 @@ export function TypingLayer({
             transform: `translate3d(${caretPosRef.current.left - 0.5}px, ${caretPosRef.current.top + (caretPosRef.current.height * 0.1)}px, 0)`,
             opacity: caretPosRef.current.opacity,
             transformOrigin: "bottom",
-            transition: isJumpingRef.current ? "none" : "transform 60ms ease-out, height 60ms ease-out, opacity 100ms",
+            transition: isJumpingRef.current ? "none" : (settings.theme === "satin-heart" ? "transform 50ms cubic-bezier(0.34, 1.56, 0.64, 1), height 50ms cubic-bezier(0.34, 1.56, 0.64, 1), opacity 100ms" : "transform 60ms ease-out, height 60ms ease-out, opacity 100ms"),
             pointerEvents: "none",
             willChange: "transform",
           }}
         />
       )}
 
-      {(settings.theme === "nebula-drift" || settings.theme === "rainy-window") && (
+      {(settings.theme === "nebula-drift" || settings.theme === "rainy-window" || settings.theme === "satin-heart") && (
         <CaretTrail ref={caretTrailRef} particles={particlePool.current} />
       )}
 
@@ -853,6 +888,26 @@ const CaretTrail = memo(forwardRef(({ particles }: { particles: any[] }, ref) =>
         ctx.globalAlpha = Math.max(0, p.life * (p.isPill ? 0.35 : 0.7));
         const highlightSize = Math.max(0.2, p.size * 0.4);
         ctx.arc(drawX - p.size * 0.15, drawY - p.size * 0.15, highlightSize, 0, Math.PI * 2);
+        ctx.fill();
+      } else if (p.isHeart) {
+        if (lastMode !== "source-over") {
+          ctx.globalCompositeOperation = "source-over";
+          lastMode = "source-over";
+        }
+        
+        ctx.globalAlpha = Math.max(0, p.life * 0.65);
+        ctx.fillStyle = p.color;
+        
+        const size = p.size * 2.5;
+        const x = drawX;
+        const y = drawY - size / 2;
+
+        ctx.beginPath();
+        ctx.moveTo(x, y + size / 4);
+        ctx.bezierCurveTo(x, y, x - size / 2, y, x - size / 2, y + size / 4);
+        ctx.bezierCurveTo(x - size / 2, y + size / 2, x, y + size * 0.8, x, y + size);
+        ctx.bezierCurveTo(x, y + size * 0.8, x + size / 2, y + size / 2, x + size / 2, y + size / 4);
+        ctx.bezierCurveTo(x + size / 2, y, x, y, x, y + size / 4);
         ctx.fill();
       } else {
         // Nebula / Cosmic Glow
