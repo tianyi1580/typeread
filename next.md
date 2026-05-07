@@ -6,6 +6,8 @@ zen mode - no need to type caps or punctuation?
 
 graphics settings?
 remove transition time analytics involving spacebar
+clicking a word to start typing there sometimes misplaces the caret
+caret randomly jumps to the bottom of the page
 
 progression unlocks:
 

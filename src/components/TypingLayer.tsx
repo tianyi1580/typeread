@@ -83,9 +83,19 @@ export function TypingLayer({
   const animationFrameId = useRef<number | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const caretRef = useRef<HTMLDivElement | null>(null);
-  const caretPosRef = useRef({ top: 0, left: 0, height: 0, opacity: 0 });
   const isJumpingRef = useRef(false);
   const isStretchingRef = useRef(false);
+  const caretPosRef = useRef({ top: 0, left: 0, height: 0, opacity: 0 });
+
+  // Proactively catch index changes to disable transitions for the next render frame
+  // This prevents the caret from "sliding" from the old position during the React update.
+  const prevIdx = useRef(snapshot.currentWordIndex);
+  const prevLen = useRef(snapshot.words[snapshot.currentWordIndex]?.typed.length || 0);
+  if (prevIdx.current !== snapshot.currentWordIndex || prevLen.current !== (snapshot.words[snapshot.currentWordIndex]?.typed.length || 0)) {
+    isJumpingRef.current = true;
+    prevIdx.current = snapshot.currentWordIndex;
+    prevLen.current = snapshot.words[snapshot.currentWordIndex]?.typed.length || 0;
+  }
 
   // Buffered windowing to prevent shifting the DOM on every single word.
   useEffect(() => {
@@ -336,13 +346,15 @@ export function TypingLayer({
 
       if (!charEl) return;
 
-      const containerRect = containerRef.current.getBoundingClientRect();
-      const charRect = charEl.getBoundingClientRect();
-      if (charRect.width === 0 && charRect.height === 0) return;
-
-      const newTop = charRect.top - containerRect.top;
-      const newLeft = charRect.left - containerRect.left;
-      const newHeight = charRect.height * 0.8;
+      // Use stable offset-based positioning instead of getBoundingClientRect
+      // offsetTop/Left are relative to the offsetParent (TypingLayer), making them
+      // immune to viewport-relative jitter during simultaneous scrolling.
+      const newTop = charEl.offsetTop;
+      const newLeft = charEl.offsetLeft;
+      
+      // Fallback to charEl's height or a reasonable default
+      const charHeight = charEl.offsetHeight || 24;
+      const newHeight = charHeight * 0.8;
 
       const prev = caretPosRef.current;
       const verticalJump = Math.abs(newTop - prev.top);
@@ -365,9 +377,6 @@ export function TypingLayer({
       const dy = newTop - prev.top;
       const dist = Math.sqrt(dx * dx + dy * dy);
 
-      // Update Ref and DOM
-      caretPosRef.current = { top: newTop, left: newLeft, height: newHeight, opacity: 1 };
-
       if (caretRef.current) {
         const style = caretRef.current.style;
         style.transform = `translate3d(${newLeft - 0.5}px, ${newTop + (newHeight * 0.1)}px, 0)`;
@@ -375,6 +384,9 @@ export function TypingLayer({
         style.opacity = "1";
         style.transition = isJumping ? "none" : (isStretchingRef.current ? "transform 40ms ease-out, height 40ms ease-out" : "transform 60ms ease-out, height 60ms ease-out, opacity 100ms");
       }
+      
+      // Update the ref after the DOM so the next React render is in sync
+      caretPosRef.current = { top: newTop, left: newLeft, height: newHeight, opacity: 1 };
 
       // Particle emission logic
       const isNebula = settings.theme === "nebula-drift";
@@ -414,12 +426,14 @@ export function TypingLayer({
               caretRef.current.style.transform = "scaleY(1.3) scaleX(0.7)";
               caretRef.current.style.transition = "all 40ms ease-out";
             }
-            setTimeout(() => {
+            if (jumpTimeoutRef.current) clearTimeout(jumpTimeoutRef.current);
+            jumpTimeoutRef.current = setTimeout(() => {
               isStretchingRef.current = false;
               if (caretRef.current) {
                 caretRef.current.style.transform = "scaleY(1) scaleX(1)";
                 caretRef.current.style.transition = "all 80ms ease-out";
               }
+              jumpTimeoutRef.current = null;
             }, 80);
           }
 
@@ -665,6 +679,26 @@ const CaretTrail = memo(forwardRef(({ particles }: { particles: any[] }, ref) =>
   const animationFrameId = useRef<number>(0);
   const isLoopRunning = useRef(false);
   const hasEllipse = useRef<boolean | null>(null);
+  
+  // High-performance layout caching to prevent 60fps reflows
+  const parentRef = useRef<HTMLElement | null>(null);
+  const scrollContainerRef = useRef<HTMLElement | null>(null);
+  const parentRectRef = useRef<{ top: number; left: number; scrollT: number; scrollL: number } | null>(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    parentRef.current = canvas.parentElement;
+    scrollContainerRef.current = getScrollContainer(parentRef.current);
+
+    const invalidate = () => { parentRectRef.current = null; };
+    window.addEventListener("scroll", invalidate, true);
+    window.addEventListener("resize", invalidate);
+    return () => {
+      window.removeEventListener("scroll", invalidate, true);
+      window.removeEventListener("resize", invalidate);
+    };
+  }, []);
 
   const render = useCallback(() => {
     const canvas = canvasRef.current;
@@ -676,21 +710,57 @@ const CaretTrail = memo(forwardRef(({ particles }: { particles: any[] }, ref) =>
       hasEllipse.current = typeof ctx.ellipse === "function";
     }
 
-    let hasActive = false;
     const dpr = window.devicePixelRatio || 1;
+
+    // Get the viewport-relative position of the parent without triggering reflow
+    const parent = parentRef.current;
+    if (!parent) return;
+    
+    if (!parentRectRef.current) {
+      const rect = parent.getBoundingClientRect();
+      const sc = scrollContainerRef.current;
+      parentRectRef.current = {
+        top: rect.top,
+        left: rect.left,
+        scrollT: sc ? (sc === document.body ? window.scrollY : sc.scrollTop) : 0,
+        scrollL: sc ? (sc === document.body ? window.scrollX : sc.scrollLeft) : 0,
+      };
+    }
+
+    const cache = parentRectRef.current;
+    const sc = scrollContainerRef.current;
+    const currT = sc ? (sc === document.body ? window.scrollY : sc.scrollTop) : 0;
+    const currL = sc ? (sc === document.body ? window.scrollX : sc.scrollLeft) : 0;
+    
+    // Calculate current viewport position based on scroll delta (REFREE-FLOW!)
+    const parentViewportTop = cache.top - (currT - cache.scrollT);
+    const parentViewportLeft = cache.left - (currL - cache.scrollL);
+
+    const currentParticles = particlesRef.current;
+    const len = currentParticles.length;
+
+    // First pass: check if we even need to clear and draw
+    let activeInViewport = false;
+    for (let i = 0; i < len; i++) {
+      if (currentParticles[i].active) {
+        activeInViewport = true;
+        break;
+      }
+    }
+
+    if (!activeInViewport) {
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      isLoopRunning.current = false;
+      animationFrameId.current = 0;
+      return;
+    }
 
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-    // Get the viewport-relative position of the parent to translate coordinates
-    const parent = canvas.parentElement;
-    if (!parent) return;
-    const parentRect = parent.getBoundingClientRect();
-
-    const currentParticles = particlesRef.current;
-    const len = currentParticles.length;
-
+    let hasActiveNow = false;
     for (let i = 0; i < len; i++) {
       const p = currentParticles[i];
       if (!p.active) continue;
@@ -706,15 +776,15 @@ const CaretTrail = memo(forwardRef(({ particles }: { particles: any[] }, ref) =>
       }
 
       // Translate from TypingLayer-relative to Viewport-relative
-      const drawX = p.x + parentRect.left;
-      const drawY = p.y + parentRect.top;
+      const drawX = p.x + parentViewportLeft;
+      const drawY = p.y + parentViewportTop;
 
       // Cull particles outside viewport for performance
       if (drawX < -50 || drawX > window.innerWidth + 50 || drawY < -50 || drawY > window.innerHeight + 50) {
         continue;
       }
 
-      hasActive = true;
+      hasActiveNow = true;
 
       if (p.isWater) {
         const speed = Math.sqrt(p.vx * p.vx + p.vy * p.vy);
@@ -759,7 +829,7 @@ const CaretTrail = memo(forwardRef(({ particles }: { particles: any[] }, ref) =>
       }
     }
 
-    if (hasActive) {
+    if (hasActiveNow) {
       animationFrameId.current = requestAnimationFrame(render);
     } else {
       isLoopRunning.current = false;
