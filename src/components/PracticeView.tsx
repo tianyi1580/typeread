@@ -468,7 +468,7 @@ export function PracticeView({
               ? "liquid-glass-soft"
               : "border border-[var(--border)] bg-[color-mix(in_srgb,var(--panel-soft)_74%,transparent)]"
           )}>
-            <div className="absolute inset-0 overflow-hidden px-6 py-8 md:px-10 md:py-12">
+            <div className="absolute inset-0 overflow-y-auto overflow-x-hidden no-scrollbar px-6 py-8 md:px-10 md:py-12">
               <TypingLayer
                 tokens={tokens}
                 snapshot={snapshot}

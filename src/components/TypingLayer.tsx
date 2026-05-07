@@ -4,6 +4,18 @@ import type { InteractionMode, TokenizedWord, TypingSnapshot, WordTypingState } 
 import { normalizeForCompare } from "../utils/typing";
 import { useAppStore } from "../store/app-store";
 
+function getScrollContainer(el: HTMLElement | null): HTMLElement | null {
+  let container: HTMLElement | null = el?.parentElement || null;
+  while (container && container !== document.body) {
+    const style = window.getComputedStyle(container);
+    if (/(auto|scroll)/.test(style.overflowY)) {
+      return container;
+    }
+    container = container.parentElement;
+  }
+  return document.body;
+}
+
 /**
  * Properties for the TypingLayer component.
  */
@@ -101,14 +113,7 @@ export function TypingLayer({
   React.useLayoutEffect(() => {
     if (preShiftRelativeTop.current !== null && currentWordRef.current) {
       const el = currentWordRef.current;
-      let container: HTMLElement | null = el.parentElement;
-      while (container && container !== document.body) {
-        const style = window.getComputedStyle(container);
-        if (/(auto|scroll|hidden)/.test(style.overflowY) && container.offsetHeight < container.scrollHeight) {
-          break;
-        }
-        container = container.parentElement;
-      }
+      const container = getScrollContainer(el);
 
       if (container) {
         const newTop = el.getBoundingClientRect().top;
@@ -161,14 +166,7 @@ export function TypingLayer({
     const isManualJump = lastWordIndex.current === -1 || Math.abs(currentIndex - lastWordIndex.current) > 1;
 
     if (isManualJump) {
-      let container: HTMLElement | null = el.parentElement;
-      while (container && container !== document.body) {
-        const style = window.getComputedStyle(container);
-        if (/(auto|scroll|hidden)/.test(style.overflowY) && container.offsetHeight < container.scrollHeight) {
-          break;
-        }
-        container = container.parentElement;
-      }
+      const container = getScrollContainer(el);
       if (!container) return;
 
       const isWindowScroll = container === document.body;
@@ -207,14 +205,7 @@ export function TypingLayer({
     if (isManualJump) return;
 
     // Find the nearest scrollable ancestor
-    let container: HTMLElement | null = el.parentElement;
-    while (container && container !== document.body) {
-      const style = window.getComputedStyle(container);
-      if (/(auto|scroll|hidden)/.test(style.overflowY) && container.offsetHeight < container.scrollHeight) {
-        break;
-      }
-      container = container.parentElement;
-    }
+    const container = getScrollContainer(el);
     if (!container) return;
 
     const isWindowScroll = container === document.body;
@@ -259,14 +250,7 @@ export function TypingLayer({
     const el = currentWordRef.current;
     if (!el || !state.isActive) return;
 
-    let container: HTMLElement | null = el.parentElement;
-    while (container && container !== document.body) {
-      const style = window.getComputedStyle(container);
-      if (/(auto|scroll|hidden)/.test(style.overflowY) && container.offsetHeight < container.scrollHeight) {
-        break;
-      }
-      container = container.parentElement;
-    }
+    const container = getScrollContainer(el);
     if (!container) return;
 
     const isWindowScroll = container === document.body;
@@ -325,7 +309,7 @@ export function TypingLayer({
         const containerRect = containerRef.current.getBoundingClientRect();
         const charRect = charEl.getBoundingClientRect();
 
-        if (charRect.height === 0 || charRect.width === 0) return;
+        if (charRect.width === 0 && charRect.height === 0 && charRect.x === 0 && charRect.y === 0) return;
 
         const newTop = charRect.top - containerRect.top;
         const newLeft = charRect.left - containerRect.left;
