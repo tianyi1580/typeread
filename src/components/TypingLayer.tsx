@@ -477,9 +477,29 @@ export function TypingLayer({
     };
 
     updateCaretAndEmit();
-    window.addEventListener("resize", updateCaretAndEmit);
-    return () => window.removeEventListener("resize", updateCaretAndEmit);
   }, [snapshot.currentWordIndex, snapshot.words[snapshot.currentWordIndex]?.typed.length, interactionMode, settings.theme, windowStart]);
+
+  // Stable resize handler to prevent listener churn on every keystroke
+  useEffect(() => {
+    const handleResize = () => {
+      // Re-run the positioning logic
+      if (currentWordRef.current) {
+        const wordEl = currentWordRef.current;
+        const typedLength = snapshotRef.current.words[snapshotRef.current.currentWordIndex]?.typed.length ?? 0;
+        const charEl = (wordEl.children[typedLength] || wordEl.children[wordEl.children.length - 1]) as HTMLElement;
+        if (charEl && caretRef.current) {
+          const newTop = charEl.offsetTop;
+          const newLeft = charEl.offsetLeft;
+          const newHeight = (charEl.offsetHeight || 24) * 0.8;
+          caretRef.current.style.transform = `translate3d(${newLeft - 0.5}px, ${newTop + (newHeight * 0.1)}px, 0)`;
+          caretRef.current.style.height = `${newHeight}px`;
+          caretPosRef.current = { top: newTop, left: newLeft, height: newHeight, opacity: 1 };
+        }
+      }
+    };
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
   function getInactiveParticle(pool: any[], nextIdx: React.MutableRefObject<number>) {
     const size = pool.length;
@@ -697,9 +717,19 @@ const CaretTrail = memo(forwardRef(({ particles }: { particles: any[] }, ref) =>
     parentRef.current = canvas.parentElement;
     scrollContainerRef.current = getScrollContainer(parentRef.current);
 
-    const invalidate = () => { parentRectRef.current = null; };
-    window.addEventListener("scroll", invalidate, true);
-    window.addEventListener("resize", invalidate);
+    const invalidate = () => { 
+      if (!parentRef.current) return;
+      const rect = parentRef.current.getBoundingClientRect();
+      const sc = scrollContainerRef.current;
+      parentRectRef.current = {
+        top: rect.top,
+        left: rect.left,
+        scrollT: sc ? (sc === document.body ? window.scrollY : sc.scrollTop) : 0,
+        scrollL: sc ? (sc === document.body ? window.scrollX : sc.scrollLeft) : 0,
+      };
+    };
+    window.addEventListener("scroll", invalidate, { capture: true, passive: true });
+    window.addEventListener("resize", invalidate, { passive: true });
     return () => {
       window.removeEventListener("scroll", invalidate, true);
       window.removeEventListener("resize", invalidate);
@@ -738,7 +768,7 @@ const CaretTrail = memo(forwardRef(({ particles }: { particles: any[] }, ref) =>
     const currT = sc ? (sc === document.body ? window.scrollY : sc.scrollTop) : 0;
     const currL = sc ? (sc === document.body ? window.scrollX : sc.scrollLeft) : 0;
     
-    // Calculate current viewport position based on scroll delta (REFREE-FLOW!)
+    // Calculate current viewport position based on scroll delta WITHOUT triggering a fresh getBoundingClientRect()
     const parentViewportTop = cache.top - (currT - cache.scrollT);
     const parentViewportLeft = cache.left - (currL - cache.scrollL);
 
@@ -767,6 +797,9 @@ const CaretTrail = memo(forwardRef(({ particles }: { particles: any[] }, ref) =>
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
     let hasActiveNow = false;
+    let lastMode = "";
+    ctx.globalCompositeOperation = "source-over";
+
     for (let i = 0; i < len; i++) {
       const p = currentParticles[i];
       if (!p.active) continue;
@@ -781,11 +814,9 @@ const CaretTrail = memo(forwardRef(({ particles }: { particles: any[] }, ref) =>
         continue;
       }
 
-      // Translate from TypingLayer-relative to Viewport-relative
       const drawX = p.x + parentViewportLeft;
       const drawY = p.y + parentViewportTop;
 
-      // Cull particles outside viewport for performance
       if (drawX < -50 || drawX > window.innerWidth + 50 || drawY < -50 || drawY > window.innerHeight + 50) {
         continue;
       }
@@ -793,6 +824,11 @@ const CaretTrail = memo(forwardRef(({ particles }: { particles: any[] }, ref) =>
       hasActiveNow = true;
 
       if (p.isWater) {
+        if (lastMode !== "source-over") {
+          ctx.globalCompositeOperation = "source-over";
+          lastMode = "source-over";
+        }
+        
         const speed = Math.sqrt(p.vx * p.vx + p.vy * p.vy);
         const stretch = p.isPill ? Math.max(1.8, speed * 0.6) : 1;
         const angle = Math.atan2(p.vy, p.vx) || 0;
@@ -820,7 +856,11 @@ const CaretTrail = memo(forwardRef(({ particles }: { particles: any[] }, ref) =>
         ctx.fill();
       } else {
         // Nebula / Cosmic Glow
-        ctx.globalCompositeOperation = "lighter";
+        if (lastMode !== "lighter") {
+          ctx.globalCompositeOperation = "lighter";
+          lastMode = "lighter";
+        }
+        
         ctx.globalAlpha = Math.max(0, p.life * 0.45);
         ctx.fillStyle = p.color;
         ctx.beginPath();
@@ -831,8 +871,12 @@ const CaretTrail = memo(forwardRef(({ particles }: { particles: any[] }, ref) =>
         ctx.beginPath();
         ctx.arc(drawX, drawY, Math.max(0.1, p.size * 0.8), 0, Math.PI * 2);
         ctx.fill();
-        ctx.globalCompositeOperation = "source-over";
       }
+    }
+    
+    // Reset for next frame/other drawing
+    if (lastMode !== "source-over") {
+      ctx.globalCompositeOperation = "source-over";
     }
 
     if (hasActiveNow) {
