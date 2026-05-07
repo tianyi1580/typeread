@@ -306,6 +306,8 @@ export function TypingLayer({
     }
   }, []);
 
+  const [isJumping, setIsJumping] = React.useState(false);
+
   useEffect(() => {
     const updateCaret = () => {
       if (!containerRef.current) return;
@@ -317,17 +319,33 @@ export function TypingLayer({
 
       const wordEl = currentWordRef.current;
       const typedLength = snapshot.words[snapshot.currentWordIndex]?.typed.length ?? 0;
-      const charEl = wordEl.children[typedLength] as HTMLElement;
+      const charEl = (wordEl.children[typedLength] || wordEl.children[wordEl.children.length - 1]) as HTMLElement;
 
       if (charEl) {
         const containerRect = containerRef.current.getBoundingClientRect();
         const charRect = charEl.getBoundingClientRect();
 
-        setCaretStyle({
-          top: charRect.top - containerRect.top + containerRef.current.scrollTop,
-          left: charRect.left - containerRect.left,
-          height: charRect.height * 0.8,
-          opacity: 1,
+        if (charRect.height === 0 || charRect.width === 0) return;
+
+        const newTop = charRect.top - containerRect.top;
+        const newLeft = charRect.left - containerRect.left;
+
+        setCaretStyle((prev) => {
+          // Detect unreasonable jumps (layout shifts / line wraps / stale positions)
+          const verticalJump = Math.abs(newTop - prev.top);
+          const wasHidden = prev.opacity === 0;
+          
+          if (verticalJump > 100 || wasHidden) {
+            setIsJumping(true);
+            setTimeout(() => setIsJumping(false), 50);
+          }
+
+          return {
+            top: newTop,
+            left: newLeft,
+            height: charRect.height * 0.8,
+            opacity: 1,
+          };
         });
       } else {
         setCaretStyle((prev) => (prev.opacity === 0 ? prev : { ...prev, opacity: 0 }));
@@ -335,7 +353,6 @@ export function TypingLayer({
     };
 
     updateCaret();
-    // Also update on window resize or potential font loads
     window.addEventListener("resize", updateCaret);
     return () => window.removeEventListener("resize", updateCaret);
   }, [snapshot.currentWordIndex, snapshot.words[snapshot.currentWordIndex]?.typed.length, interactionMode]);
@@ -345,31 +362,35 @@ export function TypingLayer({
   const lastCaretPos = useRef({ left: 0, top: 0 });
 
   useEffect(() => {
-    if (settings.theme !== "nebula-drift" || caretStyle.opacity === 0) return;
+    if (settings.theme !== "nebula-drift" || caretStyle.opacity === 0 || isJumping) {
+      lastCaretPos.current = { left: caretStyle.left, top: caretStyle.top };
+      return;
+    }
 
     const dx = caretStyle.left - lastCaretPos.current.left;
     const dy = caretStyle.top - lastCaretPos.current.top;
     const dist = Math.sqrt(dx * dx + dy * dy);
 
-    if (dist > 1) {
-      // Emit particles along the path if it's a large jump, or just at the new position
-      const count = dist > 20 ? 8 : 3;
+    // Suppress particles on massive jumps to avoid "burst" glitches
+    if (dist > 1 && dist < 250) {
+      const baseSize = caretStyle.height * 0.05;
+      const count = dist > 30 ? 4 : 2;
       for (let i = 0; i < count; i++) {
         const t = i / count;
         particlesRef.current.push({
-          x: lastCaretPos.current.left + dx * t + (Math.random() - 0.5) * 4,
-          y: lastCaretPos.current.top + dy * t + (Math.random() - 0.5) * caretStyle.height,
-          vx: (Math.random() - 0.5) * 0.5,
-          vy: (Math.random() - 0.5) * 0.5 - 0.2,
+          x: lastCaretPos.current.left + dx * t + (Math.random() - 0.5) * 2,
+          y: lastCaretPos.current.top + dy * t + (Math.random() * caretStyle.height),
+          vx: (Math.random() - 0.5) * 0.4,
+          vy: (Math.random() - 0.5) * 0.6, // Symmetric vertical velocity
           life: 1.0,
-          decay: 0.02 + Math.random() * 0.03,
-          size: 1 + Math.random() * 1.5,
-          color: Math.random() > 0.5 ? "#c084fc" : "#818cf8",
+          decay: 0.015 + Math.random() * 0.025,
+          size: (0.7 + Math.random() * 0.7) * baseSize,
+          color: Math.random() > 0.5 ? "#c084fc" : "#a78bfa",
         });
       }
     }
     lastCaretPos.current = { left: caretStyle.left, top: caretStyle.top };
-  }, [caretStyle.left, caretStyle.top, settings.theme]);
+  }, [caretStyle.left, caretStyle.top, settings.theme, isJumping]);
 
 
   return (
@@ -395,6 +416,7 @@ export function TypingLayer({
             left: caretStyle.left - 0.5,
             height: caretStyle.height,
             opacity: caretStyle.opacity,
+            transition: isJumping ? "none" : undefined,
           }}
         />
       )}
@@ -574,8 +596,16 @@ function CaretTrail({ particles }: { particles: any[] }) {
           continue;
         }
 
-        ctx.globalAlpha = p.life;
         ctx.fillStyle = p.color;
+
+        // Draw subtle glow (larger, lower opacity)
+        ctx.globalAlpha = p.life * 0.25;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size * 3, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Draw core
+        ctx.globalAlpha = p.life;
         ctx.beginPath();
         ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
         ctx.fill();
