@@ -329,6 +329,7 @@ export const RainParticles = memo(function RainParticles({
     let animId: number;
     let lastTime = 0;
     let lastSplatTick = 0;
+    let staticDrawn = false;
 
     const updateMetrics = () => {
       const dpr = window.devicePixelRatio || 1;
@@ -337,6 +338,7 @@ export const RainParticles = memo(function RainParticles({
       const h = parent?.clientHeight ?? window.innerHeight;
       
       if (w !== metricsRef.current.w || h !== metricsRef.current.h || dpr !== metricsRef.current.dpr) {
+        staticDrawn = false;
         metricsRef.current = { w, h, dpr };
         canvas.width = w * dpr;
         canvas.height = h * dpr;
@@ -415,6 +417,17 @@ export const RainParticles = memo(function RainParticles({
       const { drops, splat: splatSprite, noise: noiseSprite } = spritesRef.current;
       const splats = splatsRef.current;
       const spriteMetrics = spriteMetricsRef.current;
+      const dropsList = dropsRef.current;
+      
+      if (dropsList.length === 0 && splats.length === 0) {
+        if (staticDrawn) {
+          animId = requestAnimationFrame(render);
+          return;
+        }
+        staticDrawn = true;
+      } else {
+        staticDrawn = false;
+      }
       
       ctx.clearRect(0, 0, w, h);
 
@@ -467,7 +480,6 @@ export const RainParticles = memo(function RainParticles({
       } = propsRef.current;
       
       const layerOpacities = [bgO, midO, fgO];
-      const dropsList = dropsRef.current;
       
       for (let i = 0; i < dropsList.length; i++) {
         const d = dropsList[i];

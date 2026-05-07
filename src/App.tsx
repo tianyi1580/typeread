@@ -526,7 +526,7 @@ export default function App() {
           : `radial-gradient(circle at top left, ${theme.accentSoft}, transparent 26%), radial-gradient(circle at bottom right, ${theme.panelSoft}, transparent 22%)`,
       }}
     >
-      {settings?.theme === "nebula-drift" && <NebulaBackground />}
+      {settings?.theme === "nebula-drift" && <NebulaBackground density={activeTab === "reader" ? 0 : 1} />}
       {settings?.theme === "rainy-window" && (
         <RainyWindowBackground density={activeTab === "reader" ? 0 : 1} />
       )}

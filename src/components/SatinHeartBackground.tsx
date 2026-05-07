@@ -102,6 +102,7 @@ export const SatinHeartParticles = memo(function SatinHeartParticles({
   const spriteMetricsRef = useRef<SpriteMetric[]>([]);
   const metricsRef = useRef({ w: 0, h: 0, dpr: 1 });
   const lastTimeRef = useRef(0);
+  const emptyDrawnRef = useRef(false);
   const mouseRef = useRef({ x: -1000, y: -1000, active: false, lastMoveAt: 0 });
 
   // Smooth props access
@@ -137,6 +138,7 @@ export const SatinHeartParticles = memo(function SatinHeartParticles({
       const w = window.innerWidth;
       const h = window.innerHeight;
       metricsRef.current = { w, h, dpr };
+      emptyDrawnRef.current = false;
       canvas.width = w * dpr;
       canvas.height = h * dpr;
       canvas.style.width = `${w}px`;
@@ -193,10 +195,20 @@ export const SatinHeartParticles = memo(function SatinHeartParticles({
         mouse.active = false;
       }
 
+      const hearts = heartsRef.current;
+      if (hearts.length === 0) {
+        if (!emptyDrawnRef.current) {
+          ctx.clearRect(0, 0, w, h);
+          emptyDrawnRef.current = true;
+        }
+        animId = requestAnimationFrame(render);
+        return;
+      }
+      emptyDrawnRef.current = false;
+
       // Clear canvas fully every frame
       ctx.clearRect(0, 0, w, h);
 
-      const hearts = heartsRef.current;
       const sprites = spritesRef.current;
       const sMetrics = spriteMetricsRef.current;
 

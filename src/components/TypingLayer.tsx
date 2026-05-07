@@ -310,6 +310,7 @@ export function TypingLayer({
 
   const [isJumping, setIsJumping] = useState(false);
   const jumpTimeoutRef = useRef<any>(null);
+  const stompTimeoutRef = useRef<any>(null);
 
   // Pre-allocated particle pool for zero-allocation typing effects
   const PARTICLE_POOL_SIZE = 200;
@@ -344,7 +345,7 @@ export function TypingLayer({
       // immune to viewport-relative jitter during simultaneous scrolling.
       const newTop = charEl.offsetTop;
       const newLeft = charEl.offsetLeft;
-      
+
       // Fallback to charEl's height or a reasonable default
       const charHeight = charEl.offsetHeight || 24;
       const newHeight = charHeight * 0.8;
@@ -357,7 +358,7 @@ export function TypingLayer({
       // or if we've detected a manual index change (e.g. clicking a word).
       const indexJump = Math.abs(snapshot.currentWordIndex - prevIdxRef.current) > 1;
       const isJumping = verticalJump > 100 || wasHidden || indexJump;
-      
+
       prevIdxRef.current = snapshot.currentWordIndex;
       isJumpingRef.current = isJumping;
 
@@ -365,10 +366,10 @@ export function TypingLayer({
         if (jumpTimeoutRef.current) clearTimeout(jumpTimeoutRef.current);
         jumpTimeoutRef.current = setTimeout(() => {
           isJumpingRef.current = false;
-          if (caretRef.current) {
+          if (caretRef.current && !isStretchingRef.current) {
             const isSilk = settings.theme === "satin-heart";
-            caretRef.current.style.transition = isSilk 
-              ? "transform 50ms cubic-bezier(0.34, 1.56, 0.64, 1), height 50ms cubic-bezier(0.34, 1.56, 0.64, 1), opacity 100ms" 
+            caretRef.current.style.transition = isSilk
+              ? "transform 50ms cubic-bezier(0.34, 1.56, 0.64, 1), height 50ms cubic-bezier(0.34, 1.56, 0.64, 1), opacity 100ms"
               : "transform 60ms ease-out, height 60ms ease-out, opacity 100ms";
           }
           jumpTimeoutRef.current = null;
@@ -386,13 +387,13 @@ export function TypingLayer({
         style.transform = `translate3d(${newLeft - 0.5}px, ${newTop + (newHeight * 0.1)}px, 0)`;
         style.height = `${newHeight}px`;
         style.opacity = "1";
-        const defaultTransition = isSilk 
+        const defaultTransition = isSilk
           ? "transform 50ms cubic-bezier(0.34, 1.56, 0.64, 1), height 50ms cubic-bezier(0.34, 1.56, 0.64, 1), opacity 100ms"
           : "transform 60ms ease-out, height 60ms ease-out, opacity 100ms";
-          
+
         style.transition = isJumping ? "none" : (isStretchingRef.current ? "transform 40ms ease-out, height 40ms ease-out" : defaultTransition);
       }
-      
+
       // Update the ref after the DOM so the next React render is in sync
       caretPosRef.current = { top: newTop, left: newLeft, height: newHeight, opacity: 1 };
 
@@ -405,7 +406,7 @@ export function TypingLayer({
         let emitted = false;
 
         if (isNebula) {
-          const count = dist > 30 ? 4 : 2;
+          const count = dist > 30 ? 2 : 1;
           for (let i = 0; i < count; i++) {
             const t = i / count;
             const p = getInactiveParticle(particlePool.current, nextParticleIdx);
@@ -435,16 +436,16 @@ export function TypingLayer({
               caretRef.current.style.transform = `translate3d(${newLeft - 0.5}px, ${newTop + (newHeight * 0.1)}px, 0) scaleY(1.3) scaleX(0.7)`;
               caretRef.current.style.transition = "all 40ms ease-out";
             }
-            if (jumpTimeoutRef.current) clearTimeout(jumpTimeoutRef.current);
-            jumpTimeoutRef.current = setTimeout(() => {
+            if (stompTimeoutRef.current) clearTimeout(stompTimeoutRef.current);
+            stompTimeoutRef.current = setTimeout(() => {
               isStretchingRef.current = false;
               if (caretRef.current) {
                 // Use the latest ref coordinates to avoid snapping back to old position
                 const p = caretPosRef.current;
                 caretRef.current.style.transform = `translate3d(${p.left - 0.5}px, ${p.top + (p.height * 0.1)}px, 0) scaleY(1) scaleX(1)`;
-                caretRef.current.style.transition = "all 80ms ease-out";
+                caretRef.current.style.transition = isJumpingRef.current ? "none" : "all 80ms ease-out";
               }
-              jumpTimeoutRef.current = null;
+              stompTimeoutRef.current = null;
             }, 80);
           }
 
@@ -740,11 +741,39 @@ const CaretTrail = memo(forwardRef(({ particles }: { particles: any[] }, ref) =>
   const animationFrameId = useRef<number>(0);
   const isLoopRunning = useRef(false);
   const hasEllipse = useRef<boolean | null>(null);
-  
+  const heartSpritesRef = useRef<HTMLCanvasElement[]>([]);
+
   // High-performance layout caching to prevent 60fps reflows
   const parentRef = useRef<HTMLElement | null>(null);
   const scrollContainerRef = useRef<HTMLElement | null>(null);
   const parentRectRef = useRef<{ top: number; left: number; scrollT: number; scrollL: number } | null>(null);
+
+  useEffect(() => {
+    const dpr = window.devicePixelRatio || 1;
+    const colors = ["#f43f5e", "#fb7185"];
+    heartSpritesRef.current = colors.map(color => {
+      const c = document.createElement("canvas");
+      const baseSize = 32;
+      c.width = baseSize * dpr;
+      c.height = baseSize * dpr;
+      const ctx = c.getContext("2d");
+      if (ctx) {
+        ctx.scale(dpr, dpr);
+        const x = baseSize / 2;
+        const y = 0;
+        const size = baseSize;
+        ctx.fillStyle = color;
+        ctx.beginPath();
+        ctx.moveTo(x, y + size / 4);
+        ctx.bezierCurveTo(x, y, x - size / 2, y, x - size / 2, y + size / 4);
+        ctx.bezierCurveTo(x - size / 2, y + size / 2, x, y + size * 0.8, x, y + size);
+        ctx.bezierCurveTo(x, y + size * 0.8, x + size / 2, y + size / 2, x + size / 2, y + size / 4);
+        ctx.bezierCurveTo(x + size / 2, y, x, y, x, y + size / 4);
+        ctx.fill();
+      }
+      return c;
+    });
+  }, []);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -752,7 +781,7 @@ const CaretTrail = memo(forwardRef(({ particles }: { particles: any[] }, ref) =>
     parentRef.current = canvas.parentElement;
     scrollContainerRef.current = getScrollContainer(parentRef.current);
 
-    const invalidate = () => { 
+    const invalidate = () => {
       if (!parentRef.current) return;
       const rect = parentRef.current.getBoundingClientRect();
       const sc = scrollContainerRef.current;
@@ -786,7 +815,7 @@ const CaretTrail = memo(forwardRef(({ particles }: { particles: any[] }, ref) =>
     // Get the viewport-relative position of the parent without triggering reflow
     const parent = parentRef.current;
     if (!parent) return;
-    
+
     if (!parentRectRef.current) {
       const rect = parent.getBoundingClientRect();
       const sc = scrollContainerRef.current;
@@ -802,7 +831,7 @@ const CaretTrail = memo(forwardRef(({ particles }: { particles: any[] }, ref) =>
     const sc = scrollContainerRef.current;
     const currT = sc ? (sc === document.body ? window.scrollY : sc.scrollTop) : 0;
     const currL = sc ? (sc === document.body ? window.scrollX : sc.scrollLeft) : 0;
-    
+
     // Calculate current viewport position based on scroll delta WITHOUT triggering a fresh getBoundingClientRect()
     const parentViewportTop = cache.top - (currT - cache.scrollT);
     const parentViewportLeft = cache.left - (currL - cache.scrollL);
@@ -863,7 +892,7 @@ const CaretTrail = memo(forwardRef(({ particles }: { particles: any[] }, ref) =>
           ctx.globalCompositeOperation = "source-over";
           lastMode = "source-over";
         }
-        
+
         const speed = Math.sqrt(p.vx * p.vx + p.vy * p.vy);
         const stretch = p.isPill ? Math.max(1.8, speed * 0.6) : 1;
         const angle = Math.atan2(p.vy, p.vx) || 0;
@@ -894,28 +923,22 @@ const CaretTrail = memo(forwardRef(({ particles }: { particles: any[] }, ref) =>
           ctx.globalCompositeOperation = "source-over";
           lastMode = "source-over";
         }
-        
-        ctx.globalAlpha = Math.max(0, p.life * 0.65);
-        ctx.fillStyle = p.color;
-        
-        const size = p.size * 2.5;
-        const x = drawX;
-        const y = drawY - size / 2;
 
-        ctx.beginPath();
-        ctx.moveTo(x, y + size / 4);
-        ctx.bezierCurveTo(x, y, x - size / 2, y, x - size / 2, y + size / 4);
-        ctx.bezierCurveTo(x - size / 2, y + size / 2, x, y + size * 0.8, x, y + size);
-        ctx.bezierCurveTo(x, y + size * 0.8, x + size / 2, y + size / 2, x + size / 2, y + size / 4);
-        ctx.bezierCurveTo(x + size / 2, y, x, y, x, y + size / 4);
-        ctx.fill();
+        ctx.globalAlpha = Math.max(0, p.life * 0.65);
+
+        const size = p.size * 2.5;
+        const spriteIdx = p.color === "#f43f5e" ? 0 : 1;
+        const sprite = heartSpritesRef.current[spriteIdx];
+        if (sprite) {
+          ctx.drawImage(sprite, drawX - size / 2, drawY - size / 2, size, size);
+        }
       } else {
         // Nebula / Cosmic Glow
         if (lastMode !== "lighter") {
           ctx.globalCompositeOperation = "lighter";
           lastMode = "lighter";
         }
-        
+
         ctx.globalAlpha = Math.max(0, p.life * 0.45);
         ctx.fillStyle = p.color;
         ctx.beginPath();
@@ -928,7 +951,7 @@ const CaretTrail = memo(forwardRef(({ particles }: { particles: any[] }, ref) =>
         ctx.fill();
       }
     }
-    
+
     // Reset for next frame/other drawing
     if (lastMode !== "source-over") {
       ctx.globalCompositeOperation = "source-over";

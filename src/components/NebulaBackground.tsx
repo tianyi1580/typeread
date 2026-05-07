@@ -13,7 +13,11 @@ const NEBULA_STYLES = `
   }
 `;
 
-export const NebulaBackground = memo(function NebulaBackground() {
+export const NebulaBackground = memo(function NebulaBackground({
+  density = 1,
+}: {
+  density?: number;
+}) {
   return (
     <div className="fixed inset-0 z-0 overflow-hidden bg-[#050614]">
       <style>{NEBULA_STYLES}</style>
@@ -22,8 +26,8 @@ export const NebulaBackground = memo(function NebulaBackground() {
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,#0a0b1e_0%,#050614_100%)]" />
 
       {/* High-performance Canvas Starfield Layers - Restored depth */}
-      <CelestialParticles count={170} size={2} opacity={0.4} speed={80} />
-      <CelestialParticles count={85} size={3} opacity={0.6} speed={60} twinkle />
+      <CelestialParticles count={Math.floor(170 * density)} size={2} opacity={0.4} speed={80} />
+      <CelestialParticles count={Math.floor(85 * density)} size={3} opacity={0.6} speed={60} twinkle />
 
       {/* Dynamic Nebula Blobs - Optimized with smaller base size + scale to reduce blur cost */}
       <NebulaBlob
@@ -114,6 +118,7 @@ export const CelestialParticles = memo(function CelestialParticles({
     let animationFrameId: number;
     let width = 0;
     let height = 0;
+    let emptyDrawn = false;
 
     const createSprites = () => {
       const dpr = window.devicePixelRatio || 1;
@@ -150,6 +155,7 @@ export const CelestialParticles = memo(function CelestialParticles({
     const resize = () => {
       width = window.innerWidth;
       height = window.innerHeight;
+      emptyDrawn = false;
       const dpr = window.devicePixelRatio || 1;
       canvas.width = width * dpr;
       canvas.height = height * dpr;
@@ -181,11 +187,21 @@ export const CelestialParticles = memo(function CelestialParticles({
     });
 
     const render = (time: number) => {
+      const stars = starsRef.current;
+      if (stars.length === 0) {
+        if (!emptyDrawn) {
+          ctx.clearRect(0, 0, width, height);
+          emptyDrawn = true;
+        }
+        animationFrameId = requestAnimationFrame(render);
+        return;
+      }
+      emptyDrawn = false;
+
       ctx.clearRect(0, 0, width, height);
       const t = time * 0.001;
       const { speed: currentSpeed, baseOpacity: currentBaseOpacity, enableTwinkle: currentTwinkle } = propsRef.current;
       const speedMultiplier = (currentSpeed || 80) / 80;
-      const stars = starsRef.current;
 
       for (let i = 0; i < stars.length; i++) {
         const s = stars[i];
