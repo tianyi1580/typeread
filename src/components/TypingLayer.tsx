@@ -308,7 +308,7 @@ export function TypingLayer({
   const PARTICLE_POOL_SIZE = 200;
   const particlePool = useRef<any[]>(
     Array.from({ length: PARTICLE_POOL_SIZE }, () => ({
-      x: 0, y: 0, vx: 0, vy: 0, life: 0, decay: 0, size: 0, color: "", active: false, gravity: 0, isWater: false
+      x: 0, y: 0, vx: 0, vy: 0, life: 0, decay: 0, size: 0, color: "", active: false, gravity: 0, isWater: false, isPill: false
     }))
   );
 
@@ -439,20 +439,24 @@ export function TypingLayer({
             const pos = Math.random();
             p.y = caretStyle.top + caretStyle.height * pos;
 
-            // Middle particles go a slightly shorter distance for a more natural concave splash shape
-            const distMult = 0.3 + Math.abs(pos - 0.5) * 0.1; // 0.75 at middle, 1.0 at edges
+            // Bias shapes: Top/bottom are mostly pills, middle are mostly circles
+            const isCenter = Math.abs(pos - 0.5) < 0.25;
+            p.isPill = Math.random() < (isCenter ? 0.3 : 0.85);
+
+            // Middle particles go a significantly shorter distance than top/bottom
+            const distMult = isCenter ? (0.1 + Math.random() * 0.05) : (0.3 + Math.random() * 0.15);
             const force = ((isJump ? 2.6 : 1.8) + Math.random() * 1.2) * distMult;
             p.vx = stompDir * force * (0.7 + Math.random() * 0.6);
 
             // Calculate vertical velocity based on vertical position to create the "splash" look
-            // but with enough noise to prevent distinct streams.
-            const verticalSpread = (pos - 0.5) * 10;
+            const verticalSpread = (pos - 0.5) * 8.5; // Natural diagonal spread
             const noise = (Math.random() - 0.5) * 1.8;
             p.vy = (verticalSpread + noise) * force * 0.4;
 
             p.life = 1.0;
-            p.decay = 0.03 + Math.random() * 0.05; // Slightly slower fade to ensure visibility
-            p.size = (1.2 + Math.random() * 1.5) * baseSize; // Increase size
+            p.decay = 0.03 + Math.random() * 0.05;
+            // Pill particles have a constant larger size, circles are smaller and variable
+            p.size = p.isPill ? (1.8 * baseSize) : ((0.5 + Math.random() * 0.5) * baseSize);
 
             const colorRnd = Math.random();
             if (colorRnd > 0.8) {
@@ -695,11 +699,11 @@ const CaretTrail = forwardRef(({ particles }: { particles: any[] }, ref) => {
       try {
         if (p.isWater) {
           const speed = Math.sqrt(p.vx * p.vx + p.vy * p.vy);
-          const stretch = Math.max(1, speed * 0.4);
+          const stretch = p.isPill ? Math.max(1.8, speed * 0.6) : 1;
           const angle = Math.atan2(p.vy, p.vx) || 0;
 
           const radiusX = Math.max(0.5, p.size * stretch);
-          const radiusY = Math.max(0.5, p.size * 0.8);
+          const radiusY = Math.max(0.5, p.size * (p.isPill ? 0.6 : 1.0));
 
           ctx.globalAlpha = Math.max(0, p.life * 0.8);
           ctx.fillStyle = p.color;
