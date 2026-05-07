@@ -82,7 +82,10 @@ export function TypingLayer({
   snapshotRef.current = snapshot;
   const animationFrameId = useRef<number | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
-  const [caretStyle, setCaretStyle] = useState<{ top: number; left: number; height: number; opacity: number }>({ top: 0, left: 0, height: 0, opacity: 0 });
+  const caretRef = useRef<HTMLDivElement | null>(null);
+  const caretPosRef = useRef({ top: 0, left: 0, height: 0, opacity: 0 });
+  const isJumpingRef = useRef(false);
+  const isStretchingRef = useRef(false);
 
   // Buffered windowing to prevent shifting the DOM on every single word.
   useEffect(() => {
@@ -215,15 +218,16 @@ export function TypingLayer({
 
     // Use caret position for precise centering if available, fallback to current word
     const typingLayerRect = containerRef.current?.getBoundingClientRect();
-    const typingViewportTop = (caretStyle.opacity > 0 && typingLayerRect)
-      ? caretStyle.top + typingLayerRect.top
+    const currentCaret = caretPosRef.current;
+    const typingViewportTop = (currentCaret.opacity > 0 && typingLayerRect)
+      ? currentCaret.top + typingLayerRect.top
       : el.getBoundingClientRect().top;
 
-    const typingHeight = caretStyle.opacity > 0 ? caretStyle.height : el.getBoundingClientRect().height;
+    const typingHeight = currentCaret.opacity > 0 ? currentCaret.height : el.getBoundingClientRect().height;
     const currentRelativeCenter = (typingViewportTop + typingHeight / 2) - (containerRect.top + containerRect.height / 2);
 
     // Improved new line detection: check if the vertical offset changed
-    const currentOffsetTop = caretStyle.opacity > 0 ? caretStyle.top : el.offsetTop;
+    const currentOffsetTop = currentCaret.opacity > 0 ? currentCaret.top : el.offsetTop;
     const isLineChanged = lastOffsetTop.current !== null && Math.abs(currentOffsetTop - lastOffsetTop.current) > 10;
     const currentScroll = isWindowScroll ? window.scrollY : container.scrollTop;
 
@@ -254,7 +258,7 @@ export function TypingLayer({
       }
       springRef.current.isActive = false;
     };
-  }, [snapshot.currentWordIndex, snapshot.words[snapshot.currentWordIndex]?.typed.length, visibleRange, noScroll, interactionMode, caretStyle.top, caretStyle.opacity]);
+  }, [snapshot.currentWordIndex, snapshot.words[snapshot.currentWordIndex]?.typed.length, visibleRange, noScroll, interactionMode]);
 
   const animate = useCallback((time: number) => {
     const state = springRef.current;
@@ -311,15 +315,18 @@ export function TypingLayer({
       x: 0, y: 0, vx: 0, vy: 0, life: 0, decay: 0, size: 0, color: "", active: false, gravity: 0, isWater: false, isPill: false
     }))
   );
+  const nextParticleIdx = useRef(0);
 
   const caretTrailRef = useRef<{ wake: () => void } | null>(null);
 
-  useEffect(() => {
-    const updateCaret = () => {
-      if (!containerRef.current) return;
-
-      if (!currentWordRef.current) {
-        setCaretStyle((prev) => (prev.opacity === 0 ? prev : { ...prev, opacity: 0 }));
+  // Atomic update for caret position and particle emission
+  useLayoutEffect(() => {
+    const updateCaretAndEmit = () => {
+      if (!containerRef.current || !currentWordRef.current) {
+        if (caretPosRef.current.opacity !== 0) {
+          caretPosRef.current.opacity = 0;
+          if (caretRef.current) caretRef.current.style.opacity = "0";
+        }
         return;
       }
 
@@ -327,158 +334,146 @@ export function TypingLayer({
       const typedLength = snapshot.words[snapshot.currentWordIndex]?.typed.length ?? 0;
       const charEl = (wordEl.children[typedLength] || wordEl.children[wordEl.children.length - 1]) as HTMLElement;
 
-      if (charEl) {
-        const containerRect = containerRef.current.getBoundingClientRect();
-        const charRect = charEl.getBoundingClientRect();
+      if (!charEl) return;
 
-        if (charRect.width === 0 && charRect.height === 0 && charRect.x === 0 && charRect.y === 0) return;
+      const containerRect = containerRef.current.getBoundingClientRect();
+      const charRect = charEl.getBoundingClientRect();
+      if (charRect.width === 0 && charRect.height === 0) return;
 
-        const newTop = charRect.top - containerRect.top;
-        const newLeft = charRect.left - containerRect.left;
+      const newTop = charRect.top - containerRect.top;
+      const newLeft = charRect.left - containerRect.left;
+      const newHeight = charRect.height * 0.8;
 
-        setCaretStyle((prev) => {
-          // Detect unreasonable jumps (layout shifts / line wraps / stale positions)
-          const verticalJump = Math.abs(newTop - prev.top);
-          const wasHidden = prev.opacity === 0;
+      const prev = caretPosRef.current;
+      const verticalJump = Math.abs(newTop - prev.top);
+      const wasHidden = prev.opacity === 0;
 
-          if (verticalJump > 100 || wasHidden) {
-            setIsJumping(true);
-            if (jumpTimeoutRef.current) clearTimeout(jumpTimeoutRef.current);
-            jumpTimeoutRef.current = setTimeout(() => {
-              setIsJumping(false);
-              jumpTimeoutRef.current = null;
-            }, 50);
+      const isJumping = verticalJump > 100 || wasHidden;
+      isJumpingRef.current = isJumping;
+
+      if (isJumping) {
+        if (jumpTimeoutRef.current) clearTimeout(jumpTimeoutRef.current);
+        jumpTimeoutRef.current = setTimeout(() => {
+          isJumpingRef.current = false;
+          if (caretRef.current) caretRef.current.style.transition = "all 80ms ease-out";
+          jumpTimeoutRef.current = null;
+        }, 50);
+      }
+
+      // Calculate distance for particles
+      const dx = newLeft - prev.left;
+      const dy = newTop - prev.top;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+
+      // Update Ref and DOM
+      caretPosRef.current = { top: newTop, left: newLeft, height: newHeight, opacity: 1 };
+
+      if (caretRef.current) {
+        const style = caretRef.current.style;
+        style.top = `${newTop + (newHeight * 0.1)}px`;
+        style.left = `${newLeft - 0.5}px`;
+        style.height = `${newHeight}px`;
+        style.opacity = "1";
+        style.transition = isJumping ? "none" : (isStretchingRef.current ? "all 40ms ease-out" : "all 80ms ease-out");
+      }
+
+      // Particle emission logic
+      const isNebula = settings.theme === "nebula-drift";
+      const isRainy = settings.theme === "rainy-window";
+
+      if ((isNebula || isRainy) && dist > 0.1 && dist < 350) {
+        const baseSize = Math.max(1, newHeight * 0.03);
+        let emitted = false;
+
+        if (isNebula) {
+          const count = dist > 30 ? 4 : 2;
+          for (let i = 0; i < count; i++) {
+            const t = i / count;
+            const p = getInactiveParticle(particlePool.current, nextParticleIdx);
+            if (p) {
+              p.active = true;
+              p.isWater = false;
+              p.x = prev.left + dx * t + (Math.random() - 0.5) * 2;
+              p.y = prev.top + dy * t + (Math.random() * newHeight);
+              p.vx = (Math.random() - 0.5) * 0.4;
+              p.vy = (Math.random() - 0.5) * 0.6;
+              p.life = 1.0;
+              p.decay = 0.015 + Math.random() * 0.025;
+              p.size = (0.7 + Math.random() * 0.7) * baseSize;
+              p.color = Math.random() > 0.5 ? "#c084fc" : "#a78bfa";
+              p.gravity = 0;
+              emitted = true;
+            }
+          }
+        } else if (isRainy && dist > 1) {
+          const isJumpStomp = dist > 15;
+          if (isJumpStomp) {
+            isStretchingRef.current = true;
+            if (caretRef.current) {
+              caretRef.current.style.transform = "scaleY(1.3) scaleX(0.7)";
+              caretRef.current.style.transition = "all 40ms ease-out";
+            }
+            setTimeout(() => {
+              isStretchingRef.current = false;
+              if (caretRef.current) {
+                caretRef.current.style.transform = "scaleY(1) scaleX(1)";
+                caretRef.current.style.transition = "all 80ms ease-out";
+              }
+            }, 80);
           }
 
-          return {
-            top: newTop,
-            left: newLeft,
-            height: charRect.height * 0.8,
-            opacity: 1,
-          };
-        });
-      } else {
-        setCaretStyle((prev) => (prev.opacity === 0 ? prev : { ...prev, opacity: 0 }));
+          const stompDir = dx < 0 ? 1 : -1;
+          const startXOffset = dx < 0 ? 4 : 0;
+          const count = isJumpStomp ? 12 : 8;
+
+          for (let i = 0; i < count; i++) {
+            const p = getInactiveParticle(particlePool.current, nextParticleIdx);
+            if (p) {
+              p.active = true;
+              p.isWater = true;
+              p.x = newLeft + startXOffset + (Math.random() - 0.5) * 1.5;
+              const pos = Math.random();
+              p.y = newTop + newHeight * pos;
+
+              const isCenter = Math.abs(pos - 0.5) < 0.25;
+              p.isPill = Math.random() < (isCenter ? 0.3 : 0.85);
+              const distMult = isCenter ? (0.1 + Math.random() * 0.05) : (0.3 + Math.random() * 0.15);
+              const force = ((isJumpStomp ? 2.6 : 1.8) + Math.random() * 1.2) * distMult;
+              p.vx = stompDir * force * (0.7 + Math.random() * 0.6);
+              const verticalSpread = (pos - 0.5) * 8.5;
+              const noise = (Math.random() - 0.5) * 1.8;
+              p.vy = (verticalSpread + noise) * force * 0.4;
+              p.life = 1.0;
+              p.decay = 0.03 + Math.random() * 0.05;
+              p.size = p.isPill ? (1.8 * baseSize) : ((0.5 + Math.random() * 0.5) * baseSize);
+              const colorRnd = Math.random();
+              p.color = colorRnd > 0.8 ? "#7dd3fc" : (colorRnd > 0.4 ? "#e2e8f0" : "#cbd5e1");
+              p.gravity = 0;
+              emitted = true;
+            }
+          }
+        }
+
+        if (emitted) caretTrailRef.current?.wake();
       }
     };
 
-    updateCaret();
-    window.addEventListener("resize", updateCaret);
-    return () => window.removeEventListener("resize", updateCaret);
-  }, [snapshot.currentWordIndex, snapshot.words[snapshot.currentWordIndex]?.typed.length, interactionMode]);
+    updateCaretAndEmit();
+    window.addEventListener("resize", updateCaretAndEmit);
+    return () => window.removeEventListener("resize", updateCaretAndEmit);
+  }, [snapshot.currentWordIndex, snapshot.words[snapshot.currentWordIndex]?.typed.length, interactionMode, settings.theme]);
 
-  // Particle emission logic for premium carets
-  const lastCaretPos = useRef({ left: 0, top: 0 });
-  const [isStretching, setIsStretching] = useState(false);
-
-  useEffect(() => {
-    const isNebula = settings.theme === "nebula-drift";
-    const isRainy = settings.theme === "rainy-window";
-
-    if ((!isNebula && !isRainy) || caretStyle.opacity === 0) {
-      lastCaretPos.current = { left: caretStyle.left, top: caretStyle.top };
-      return;
-    }
-
-    const dx = caretStyle.left - lastCaretPos.current.left;
-    const dy = caretStyle.top - lastCaretPos.current.top;
-    const dist = Math.sqrt(dx * dx + dy * dy);
-
-    // Suppress particles on massive jumps to avoid "burst" glitches
-    if (dist > 0.1 && dist < 350) {
-      const baseSize = Math.max(1, caretStyle.height * 0.03); // Ensure base size is never too small
-      let emitted = false;
-
-      if (isNebula) {
-        const count = dist > 30 ? 4 : 2;
-        for (let i = 0; i < count; i++) {
-          const t = i / count;
-          const p = particlePool.current.find(p => !p.active);
-          if (p) {
-            p.active = true;
-            p.isWater = false;
-            p.x = lastCaretPos.current.left + dx * t + (Math.random() - 0.5) * 2;
-            p.y = lastCaretPos.current.top + dy * t + (Math.random() * caretStyle.height);
-            p.vx = (Math.random() - 0.5) * 0.4;
-            p.vy = (Math.random() - 0.5) * 0.6;
-            p.life = 1.0;
-            p.decay = 0.015 + Math.random() * 0.025;
-            p.size = (0.7 + Math.random() * 0.7) * baseSize;
-            p.color = Math.random() > 0.5 ? "#c084fc" : "#a78bfa";
-            emitted = true;
-          }
-        }
-      } else if (isRainy && dist > 1) {
-        // "Liquid Bead" Stomp Effect
-        const isJump = dist > 15;
-
-        if (isJump) {
-          setIsStretching(true);
-          if (jumpTimeoutRef.current) clearTimeout(jumpTimeoutRef.current);
-          jumpTimeoutRef.current = setTimeout(() => {
-            setIsStretching(false);
-            jumpTimeoutRef.current = null;
-          }, 80);
-        }
-
-        const isBackspace = dx < 0;
-        // Typing: moves right, splash from LEFT going LEFT
-        // Backspace: moves left, splash from RIGHT going RIGHT
-        const stompDir = isBackspace ? 1 : -1;
-        const startXOffset = isBackspace ? 4 : 0; // Approximate caret width
-
-        const count = isJump ? 12 : 8;
-        for (let i = 0; i < count; i++) {
-          const p = particlePool.current.find(p => !p.active);
-          if (p) {
-            p.active = true;
-            p.isWater = true;
-
-            // Randomize starting X and Y for a more natural distribution
-            p.x = caretStyle.left + startXOffset + (Math.random() - 0.5) * 1.5;
-            const pos = Math.random();
-            p.y = caretStyle.top + caretStyle.height * pos;
-
-            // Bias shapes: Top/bottom are mostly pills, middle are mostly circles
-            const isCenter = Math.abs(pos - 0.5) < 0.25;
-            p.isPill = Math.random() < (isCenter ? 0.3 : 0.85);
-
-            // Middle particles go a significantly shorter distance than top/bottom
-            const distMult = isCenter ? (0.1 + Math.random() * 0.05) : (0.3 + Math.random() * 0.15);
-            const force = ((isJump ? 2.6 : 1.8) + Math.random() * 1.2) * distMult;
-            p.vx = stompDir * force * (0.7 + Math.random() * 0.6);
-
-            // Calculate vertical velocity based on vertical position to create the "splash" look
-            const verticalSpread = (pos - 0.5) * 8.5; // Natural diagonal spread
-            const noise = (Math.random() - 0.5) * 1.8;
-            p.vy = (verticalSpread + noise) * force * 0.4;
-
-            p.life = 1.0;
-            p.decay = 0.03 + Math.random() * 0.05;
-            // Pill particles have a constant larger size, circles are smaller and variable
-            p.size = p.isPill ? (1.8 * baseSize) : ((0.5 + Math.random() * 0.5) * baseSize);
-
-            const colorRnd = Math.random();
-            if (colorRnd > 0.8) {
-              p.color = "#7dd3fc"; // Slightly brighter teal for visibility
-            } else if (colorRnd > 0.4) {
-              p.color = "#e2e8f0"; // Brighter slate
-            } else {
-              p.color = "#cbd5e1"; // Base slate
-            }
-
-            p.gravity = 0;
-            emitted = true;
-          }
-        }
-      }
-
-      if (emitted) {
-        caretTrailRef.current?.wake();
+  function getInactiveParticle(pool: any[], nextIdx: React.MutableRefObject<number>) {
+    const size = pool.length;
+    for (let i = 0; i < size; i++) {
+      const idx = (nextIdx.current + i) % size;
+      if (!pool[idx].active) {
+        nextIdx.current = (idx + 1) % size;
+        return pool[idx];
       }
     }
-    lastCaretPos.current = { left: caretStyle.left, top: caretStyle.top };
-  }, [caretStyle.left, caretStyle.top, settings.theme, isJumping]);
+    return null;
+  }
 
 
   return (
@@ -495,27 +490,24 @@ export function TypingLayer({
     >
       {effectiveSmoothCaret && (
         <div
+          ref={caretRef}
           className={cn(
-            "absolute z-50 w-[2px] bg-[var(--accent)] transition-all duration-[80ms] ease-out",
+            "absolute z-50 w-[2px] bg-[var(--accent)]",
             settings.theme === "nebula-drift" && "caret-cosmic-pulse",
             settings.theme === "rainy-window" && "caret-liquid-bead"
           )}
           style={{
-            top: caretStyle.top + (caretStyle.height * 0.1),
-            left: caretStyle.left - 0.5,
-            height: caretStyle.height,
-            opacity: caretStyle.opacity,
-            transition: isJumping ? "none" : (isStretching ? "all 40ms ease-out" : "all 80ms ease-out"),
-            // Combined transform to avoid conflict with CSS animations if possible, 
-            // though CSS animation will still win on the 'transform' property.
-            // We'll fix this in index.css by using a wrapper or changing the animation.
-            transform: isStretching ? "scaleY(1.3) scaleX(0.7)" : "scaleY(1) scaleX(1)",
+            top: caretPosRef.current.top + (caretPosRef.current.height * 0.1),
+            left: caretPosRef.current.left - 0.5,
+            height: caretPosRef.current.height,
+            opacity: caretPosRef.current.opacity,
             transformOrigin: "bottom",
+            transition: "all 80ms ease-out",
           }}
         />
       )}
 
-      {(settings.theme === "nebula-drift" || settings.theme === "rainy-window") && caretStyle.opacity > 0 && (
+      {(settings.theme === "nebula-drift" || settings.theme === "rainy-window") && (
         <CaretTrail ref={caretTrailRef} particles={particlePool.current} />
       )}
 
@@ -659,18 +651,23 @@ const Word = memo(
     );
   }));
 
-const CaretTrail = forwardRef(({ particles }: { particles: any[] }, ref) => {
+const CaretTrail = memo(forwardRef(({ particles }: { particles: any[] }, ref) => {
   const particlesRef = useRef(particles);
   particlesRef.current = particles;
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animationFrameId = useRef<number>(0);
   const isLoopRunning = useRef(false);
+  const hasEllipse = useRef<boolean | null>(null);
 
   const render = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
+
+    if (hasEllipse.current === null) {
+      hasEllipse.current = typeof ctx.ellipse === "function";
+    }
 
     let hasActive = false;
     const dpr = window.devicePixelRatio || 1;
@@ -680,7 +677,9 @@ const CaretTrail = forwardRef(({ particles }: { particles: any[] }, ref) => {
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
     const currentParticles = particlesRef.current;
-    for (let i = 0; i < currentParticles.length; i++) {
+    const len = currentParticles.length;
+
+    for (let i = 0; i < len; i++) {
       const p = currentParticles[i];
       if (!p.active) continue;
 
@@ -696,49 +695,43 @@ const CaretTrail = forwardRef(({ particles }: { particles: any[] }, ref) => {
 
       hasActive = true;
 
-      try {
-        if (p.isWater) {
-          const speed = Math.sqrt(p.vx * p.vx + p.vy * p.vy);
-          const stretch = p.isPill ? Math.max(1.8, speed * 0.6) : 1;
-          const angle = Math.atan2(p.vy, p.vx) || 0;
+      if (p.isWater) {
+        const speed = Math.sqrt(p.vx * p.vx + p.vy * p.vy);
+        const stretch = p.isPill ? Math.max(1.8, speed * 0.6) : 1;
+        const angle = Math.atan2(p.vy, p.vx) || 0;
 
-          const radiusX = Math.max(0.5, p.size * stretch);
-          const radiusY = Math.max(0.5, p.size * (p.isPill ? 0.6 : 1.0));
+        const radiusX = Math.max(0.5, p.size * stretch);
+        const radiusY = Math.max(0.5, p.size * (p.isPill ? 0.6 : 1.0));
 
-          ctx.globalAlpha = Math.max(0, p.life * 0.8);
-          ctx.fillStyle = p.color;
+        ctx.globalAlpha = Math.max(0, p.life * 0.8);
+        ctx.fillStyle = p.color;
 
-          ctx.beginPath();
-          try {
-            if (ctx.ellipse) {
-              ctx.ellipse(p.x, p.y, radiusX, radiusY, angle, 0, Math.PI * 2);
-            } else {
-              ctx.arc(p.x, p.y, radiusX, 0, Math.PI * 2);
-            }
-          } catch (e) {
-            ctx.arc(p.x, p.y, Math.max(0.5, p.size), 0, Math.PI * 2);
-          }
-          ctx.fill();
-
-          ctx.beginPath();
-          ctx.fillStyle = "#ffffff";
-          ctx.globalAlpha = Math.max(0, p.life * 0.7);
-          const highlightSize = Math.max(0.2, p.size * 0.4);
-          ctx.arc(p.x - p.size * 0.15, p.y - p.size * 0.15, highlightSize, 0, Math.PI * 2);
-          ctx.fill();
+        ctx.beginPath();
+        if (hasEllipse.current) {
+          ctx.ellipse(p.x, p.y, radiusX, radiusY, angle, 0, Math.PI * 2);
         } else {
-          ctx.globalAlpha = Math.max(0, p.life * 0.3);
-          ctx.fillStyle = p.color;
-          ctx.beginPath();
-          ctx.arc(p.x, p.y, Math.max(0.1, p.size * 2), 0, Math.PI * 2);
-          ctx.fill();
-
-          ctx.globalAlpha = Math.max(0, p.life * 0.6);
-          ctx.beginPath();
-          ctx.arc(p.x, p.y, Math.max(0.1, p.size * 0.5), 0, Math.PI * 2);
-          ctx.fill();
+          ctx.arc(p.x, p.y, radiusX, 0, Math.PI * 2);
         }
-      } catch (e) { }
+        ctx.fill();
+
+        ctx.beginPath();
+        ctx.fillStyle = "#ffffff";
+        ctx.globalAlpha = Math.max(0, p.life * 0.7);
+        const highlightSize = Math.max(0.2, p.size * 0.4);
+        ctx.arc(p.x - p.size * 0.15, p.y - p.size * 0.15, highlightSize, 0, Math.PI * 2);
+        ctx.fill();
+      } else {
+        ctx.globalAlpha = Math.max(0, p.life * 0.3);
+        ctx.fillStyle = p.color;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, Math.max(0.1, p.size * 2), 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.globalAlpha = Math.max(0, p.life * 0.6);
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, Math.max(0.1, p.size * 0.5), 0, Math.PI * 2);
+        ctx.fill();
+      }
     }
 
     if (hasActive) {
@@ -794,7 +787,7 @@ const CaretTrail = forwardRef(({ particles }: { particles: any[] }, ref) => {
       style={{ zIndex: 9999 }}
     />
   );
-});
+}));
 
 function renderWordParts(
   expected: string,

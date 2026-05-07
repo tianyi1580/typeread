@@ -164,7 +164,7 @@ export const themeMap: Record<ThemeName, ThemeDefinition> = {
     textMuted: "#94a3b8c6",
     accent: "#66999B",
     accentSoft: "rgba(102, 153, 155, 0.15)",
-    success: "#2dd4bf",
+    success: "#7dd3fc",
     danger: "#fb7185",
     shadow: "rgba(0, 0, 0, 0.4)",
   },
