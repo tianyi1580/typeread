@@ -192,7 +192,6 @@ textarea {
   box-shadow: 0 4px 24px -2px var(--shadow);
   position: relative;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  overflow: hidden;
 }
 
 .liquid-glass-soft {
@@ -202,7 +201,7 @@ textarea {
     inset 0 1px 0 0 rgba(255, 255, 255, 0.05),
     0 4px 16px -2px var(--shadow);
   position: relative;
-  overflow: hidden;
+  /* overflow: hidden removed to allow use on scrollable containers */
 }
 
 .liquid-glass-popout {
@@ -210,7 +209,7 @@ textarea {
   border: 1px solid var(--border) !important;
   box-shadow: 0 8px 32px -4px var(--shadow);
   position: relative;
-  overflow: hidden;
+  /* overflow: hidden removed to allow use on scrollable containers */
 }
 
 /* Theme-specific Liquid Glass Overrides */
