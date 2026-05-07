@@ -218,7 +218,7 @@ export function TypingLayer({
     const typingViewportTop = (caretStyle.opacity > 0 && typingLayerRect)
       ? caretStyle.top + typingLayerRect.top
       : el.getBoundingClientRect().top;
-    
+
     const typingHeight = caretStyle.opacity > 0 ? caretStyle.height : el.getBoundingClientRect().height;
     const currentRelativeCenter = (typingViewportTop + typingHeight / 2) - (containerRect.top + containerRect.height / 2);
 
@@ -386,7 +386,7 @@ export function TypingLayer({
 
     // Suppress particles on massive jumps to avoid "burst" glitches
     if (dist > 0.1 && dist < 350) {
-      const baseSize = Math.max(1.5, caretStyle.height * 0.06); // Ensure base size is never too small
+      const baseSize = Math.max(1, caretStyle.height * 0.03); // Ensure base size is never too small
       let emitted = false;
 
       if (isNebula) {
@@ -440,13 +440,13 @@ export function TypingLayer({
             p.y = caretStyle.top + caretStyle.height * pos;
 
             // Middle particles go a slightly shorter distance for a more natural concave splash shape
-            const distMult = 0.5 + Math.abs(pos - 0.5) * 0.5; // 0.75 at middle, 1.0 at edges
+            const distMult = 0.3 + Math.abs(pos - 0.5) * 0.1; // 0.75 at middle, 1.0 at edges
             const force = ((isJump ? 2.6 : 1.8) + Math.random() * 1.2) * distMult;
             p.vx = stompDir * force * (0.7 + Math.random() * 0.6);
 
             // Calculate vertical velocity based on vertical position to create the "splash" look
             // but with enough noise to prevent distinct streams.
-            const verticalSpread = (pos - 0.5) * 2.2;
+            const verticalSpread = (pos - 0.5) * 10;
             const noise = (Math.random() - 0.5) * 1.8;
             p.vy = (verticalSpread + noise) * force * 0.4;
 
