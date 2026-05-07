@@ -87,18 +87,11 @@ export function TypingLayer({
   const isStretchingRef = useRef(false);
   const caretPosRef = useRef({ top: 0, left: 0, height: 0, opacity: 0 });
 
-  // Proactively catch index changes to disable transitions for the next render frame
-  // This prevents the caret from "sliding" from the old position during the React update.
-  const prevIdx = useRef(snapshot.currentWordIndex);
-  const prevLen = useRef(snapshot.words[snapshot.currentWordIndex]?.typed.length || 0);
-  if (prevIdx.current !== snapshot.currentWordIndex || prevLen.current !== (snapshot.words[snapshot.currentWordIndex]?.typed.length || 0)) {
-    isJumpingRef.current = true;
-    prevIdx.current = snapshot.currentWordIndex;
-    prevLen.current = snapshot.words[snapshot.currentWordIndex]?.typed.length || 0;
-  }
+  // We use this to detect manual jumps (index change > 1) to disable sliding animations.
+  const prevIdxRef = useRef(snapshot.currentWordIndex);
 
   // Buffered windowing to prevent shifting the DOM on every single word.
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (visibleRange || noScroll || interactionMode === "read") return;
     const current = snapshot.currentWordIndex;
     if (current < windowStart + BUFFER || current > windowStart + WINDOW_SIZE - BUFFER) {
@@ -360,7 +353,12 @@ export function TypingLayer({
       const verticalJump = Math.abs(newTop - prev.top);
       const wasHidden = prev.opacity === 0;
 
-      const isJumping = verticalJump > 100 || wasHidden;
+      // A jump is required if the vertical distance is large, if the caret was hidden,
+      // or if we've detected a manual index change (e.g. clicking a word).
+      const indexJump = Math.abs(snapshot.currentWordIndex - prevIdxRef.current) > 1;
+      const isJumping = verticalJump > 100 || wasHidden || indexJump;
+      
+      prevIdxRef.current = snapshot.currentWordIndex;
       isJumpingRef.current = isJumping;
 
       if (isJumping) {
@@ -423,14 +421,17 @@ export function TypingLayer({
           if (isJumpStomp) {
             isStretchingRef.current = true;
             if (caretRef.current) {
-              caretRef.current.style.transform = "scaleY(1.3) scaleX(0.7)";
+              // PRESERVE the position while applying the scale
+              caretRef.current.style.transform = `translate3d(${newLeft - 0.5}px, ${newTop + (newHeight * 0.1)}px, 0) scaleY(1.3) scaleX(0.7)`;
               caretRef.current.style.transition = "all 40ms ease-out";
             }
             if (jumpTimeoutRef.current) clearTimeout(jumpTimeoutRef.current);
             jumpTimeoutRef.current = setTimeout(() => {
               isStretchingRef.current = false;
               if (caretRef.current) {
-                caretRef.current.style.transform = "scaleY(1) scaleX(1)";
+                // Use the latest ref coordinates to avoid snapping back to old position
+                const p = caretPosRef.current;
+                caretRef.current.style.transform = `translate3d(${p.left - 0.5}px, ${p.top + (p.height * 0.1)}px, 0) scaleY(1) scaleX(1)`;
                 caretRef.current.style.transition = "all 80ms ease-out";
               }
               jumpTimeoutRef.current = null;
@@ -478,7 +479,7 @@ export function TypingLayer({
     updateCaretAndEmit();
     window.addEventListener("resize", updateCaretAndEmit);
     return () => window.removeEventListener("resize", updateCaretAndEmit);
-  }, [snapshot.currentWordIndex, snapshot.words[snapshot.currentWordIndex]?.typed.length, interactionMode, settings.theme]);
+  }, [snapshot.currentWordIndex, snapshot.words[snapshot.currentWordIndex]?.typed.length, interactionMode, settings.theme, windowStart]);
 
   function getInactiveParticle(pool: any[], nextIdx: React.MutableRefObject<number>) {
     const size = pool.length;
@@ -532,9 +533,9 @@ export function TypingLayer({
         <CaretTrail ref={caretTrailRef} particles={particlePool.current} />
       )}
 
-      {visibleRange && visibleTokens.length > 0 && tokens[visibleTokens[0].index].start > visibleRange.start && (
-        <span className="text-[var(--text-muted)] opacity-0">
-          {chapterText.substring(visibleRange.start, tokens[visibleTokens[0].index].start)}
+      {visibleTokens.length > 0 && tokens[visibleTokens[0].index].start > (visibleRange?.start ?? 0) && (
+        <span style={{ visibility: "hidden", whiteSpace: "pre-wrap", wordBreak: "break-word" }} aria-hidden="true">
+          {chapterText.substring(visibleRange?.start ?? 0, tokens[visibleTokens[0].index].start)}
         </span>
       )}
       {visibleTokens.map(({ token, index }) => (
@@ -556,6 +557,11 @@ export function TypingLayer({
           botCursorIndex={botCursorIndex}
         />
       ))}
+      {visibleTokens.length > 0 && tokens[visibleTokens[visibleTokens.length - 1].index].end < (visibleRange?.end ?? chapterText.length) && (
+        <span style={{ visibility: "hidden", whiteSpace: "pre-wrap", wordBreak: "break-word" }} aria-hidden="true">
+          {chapterText.substring(tokens[visibleTokens[visibleTokens.length - 1].index].end, visibleRange?.end ?? chapterText.length)}
+        </span>
+      )}
     </div>
   );
 }
