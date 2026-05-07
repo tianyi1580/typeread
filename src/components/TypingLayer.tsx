@@ -323,6 +323,14 @@ export function TypingLayer({
 
   const caretTrailRef = useRef<{ wake: () => void } | null>(null);
 
+  // Cleanup timeouts on unmount
+  useEffect(() => {
+    return () => {
+      if (jumpTimeoutRef.current) clearTimeout(jumpTimeoutRef.current);
+      if (stompTimeoutRef.current) clearTimeout(stompTimeoutRef.current);
+    };
+  }, []);
+
   // Atomic update for caret position and particle emission
   useLayoutEffect(() => {
     const updateCaretAndEmit = () => {
@@ -451,7 +459,7 @@ export function TypingLayer({
 
           const stompDir = dx < 0 ? 1 : -1;
           const startXOffset = dx < 0 ? 4 : 0;
-          const count = isJumpStomp ? 12 : 5;
+          const count = isJumpStomp ? 8 : 3;
 
           for (let i = 0; i < count; i++) {
             const p = getInactiveParticle(particlePool.current, nextParticleIdx);
@@ -467,13 +475,13 @@ export function TypingLayer({
               const isCenter = Math.abs(pos - 0.5) < 0.25;
               p.isPill = Math.random() < (isCenter ? 0.3 : 0.85);
               const distMult = isCenter ? (0.1 + Math.random() * 0.05) : (0.3 + Math.random() * 0.15);
-              const force = ((isJumpStomp ? 2.6 : 1.8) + Math.random() * 1.2) * distMult;
+              const force = ((isJumpStomp ? 2 : 1.5) + Math.random() * 1) * distMult;
               p.vx = stompDir * force * (0.7 + Math.random() * 0.6);
               const verticalSpread = (pos - 0.5) * 8.5;
               const noise = (Math.random() - 0.5) * 1.8;
               p.vy = (verticalSpread + noise) * force * 0.4;
               p.life = 1.0;
-              p.decay = 0.03 + Math.random() * 0.05;
+              p.decay = 0.04 + Math.random() * 0.05;
               p.size = p.isPill ? (1.8 * baseSize) : ((0.5 + Math.random() * 0.5) * baseSize);
               const colorRnd = Math.random();
               p.color = colorRnd > 0.8 ? "#7dd3fc" : (colorRnd > 0.4 ? "#e2e8f0" : "#cbd5e1");
