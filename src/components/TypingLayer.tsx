@@ -312,7 +312,7 @@ export function TypingLayer({
   const PARTICLE_POOL_SIZE = 200;
   const particlePool = useRef<any[]>(
     Array.from({ length: PARTICLE_POOL_SIZE }, () => ({
-      x: 0, y: 0, vx: 0, vy: 0, life: 0, decay: 0, size: 0, color: "", active: false, gravity: 0, isWater: false, isPill: false
+      x: 0, y: 0, vx: 0, vy: 0, life: 0, decay: 0, size: 0, color: "", active: false, gravity: 0, isWater: false, isPill: false, isHeart: false, isSilk: false
     }))
   );
   const nextParticleIdx = useRef(0);
@@ -355,7 +355,7 @@ export function TypingLayer({
         if (jumpTimeoutRef.current) clearTimeout(jumpTimeoutRef.current);
         jumpTimeoutRef.current = setTimeout(() => {
           isJumpingRef.current = false;
-          if (caretRef.current) caretRef.current.style.transition = "all 80ms ease-out";
+          if (caretRef.current) caretRef.current.style.transition = "transform 60ms ease-out, height 60ms ease-out, opacity 100ms";
           jumpTimeoutRef.current = null;
         }, 50);
       }
@@ -370,11 +370,10 @@ export function TypingLayer({
 
       if (caretRef.current) {
         const style = caretRef.current.style;
-        style.top = `${newTop + (newHeight * 0.1)}px`;
-        style.left = `${newLeft - 0.5}px`;
+        style.transform = `translate3d(${newLeft - 0.5}px, ${newTop + (newHeight * 0.1)}px, 0)`;
         style.height = `${newHeight}px`;
         style.opacity = "1";
-        style.transition = isJumping ? "none" : (isStretchingRef.current ? "all 40ms ease-out" : "all 80ms ease-out");
+        style.transition = isJumping ? "none" : (isStretchingRef.current ? "transform 40ms ease-out, height 40ms ease-out" : "transform 60ms ease-out, height 60ms ease-out, opacity 100ms");
       }
 
       // Particle emission logic
@@ -382,7 +381,7 @@ export function TypingLayer({
       const isRainy = settings.theme === "rainy-window";
 
       if ((isNebula || isRainy) && dist > 0.1 && dist < 350) {
-        const baseSize = Math.max(1, newHeight * 0.03);
+        const baseSize = Math.max(1, newHeight * 0.06);
         let emitted = false;
 
         if (isNebula) {
@@ -393,12 +392,14 @@ export function TypingLayer({
             if (p) {
               p.active = true;
               p.isWater = false;
+              p.isHeart = false;
+              p.isSilk = false;
               p.x = prev.left + dx * t + (Math.random() - 0.5) * 2;
               p.y = prev.top + dy * t + (Math.random() * newHeight);
               p.vx = (Math.random() - 0.5) * 0.4;
               p.vy = (Math.random() - 0.5) * 0.6;
               p.life = 1.0;
-              p.decay = 0.015 + Math.random() * 0.025;
+              p.decay = 0.02 + Math.random() * 0.01;
               p.size = (0.7 + Math.random() * 0.7) * baseSize;
               p.color = Math.random() > 0.5 ? "#c084fc" : "#a78bfa";
               p.gravity = 0;
@@ -424,13 +425,15 @@ export function TypingLayer({
 
           const stompDir = dx < 0 ? 1 : -1;
           const startXOffset = dx < 0 ? 4 : 0;
-          const count = isJumpStomp ? 12 : 8;
+          const count = isJumpStomp ? 12 : 5;
 
           for (let i = 0; i < count; i++) {
             const p = getInactiveParticle(particlePool.current, nextParticleIdx);
             if (p) {
               p.active = true;
               p.isWater = true;
+              p.isHeart = false;
+              p.isSilk = false;
               p.x = newLeft + startXOffset + (Math.random() - 0.5) * 1.5;
               const pos = Math.random();
               p.y = newTop + newHeight * pos;
@@ -497,12 +500,16 @@ export function TypingLayer({
             settings.theme === "rainy-window" && "caret-liquid-bead"
           )}
           style={{
-            top: caretPosRef.current.top + (caretPosRef.current.height * 0.1),
-            left: caretPosRef.current.left - 0.5,
+            position: "absolute",
+            top: 0,
+            left: 0,
             height: caretPosRef.current.height,
+            transform: `translate3d(${caretPosRef.current.left - 0.5}px, ${caretPosRef.current.top + (caretPosRef.current.height * 0.1)}px, 0)`,
             opacity: caretPosRef.current.opacity,
             transformOrigin: "bottom",
-            transition: "all 80ms ease-out",
+            transition: isJumpingRef.current ? "none" : "transform 60ms ease-out, height 60ms ease-out, opacity 100ms",
+            pointerEvents: "none",
+            willChange: "transform",
           }}
         />
       )}
@@ -676,6 +683,11 @@ const CaretTrail = memo(forwardRef(({ particles }: { particles: any[] }, ref) =>
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
+    // Get the viewport-relative position of the parent to translate coordinates
+    const parent = canvas.parentElement;
+    if (!parent) return;
+    const parentRect = parent.getBoundingClientRect();
+
     const currentParticles = particlesRef.current;
     const len = currentParticles.length;
 
@@ -693,6 +705,15 @@ const CaretTrail = memo(forwardRef(({ particles }: { particles: any[] }, ref) =>
         continue;
       }
 
+      // Translate from TypingLayer-relative to Viewport-relative
+      const drawX = p.x + parentRect.left;
+      const drawY = p.y + parentRect.top;
+
+      // Cull particles outside viewport for performance
+      if (drawX < -50 || drawX > window.innerWidth + 50 || drawY < -50 || drawY > window.innerHeight + 50) {
+        continue;
+      }
+
       hasActive = true;
 
       if (p.isWater) {
@@ -703,34 +724,38 @@ const CaretTrail = memo(forwardRef(({ particles }: { particles: any[] }, ref) =>
         const radiusX = Math.max(0.5, p.size * stretch);
         const radiusY = Math.max(0.5, p.size * (p.isPill ? 0.6 : 1.0));
 
-        ctx.globalAlpha = Math.max(0, p.life * 0.8);
+        const baseAlpha = p.isPill ? 0.45 : 0.8;
+        ctx.globalAlpha = Math.max(0, p.life * baseAlpha);
         ctx.fillStyle = p.color;
 
         ctx.beginPath();
         if (hasEllipse.current) {
-          ctx.ellipse(p.x, p.y, radiusX, radiusY, angle, 0, Math.PI * 2);
+          ctx.ellipse(drawX, drawY, radiusX, radiusY, angle, 0, Math.PI * 2);
         } else {
-          ctx.arc(p.x, p.y, radiusX, 0, Math.PI * 2);
+          ctx.arc(drawX, drawY, radiusX, 0, Math.PI * 2);
         }
         ctx.fill();
 
         ctx.beginPath();
         ctx.fillStyle = "#ffffff";
-        ctx.globalAlpha = Math.max(0, p.life * 0.7);
+        ctx.globalAlpha = Math.max(0, p.life * (p.isPill ? 0.35 : 0.7));
         const highlightSize = Math.max(0.2, p.size * 0.4);
-        ctx.arc(p.x - p.size * 0.15, p.y - p.size * 0.15, highlightSize, 0, Math.PI * 2);
+        ctx.arc(drawX - p.size * 0.15, drawY - p.size * 0.15, highlightSize, 0, Math.PI * 2);
         ctx.fill();
       } else {
-        ctx.globalAlpha = Math.max(0, p.life * 0.3);
+        // Nebula / Cosmic Glow
+        ctx.globalCompositeOperation = "lighter";
+        ctx.globalAlpha = Math.max(0, p.life * 0.45);
         ctx.fillStyle = p.color;
         ctx.beginPath();
-        ctx.arc(p.x, p.y, Math.max(0.1, p.size * 2), 0, Math.PI * 2);
+        ctx.arc(drawX, drawY, Math.max(0.1, p.size * 2.2), 0, Math.PI * 2);
         ctx.fill();
 
-        ctx.globalAlpha = Math.max(0, p.life * 0.6);
+        ctx.globalAlpha = Math.max(0, p.life * 0.9);
         ctx.beginPath();
-        ctx.arc(p.x, p.y, Math.max(0.1, p.size * 0.5), 0, Math.PI * 2);
+        ctx.arc(drawX, drawY, Math.max(0.1, p.size * 0.8), 0, Math.PI * 2);
         ctx.fill();
+        ctx.globalCompositeOperation = "source-over";
       }
     }
 
@@ -757,15 +782,11 @@ const CaretTrail = memo(forwardRef(({ particles }: { particles: any[] }, ref) =>
     if (!canvas) return;
 
     const resize = () => {
-      const parent = canvas.parentElement;
-      if (parent) {
-        const dpr = window.devicePixelRatio || 1;
-        const rect = parent.getBoundingClientRect();
-        canvas.width = rect.width * dpr;
-        canvas.height = rect.height * dpr;
-        canvas.style.width = `${rect.width}px`;
-        canvas.style.height = `${rect.height}px`;
-      }
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = window.innerWidth * dpr;
+      canvas.height = window.innerHeight * dpr;
+      canvas.style.width = `${window.innerWidth}px`;
+      canvas.style.height = `${window.innerHeight}px`;
     };
 
     const observer = new ResizeObserver(resize);
@@ -783,7 +804,7 @@ const CaretTrail = memo(forwardRef(({ particles }: { particles: any[] }, ref) =>
   return (
     <canvas
       ref={canvasRef}
-      className="absolute inset-0 pointer-events-none"
+      className="fixed inset-0 pointer-events-none"
       style={{ zIndex: 9999 }}
     />
   );
