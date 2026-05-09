@@ -8,6 +8,8 @@ graphics settings?
 remove transition time analytics involving spacebar
 clicking a word to start typing there sometimes misplaces the caret
 caret randomly jumps to the bottom of the page
+sometimes caret effects dont appear
+
 
 progression unlocks:
 

@@ -409,7 +409,7 @@ export function TypingLayer({
       const isNebula = settings.theme === "nebula-drift";
       const isRainy = settings.theme === "rainy-window";
 
-      if ((isNebula || isRainy || isSilk) && dist > 0.1 && dist < 350) {
+      if ((isNebula || isRainy || isSilk) && dist > 0.1 && dist < 2000) {
         const baseSize = Math.max(1, newHeight * 0.06);
         let emitted = false;
 
@@ -435,8 +435,8 @@ export function TypingLayer({
               emitted = true;
             }
           }
-        } else if (isRainy && dist > 1) {
-          const isJumpStomp = dist > 15;
+        } else if (isRainy && dist > 0.1) {
+          const isJumpStomp = dist > 12;
           if (isJumpStomp) {
             isStretchingRef.current = true;
             if (caretRef.current) {
@@ -515,7 +515,7 @@ export function TypingLayer({
           }
         }
 
-        if (emitted) caretTrailRef.current?.wake();
+        caretTrailRef.current?.wake();
       }
     };
 
@@ -810,9 +810,9 @@ const CaretTrail = memo(forwardRef(({ particles }: { particles: any[] }, ref) =>
 
   const render = useCallback(() => {
     const canvas = canvasRef.current;
-    if (!canvas) return;
+    if (!canvas) { isLoopRunning.current = false; return; }
     const ctx = canvas.getContext("2d");
-    if (!ctx) return;
+    if (!ctx) { isLoopRunning.current = false; return; }
 
     if (hasEllipse.current === null) {
       hasEllipse.current = typeof ctx.ellipse === "function";
@@ -822,7 +822,7 @@ const CaretTrail = memo(forwardRef(({ particles }: { particles: any[] }, ref) =>
 
     // Get the viewport-relative position of the parent without triggering reflow
     const parent = parentRef.current;
-    if (!parent) return;
+    if (!parent) { isLoopRunning.current = false; return; }
 
     if (!parentRectRef.current) {
       const rect = parent.getBoundingClientRect();
@@ -886,14 +886,14 @@ const CaretTrail = memo(forwardRef(({ particles }: { particles: any[] }, ref) =>
         continue;
       }
 
+      hasActiveNow = true;
+
       const drawX = p.x + parentViewportLeft;
       const drawY = p.y + parentViewportTop;
 
       if (drawX < -50 || drawX > window.innerWidth + 50 || drawY < -50 || drawY > window.innerHeight + 50) {
         continue;
       }
-
-      hasActiveNow = true;
 
       if (p.isWater) {
         if (lastMode !== "source-over") {
@@ -975,11 +975,11 @@ const CaretTrail = memo(forwardRef(({ particles }: { particles: any[] }, ref) =>
 
   useImperativeHandle(ref, () => ({
     wake: () => {
-      if (!isLoopRunning.current) {
-        isLoopRunning.current = true;
-        if (animationFrameId.current) cancelAnimationFrame(animationFrameId.current);
-        animationFrameId.current = requestAnimationFrame(render);
-      }
+      // Force-restart the render loop on every call to avoid deadlocks
+      // from race conditions between useLayoutEffect and useEffect timing.
+      isLoopRunning.current = true;
+      if (animationFrameId.current) cancelAnimationFrame(animationFrameId.current);
+      animationFrameId.current = requestAnimationFrame(render);
     }
   }));
 
