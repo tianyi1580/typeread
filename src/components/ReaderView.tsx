@@ -1018,7 +1018,7 @@ export function ReaderView({
                 ref={scrollContainerRef}
                 onScroll={handleScroll}
                 className={cn(
-                  "flex-1 overflow-y-auto no-scrollbar rounded-[36px] px-6 py-8 md:px-10 md:py-12",
+                  "flex-1 overflow-hidden no-scrollbar rounded-[36px] px-6 py-8 md:px-10 md:py-12",
                   settings.theme === "rainy-window" || settings.theme === "satin-heart"
                     ? "liquid-glass-soft"
                     : cn(

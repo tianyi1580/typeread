@@ -87,6 +87,9 @@ export function TypingLayer({
   const isStretchingRef = useRef(false);
   const caretPosRef = useRef({ top: 0, left: 0, height: 0, opacity: 0 });
 
+  // Cached scroll container to avoid repeated getComputedStyle walks
+  const scrollContainerCacheRef = useRef<HTMLElement | null>(null);
+
   // We use this to detect manual jumps (index change > 1) to disable sliding animations.
   const prevIdxRef = useRef(snapshot.currentWordIndex);
 
@@ -106,39 +109,9 @@ export function TypingLayer({
     }
   }, [snapshot.currentWordIndex, windowStart, visibleRange, noScroll, interactionMode]);
 
-  // Premium Spring Physics State
-  const springRef = useRef({
-    current: 0,
-    target: 0,
-    velocity: 0,
-    lastTime: 0,
-    isActive: false,
-  });
+  // Premium Typewriter Transform State
+  const typewriterOffsetRef = useRef(0);
 
-  // Scroll anchoring: compensate for DOM shifts caused by window changes instantly.
-  useLayoutEffect(() => {
-    if (preShiftRelativeTop.current !== null && currentWordRef.current) {
-      const el = currentWordRef.current;
-      const container = getScrollContainer(el);
-
-      if (container) {
-        const newTop = el.getBoundingClientRect().top;
-        const delta = newTop - preShiftRelativeTop.current;
-        if (Math.abs(delta) > 0.5) {
-          const isWindowScroll = container === document.body;
-          const nextScroll = Math.max(0, (isWindowScroll ? window.scrollY : container.scrollTop) + delta);
-
-          if (isWindowScroll) window.scrollTo(0, nextScroll);
-          else container.scrollTop = nextScroll;
-
-          // Keep spring state in sync with anchoring jumps
-          springRef.current.current += delta;
-          springRef.current.target += delta;
-        }
-      }
-      preShiftRelativeTop.current = null;
-    }
-  }, [windowStart]);
 
   const visibleTokens = useMemo(() => {
     if (visibleRange) {
@@ -163,150 +136,43 @@ export function TypingLayer({
       .map((token, index) => ({ token, index: start + index }));
   }, [tokens, visibleRange, windowStart, interactionMode]);
 
-  // Immediate jump for initial mount or manual jumps to prevent sliding from top
+  // Typewriter Transform Logic
   useLayoutEffect(() => {
     const el = currentWordRef.current;
-    if (noScroll || visibleRange || !el) return;
+    if (noScroll || visibleRange || interactionMode === "read" || !el || !containerRef.current) return;
 
-    const currentIndex = snapshot.currentWordIndex;
-    const isManualJump = lastWordIndex.current === -1 || Math.abs(currentIndex - lastWordIndex.current) > 1;
-
-    if (isManualJump) {
-      const container = getScrollContainer(el);
-      if (!container) return;
-
-      const isWindowScroll = container === document.body;
-      const containerRect = isWindowScroll
-        ? { top: 0, height: window.innerHeight }
-        : container.getBoundingClientRect();
-      const elRect = el.getBoundingClientRect();
-
-      const currentRelativeCenter = (elRect.top + elRect.height / 2) - (containerRect.top + containerRect.height / 2);
-      const currentScroll = isWindowScroll ? window.scrollY : container.scrollTop;
-      const target = Math.max(0, currentScroll + currentRelativeCenter);
-
-      if (isWindowScroll) window.scrollTo(0, target);
-      else container.scrollTop = target;
-
-      springRef.current.target = target;
-      springRef.current.current = target;
-      springRef.current.velocity = 0;
-      springRef.current.isActive = false;
-
-      lastWordIndex.current = currentIndex;
-      lastOffsetTop.current = el.offsetTop;
-    }
-  }, [snapshot.currentWordIndex, windowStart, noScroll, visibleRange]);
-
-  // Smooth spring-based scroll logic for line changes
-  useEffect(() => {
-    const el = currentWordRef.current;
-    if (noScroll || visibleRange || !el || interactionMode === "read") return;
-
-    const currentIndex = snapshot.currentWordIndex;
-    const isManualJump = lastWordIndex.current === -1 || Math.abs(currentIndex - lastWordIndex.current) > 1;
-
-    // We handle manual jumps in useLayoutEffect for immediate positioning.
-    // Here we only care about line changes during normal typing.
-    if (isManualJump) return;
-
-    // Find the nearest scrollable ancestor
-    const container = getScrollContainer(el);
-    if (!container) return;
-
-    const isWindowScroll = container === document.body;
-    const containerRect = isWindowScroll
-      ? { top: 0, height: window.innerHeight }
-      : container.getBoundingClientRect();
-
-    // Use caret position for precise centering if available, fallback to current word
-    const typingLayerRect = containerRef.current?.getBoundingClientRect();
     const currentCaret = caretPosRef.current;
-    const typingViewportTop = (currentCaret.opacity > 0 && typingLayerRect)
-      ? currentCaret.top + typingLayerRect.top
-      : el.getBoundingClientRect().top;
-
-    const typingHeight = currentCaret.opacity > 0 ? currentCaret.height : el.getBoundingClientRect().height;
-    const currentRelativeCenter = (typingViewportTop + typingHeight / 2) - (containerRect.top + containerRect.height / 2);
-
-    // Improved new line detection: check if the vertical offset changed
     const currentOffsetTop = currentCaret.opacity > 0 ? currentCaret.top : el.offsetTop;
-    const isLineChanged = lastOffsetTop.current !== null && Math.abs(currentOffsetTop - lastOffsetTop.current) > 10;
-    const currentScroll = isWindowScroll ? window.scrollY : container.scrollTop;
+    const currentHeight = currentCaret.opacity > 0 ? currentCaret.height : el.offsetHeight;
 
-    // Always update the spring target to the ideal centered position
-    const targetScroll = Math.max(0, currentScroll + currentRelativeCenter);
-    springRef.current.target = targetScroll;
+    // Find the wrapper container to calculate the vertical center
+    const parentContainer = containerRef.current.parentElement;
+    if (!parentContainer) return;
 
-    // Proactively activate the spring if we're off-center or the line just changed
-    const isSignificantOffCenter = Math.abs(currentRelativeCenter) > 15;
+    const parentHeight = parentContainer.clientHeight;
+    
+    // We want the currentOffsetTop + currentHeight/2 to be exactly at parentHeight/2.
+    // So the transform should offset the layer by:
+    const targetY = (parentHeight / 2) - currentOffsetTop - (currentHeight / 2);
+    
+    // Check if this is a manual jump (e.g. initial mount or clicking a word)
+    const currentIndex = snapshot.currentWordIndex;
+    const isManualJump = lastWordIndex.current === -1 || Math.abs(currentIndex - lastWordIndex.current) > 1;
 
-    if (isLineChanged || isSignificantOffCenter) {
-      if (!springRef.current.isActive) {
-        springRef.current.isActive = true;
-        springRef.current.current = currentScroll;
-        springRef.current.velocity = 0;
-        springRef.current.lastTime = 0;
-        animationFrameId.current = requestAnimationFrame(animate);
-      }
+    // Apply the transform directly
+    containerRef.current.style.transform = `translate3d(0, ${targetY}px, 0)`;
+    
+    // Only animate if it's a normal typing progression, not a manual jump
+    if (isManualJump) {
+      containerRef.current.style.transition = "none";
+    } else {
+      containerRef.current.style.transition = "transform 300ms cubic-bezier(0.25, 1, 0.5, 1)";
     }
 
+    typewriterOffsetRef.current = targetY;
     lastWordIndex.current = currentIndex;
     lastOffsetTop.current = currentOffsetTop;
-
-    return () => {
-      if (animationFrameId.current !== null) {
-        cancelAnimationFrame(animationFrameId.current);
-        animationFrameId.current = null;
-      }
-      springRef.current.isActive = false;
-    };
   }, [snapshot.currentWordIndex, snapshot.words[snapshot.currentWordIndex]?.typed.length, visibleRange, noScroll, interactionMode]);
-
-  const animate = useCallback((time: number) => {
-    const state = springRef.current;
-    const el = currentWordRef.current;
-    if (!el || !state.isActive) return;
-
-    const container = getScrollContainer(el);
-    if (!container) return;
-
-    const isWindowScroll = container === document.body;
-
-    if (state.lastTime === 0) {
-      state.lastTime = time;
-      animationFrameId.current = requestAnimationFrame(animate);
-      return;
-    }
-
-    const delta = Math.min(Math.max(0, (time - state.lastTime) / 1000), 0.1);
-    state.lastTime = time;
-
-    if (delta > 0) {
-      const currentSnapshot = snapshotRef.current;
-      const isManualJump = lastWordIndex.current === -1 || Math.abs(currentSnapshot.currentWordIndex - lastWordIndex.current) > 1;
-      const stiffness = isManualJump ? 240 : 160;
-      const damping = isManualJump ? 32 : 28;
-
-      const displacement = state.current - state.target;
-      const springForce = -stiffness * displacement;
-      const dampingForce = -damping * state.velocity;
-      const acceleration = springForce + dampingForce;
-
-      state.velocity += acceleration * delta;
-      state.current += state.velocity * delta;
-
-      if (isWindowScroll) window.scrollTo(0, state.current);
-      else container.scrollTop = state.current;
-    }
-
-    if (Math.abs(state.velocity) > 0.05 || Math.abs(state.current - state.target) > 0.05) {
-      animationFrameId.current = requestAnimationFrame(animate);
-    } else {
-      state.isActive = false;
-      animationFrameId.current = null;
-    }
-  }, []);
 
   const [isJumping, setIsJumping] = useState(false);
   const jumpTimeoutRef = useRef<any>(null);
@@ -411,7 +277,6 @@ export function TypingLayer({
 
       if ((isNebula || isRainy || isSilk) && dist > 0.1 && dist < 2000) {
         const baseSize = Math.max(1, newHeight * 0.06);
-        let emitted = false;
 
         if (isNebula) {
           const count = dist > 30 ? 2 : 1;
@@ -432,7 +297,6 @@ export function TypingLayer({
               p.size = (0.7 + Math.random() * 0.7) * baseSize;
               p.color = Math.random() > 0.5 ? "#c084fc" : "#a78bfa";
               p.gravity = 0;
-              emitted = true;
             }
           }
         } else if (isRainy && dist > 0.1) {
@@ -486,7 +350,6 @@ export function TypingLayer({
               const colorRnd = Math.random();
               p.color = colorRnd > 0.8 ? "#7dd3fc" : (colorRnd > 0.4 ? "#e2e8f0" : "#cbd5e1");
               p.gravity = 0;
-              emitted = true;
             }
           }
         } else if (isSilk && dist > 1) {
@@ -509,7 +372,6 @@ export function TypingLayer({
                 p.size = (0.8 + Math.random() * 0.8) * baseSize; // Larger size
                 p.color = Math.random() > 0.5 ? "#f43f5e" : "#fb7185";
                 p.gravity = 0;
-                emitted = true;
               }
             }
           }
@@ -558,6 +420,7 @@ export function TypingLayer({
 
 
   return (
+    <>
     <div
       ref={containerRef}
       style={{
@@ -593,11 +456,7 @@ export function TypingLayer({
         />
       )}
 
-      {(settings.theme === "nebula-drift" || settings.theme === "rainy-window" || settings.theme === "satin-heart") && (
-        <CaretTrail ref={caretTrailRef} particles={particlePool.current} />
-      )}
-
-      {visibleTokens.length > 0 && tokens[visibleTokens[0].index].start > (visibleRange?.start ?? 0) && (
+      {interactionMode === "read" && visibleTokens.length > 0 && tokens[visibleTokens[0].index].start > (visibleRange?.start ?? 0) && (
         <span style={{ visibility: "hidden", whiteSpace: "pre-wrap", wordBreak: "break-word" }} aria-hidden="true">
           {chapterText.substring(visibleRange?.start ?? 0, tokens[visibleTokens[0].index].start)}
         </span>
@@ -621,12 +480,16 @@ export function TypingLayer({
           botCursorIndex={botCursorIndex}
         />
       ))}
-      {visibleTokens.length > 0 && tokens[visibleTokens[visibleTokens.length - 1].index].end < (visibleRange?.end ?? chapterText.length) && (
+      {interactionMode === "read" && visibleTokens.length > 0 && tokens[visibleTokens[visibleTokens.length - 1].index].end < (visibleRange?.end ?? chapterText.length) && (
         <span style={{ visibility: "hidden", whiteSpace: "pre-wrap", wordBreak: "break-word" }} aria-hidden="true">
           {chapterText.substring(tokens[visibleTokens[visibleTokens.length - 1].index].end, visibleRange?.end ?? chapterText.length)}
         </span>
       )}
     </div>
+      {(settings.theme === "nebula-drift" || settings.theme === "rainy-window" || settings.theme === "satin-heart") && (
+        <CaretTrail ref={caretTrailRef} particles={particlePool.current} textContainerRef={containerRef} />
+      )}
+    </>
   );
 }
 
@@ -742,22 +605,22 @@ const Word = memo(
     );
   }));
 
-const CaretTrail = memo(forwardRef(({ particles }: { particles: any[] }, ref) => {
+const CaretTrail = memo(forwardRef(({ particles, textContainerRef }: { particles: any[], textContainerRef: React.RefObject<HTMLDivElement> }, ref) => {
   const particlesRef = useRef(particles);
   particlesRef.current = particles;
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const ctxRef = useRef<CanvasRenderingContext2D | null>(null);
   const animationFrameId = useRef<number>(0);
   const isLoopRunning = useRef(false);
+  const lastFrameTime = useRef(0);
   const hasEllipse = useRef<boolean | null>(null);
   const heartSpritesRef = useRef<HTMLCanvasElement[]>([]);
+  const dprRef = useRef(window.devicePixelRatio || 1);
 
-  // High-performance layout caching to prevent 60fps reflows
-  const parentRef = useRef<HTMLElement | null>(null);
-  const scrollContainerRef = useRef<HTMLElement | null>(null);
-  const parentRectRef = useRef<{ top: number; left: number; scrollT: number; scrollL: number } | null>(null);
+
 
   useEffect(() => {
-    const dpr = window.devicePixelRatio || 1;
+    const dpr = dprRef.current;
     const colors = ["#f43f5e", "#fb7185"];
     heartSpritesRef.current = colors.map(color => {
       const c = document.createElement("canvas");
@@ -783,66 +646,32 @@ const CaretTrail = memo(forwardRef(({ particles }: { particles: any[] }, ref) =>
     });
   }, []);
 
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    parentRef.current = canvas.parentElement;
-    scrollContainerRef.current = getScrollContainer(parentRef.current);
-
-    const invalidate = () => {
-      if (!parentRef.current) return;
-      const rect = parentRef.current.getBoundingClientRect();
-      const sc = scrollContainerRef.current;
-      parentRectRef.current = {
-        top: rect.top,
-        left: rect.left,
-        scrollT: sc ? (sc === document.body ? window.scrollY : sc.scrollTop) : 0,
-        scrollL: sc ? (sc === document.body ? window.scrollX : sc.scrollLeft) : 0,
-      };
-    };
-    window.addEventListener("scroll", invalidate, { capture: true, passive: true });
-    window.addEventListener("resize", invalidate, { passive: true });
-    return () => {
-      window.removeEventListener("scroll", invalidate, true);
-      window.removeEventListener("resize", invalidate);
-    };
-  }, []);
-
   const render = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) { isLoopRunning.current = false; return; }
-    const ctx = canvas.getContext("2d");
+
+    // Cache the 2D context on first successful retrieval
+    if (!ctxRef.current) {
+      ctxRef.current = canvas.getContext("2d");
+    }
+    const ctx = ctxRef.current;
     if (!ctx) { isLoopRunning.current = false; return; }
 
     if (hasEllipse.current === null) {
       hasEllipse.current = typeof ctx.ellipse === "function";
     }
 
-    const dpr = window.devicePixelRatio || 1;
+    const dpr = dprRef.current;
 
-    // Get the viewport-relative position of the parent without triggering reflow
-    const parent = parentRef.current;
+    // Get the viewport-relative position of the text container
+    // Reading this every frame correctly tracks CSS transitions and native scrolling
+    // without manual event listeners. Modern browsers optimize this read.
+    const parent = textContainerRef.current;
     if (!parent) { isLoopRunning.current = false; return; }
 
-    if (!parentRectRef.current) {
-      const rect = parent.getBoundingClientRect();
-      const sc = scrollContainerRef.current;
-      parentRectRef.current = {
-        top: rect.top,
-        left: rect.left,
-        scrollT: sc ? (sc === document.body ? window.scrollY : sc.scrollTop) : 0,
-        scrollL: sc ? (sc === document.body ? window.scrollX : sc.scrollLeft) : 0,
-      };
-    }
-
-    const cache = parentRectRef.current;
-    const sc = scrollContainerRef.current;
-    const currT = sc ? (sc === document.body ? window.scrollY : sc.scrollTop) : 0;
-    const currL = sc ? (sc === document.body ? window.scrollX : sc.scrollLeft) : 0;
-
-    // Calculate current viewport position based on scroll delta WITHOUT triggering a fresh getBoundingClientRect()
-    const parentViewportTop = cache.top - (currT - cache.scrollT);
-    const parentViewportLeft = cache.left - (currL - cache.scrollL);
+    const rect = parent.getBoundingClientRect();
+    const parentViewportTop = rect.top;
+    const parentViewportLeft = rect.left;
 
     const currentParticles = particlesRef.current;
     const len = currentParticles.length;
@@ -872,6 +701,10 @@ const CaretTrail = memo(forwardRef(({ particles }: { particles: any[] }, ref) =>
     let lastMode = "";
     ctx.globalCompositeOperation = "source-over";
 
+    // Pre-compute viewport bounds for culling (constant across all particles)
+    const vw = canvas.width / dpr;
+    const vh = canvas.height / dpr;
+
     for (let i = 0; i < len; i++) {
       const p = currentParticles[i];
       if (!p.active) continue;
@@ -891,7 +724,7 @@ const CaretTrail = memo(forwardRef(({ particles }: { particles: any[] }, ref) =>
       const drawX = p.x + parentViewportLeft;
       const drawY = p.y + parentViewportTop;
 
-      if (drawX < -50 || drawX > window.innerWidth + 50 || drawY < -50 || drawY > window.innerHeight + 50) {
+      if (drawX < -50 || drawX > vw + 50 || drawY < -50 || drawY > vh + 50) {
         continue;
       }
 
@@ -961,11 +794,13 @@ const CaretTrail = memo(forwardRef(({ particles }: { particles: any[] }, ref) =>
     }
 
     // Reset for next frame/other drawing
+    ctx.globalAlpha = 1;
     if (lastMode !== "source-over") {
       ctx.globalCompositeOperation = "source-over";
     }
 
     if (hasActiveNow) {
+      lastFrameTime.current = performance.now();
       animationFrameId.current = requestAnimationFrame(render);
     } else {
       isLoopRunning.current = false;
@@ -975,11 +810,16 @@ const CaretTrail = memo(forwardRef(({ particles }: { particles: any[] }, ref) =>
 
   useImperativeHandle(ref, () => ({
     wake: () => {
-      // Force-restart the render loop on every call to avoid deadlocks
-      // from race conditions between useLayoutEffect and useEffect timing.
-      isLoopRunning.current = true;
-      if (animationFrameId.current) cancelAnimationFrame(animationFrameId.current);
-      animationFrameId.current = requestAnimationFrame(render);
+      // Only restart if the loop is genuinely dead.
+      // Check both the flag AND whether a frame was produced recently.
+      // If the loop claims to be running but hasn't produced a frame in 100ms,
+      // it's stale (race condition on mount) — force-restart.
+      const loopAlive = isLoopRunning.current && (performance.now() - lastFrameTime.current < 100);
+      if (!loopAlive) {
+        if (animationFrameId.current) cancelAnimationFrame(animationFrameId.current);
+        isLoopRunning.current = true;
+        animationFrameId.current = requestAnimationFrame(render);
+      }
     }
   }));
 
@@ -989,20 +829,20 @@ const CaretTrail = memo(forwardRef(({ particles }: { particles: any[] }, ref) =>
 
     const resize = () => {
       const dpr = window.devicePixelRatio || 1;
+      dprRef.current = dpr;
       canvas.width = window.innerWidth * dpr;
       canvas.height = window.innerHeight * dpr;
       canvas.style.width = `${window.innerWidth}px`;
       canvas.style.height = `${window.innerHeight}px`;
+      // Invalidate cached context on resize since buffer dimensions changed
+      ctxRef.current = null;
     };
 
-    const observer = new ResizeObserver(resize);
-    if (canvas.parentElement) {
-      observer.observe(canvas.parentElement);
-    }
     resize();
+    window.addEventListener("resize", resize, { passive: true });
 
     return () => {
-      observer.disconnect();
+      window.removeEventListener("resize", resize);
       if (animationFrameId.current) cancelAnimationFrame(animationFrameId.current);
     };
   }, []);
@@ -1026,35 +866,40 @@ function renderWordParts(
   smoothCaret = false,
   botCursorOffset: number | null = null,
 ) {
-  const expectedChars = [...expected];
-  const typedChars = [...typed];
+  const expectedChars = Array.from(expected);
+  const typedChars = Array.from(typed);
   const output: JSX.Element[] = [];
   const cursorIndex = current ? typedChars.length : -1;
+  const botIdx = botCursorOffset !== null ? Math.floor(botCursorOffset) : -1;
 
   for (let index = 0; index < expectedChars.length; index += 1) {
     const expectedChar = expectedChars[index];
     const typedChar = typedChars[index];
 
-    let charClass = "text-[var(--text-muted)]";
+    // Inline class resolution — avoids expensive twMerge parsing per character.
+    // "relative" is prepended directly since there are no Tailwind conflicts to resolve.
+    let charClass: string;
     if (typedChar !== undefined) {
       const correct = normalizeForCompare(typedChar, ignoredCharacters) === normalizeForCompare(expectedChar, ignoredCharacters);
-      charClass = correct ? "text-[var(--success)]" : "text-[var(--danger)] underline decoration-[var(--danger)]/60";
+      charClass = correct ? "relative text-[var(--success)]" : "relative text-[var(--danger)] underline decoration-[var(--danger)]/60";
     } else if (skipped) {
-      charClass = "text-[var(--text-muted)]/60 line-through";
+      charClass = "relative text-[var(--text-muted)]/60 line-through";
     } else if (completed) {
-      charClass = "text-[var(--text-muted)]";
+      charClass = "relative text-[var(--text-muted)]";
     } else if (current) {
-      charClass = "text-[var(--text)]";
+      charClass = "relative text-[var(--text)]";
+    } else {
+      charClass = "relative text-[var(--text-muted)]";
     }
 
     output.push(
-      <span key={index} className={cn("relative", charClass)}>
+      <span key={index} className={charClass}>
         {!smoothCaret && index === cursorIndex && (
           <span
             className="absolute -left-[0.5px] top-[10%] h-[80%] w-[2px] animate-pulse bg-[var(--accent)]"
           />
         )}
-        {index === (botCursorOffset !== null ? Math.floor(botCursorOffset) : -1) && (
+        {index === botIdx && (
           <span
             className="absolute -left-[0.5px] top-[10%] z-50 h-[80%] w-[2px] bg-[#00ffff] opacity-90 shadow-[0_0_8px_#00ffff] transition-all duration-100"
           />
@@ -1072,14 +917,14 @@ function renderWordParts(
             className="absolute -left-[0.5px] top-[10%] z-50 h-[80%] w-[2px] animate-pulse bg-[var(--accent)]"
           />
         )}
-        {(botCursorOffset !== null ? Math.floor(botCursorOffset) : -1) === expectedChars.length && (
+        {botIdx === expectedChars.length && (
           <span
             className="absolute -left-[0.5px] top-[10%] z-50 h-[80%] w-[2px] bg-[#00ffff] opacity-90 shadow-[0_0_8px_#00ffff] transition-all duration-100"
           />
         )}
       </span>
     );
-  } else if ((botCursorOffset !== null ? Math.floor(botCursorOffset) : -1) === expectedChars.length) {
+  } else if (botIdx === expectedChars.length) {
     output.push(
       <span key="bot-cursor-end" className="relative">
         <span
