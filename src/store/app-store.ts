@@ -4,6 +4,7 @@ import {
   INTERACTION_MODES,
   KEYBOARD_LAYOUT_IDS,
   PRACTICE_WORD_BANK_TYPES,
+  READ_FONTS,
   READER_MODES,
   THEME_NAMES,
   TYPE_TEST_DURATIONS,
@@ -54,6 +55,7 @@ interface AppState {
 export const defaultSettings: AppSettings = {
   theme: "catppuccin-macchiato",
   font: "jetbrains-mono",
+  readFont: "inter",
   readerMode: "spread",
   interactionMode: "type",
   baseFontSize: 18,
@@ -84,6 +86,7 @@ function normalizeAppSettings(settings: AppSettings): AppSettings {
     ...s,
     theme: isOneOf(s.theme, THEME_NAMES) ? s.theme : defaultSettings.theme,
     font: isOneOf(s.font, APP_FONTS) ? s.font : defaultSettings.font,
+    readFont: isOneOf(s.readFont, READ_FONTS) ? s.readFont : defaultSettings.readFont,
     readerMode: isOneOf(s.readerMode, READER_MODES) ? s.readerMode : defaultSettings.readerMode,
     interactionMode: isOneOf(s.interactionMode, INTERACTION_MODES) ? s.interactionMode : defaultSettings.interactionMode,
     keyboardLayout: isOneOf(s.keyboardLayout, KEYBOARD_LAYOUT_IDS) ? s.keyboardLayout : defaultSettings.keyboardLayout,

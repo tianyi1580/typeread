@@ -542,7 +542,7 @@ const Word = memo(
       return (
         <span
           data-word-index={index}
-          className={cn("text-[var(--text)] transition hover:text-[var(--accent)]", onClick && "cursor-pointer")}
+          className={cn("text-[var(--text-read)] transition hover:text-[var(--accent)]", onClick && "cursor-pointer")}
           onClick={onClick ? () => onClick(index) : undefined}
         >
           {token.word + token.separator}

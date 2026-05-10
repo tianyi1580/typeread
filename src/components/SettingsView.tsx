@@ -7,7 +7,8 @@ import { themeMap } from "../theme";
 import { cn, clamp } from "../lib/utils";
 import { api } from "../lib/tauri";
 import { defaultSettings } from "../store/app-store";
-import type { AppSettings, AppFont, ProfileProgress, ThemeName } from "../types";
+import type { AppSettings, AppFont, ReadFont, ProfileProgress, ThemeName } from "../types";
+import { READ_FONTS, APP_FONTS } from "../types";
 
 type SettingsSection = "appearance" | "reading" | "storage";
 
@@ -269,15 +270,15 @@ export function SettingsView({
               <div className="space-y-4">
                 <p className="text-[10px] font-black uppercase tracking-[0.4em] text-[var(--text-muted)]">Typography & Motion</p>
                 <div className="liquid-glass-soft space-y-8 rounded-[32px] p-8">
-                  <div className="space-y-3">
-                    <p className="text-xs font-black uppercase tracking-[0.2em] text-[var(--text-muted)]">Select Font</p>
+                  <div className="space-y-4">
+                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[var(--text-muted)]">Typing Font (Monospace)</p>
                     <div className="grid gap-4 md:grid-cols-3">
                       <FontPreviewCard
                         label="JetBrains Mono"
                         value="jetbrains-mono"
                         active={settings.font === "jetbrains-mono"}
                         sample="The quick brown fox hits 87 WPM."
-                        onClick={(font) => onChange({ ...settings, font })}
+                        onClick={(font) => onChange({ ...settings, font: font as AppFont })}
                       />
                       <FontPreviewCard
                         label="Fira Code"
@@ -286,14 +287,41 @@ export function SettingsView({
                         sample="Pack my box with five dozen liquor jugs."
                         locked={!unlocks.premiumTypography}
                         lockLabel="Lvl 15"
-                        onClick={(font) => onChange({ ...settings, font })}
+                        onClick={(font) => onChange({ ...settings, font: font as AppFont })}
                       />
                       <FontPreviewCard
                         label="Geist Mono"
                         value="geist-mono"
                         active={settings.font === "geist-mono"}
                         sample="Sphinx of black quartz, judge my vow."
-                        onClick={(font) => onChange({ ...settings, font })}
+                        onClick={(font) => onChange({ ...settings, font: font as AppFont })}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-4 pt-4">
+                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[var(--text-muted)]">Reading Font (Legibility)</p>
+                    <div className="grid gap-4 md:grid-cols-3">
+                      <FontPreviewCard
+                        label="Atkinson"
+                        value="atkinson"
+                        active={settings.readFont === "atkinson"}
+                        sample="Optimized for hyper-legibility and reading speed."
+                        onClick={(font) => onChange({ ...settings, readFont: font as ReadFont })}
+                      />
+                      <FontPreviewCard
+                        label="Lexend"
+                        value="lexend"
+                        active={settings.readFont === "lexend"}
+                        sample="A font family designed to improve reading proficiency."
+                        onClick={(font) => onChange({ ...settings, readFont: font as ReadFont })}
+                      />
+                      <FontPreviewCard
+                        label="Inter"
+                        value="inter"
+                        active={settings.readFont === "inter"}
+                        sample="A versatile sans-serif for high-performance reading."
+                        onClick={(font) => onChange({ ...settings, readFont: font as ReadFont })}
                       />
                     </div>
                   </div>
@@ -600,19 +628,25 @@ function FontPreviewCard({
   onClick,
 }: {
   label: string;
-  value: AppFont;
+  value: AppFont | ReadFont;
   active: boolean;
   sample: string;
   locked?: boolean;
   lockLabel?: string;
-  onClick: (font: AppFont) => void;
+  onClick: (font: AppFont | ReadFont) => void;
 }) {
   const previewFont =
     value === "fira-code"
       ? '"Fira Code", ui-monospace, monospace'
       : value === "geist-mono"
         ? '"Geist Mono", ui-monospace, monospace'
-        : '"JetBrains Mono", ui-monospace, monospace';
+        : value === "jetbrains-mono"
+          ? '"JetBrains Mono", ui-monospace, monospace'
+          : value === "atkinson"
+            ? '"Atkinson Hyperlegible", sans-serif'
+            : value === "lexend"
+              ? '"Lexend", sans-serif'
+              : '"Inter", sans-serif';
 
   return (
     <button

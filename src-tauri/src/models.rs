@@ -226,6 +226,7 @@ pub struct AnalyticsSummary {
 pub struct AppSettings {
     pub theme: String,
     pub font: String,
+    pub read_font: String,
     pub reader_mode: String,
     pub interaction_mode: String,
     pub base_font_size: i64,

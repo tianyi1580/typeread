@@ -1,4 +1,4 @@
-import type { AppFont, AppSettings, ThemeName } from "./types";
+import type { AppFont, AppSettings, ReadFont, ThemeName } from "./types";
 import { defaultSettings } from "./store/app-store";
 
 export interface ThemeDefinition {
@@ -10,6 +10,7 @@ export interface ThemeDefinition {
   border: string;
   text: string;
   textMuted: string;
+  textRead: string;
   accent: string;
   accentSoft: string;
   success: string;
@@ -27,6 +28,7 @@ export const themeMap: Record<ThemeName, ThemeDefinition> = {
     border: "rgba(145, 215, 227, 0.16)",
     text: "#cad3f5",
     textMuted: "#a5adce",
+    textRead: "#b8c0e0",
     accent: "#8aadf4",
     accentSoft: "rgba(138, 173, 244, 0.16)",
     success: "#a6da95",
@@ -42,6 +44,7 @@ export const themeMap: Record<ThemeName, ThemeDefinition> = {
     border: "rgba(250, 189, 47, 0.16)",
     text: "#ebdbb2",
     textMuted: "#bdae93",
+    textRead: "#d5c4a1",
     accent: "#fabd2f",
     accentSoft: "rgba(250, 189, 47, 0.14)",
     success: "#b8bb26",
@@ -57,6 +60,7 @@ export const themeMap: Record<ThemeName, ThemeDefinition> = {
     border: "rgba(111, 78, 55, 0.12)",
     text: "#3d2c1f",
     textMuted: "#71543c",
+    textRead: "#524233",
     accent: "#b36a33",
     accentSoft: "rgba(179, 106, 51, 0.12)",
     success: "#5a7d4d",
@@ -72,6 +76,7 @@ export const themeMap: Record<ThemeName, ThemeDefinition> = {
     border: "rgba(38, 139, 210, 0.14)",
     text: "#586e75",
     textMuted: "#657b83",
+    textRead: "#657b83",
     accent: "#268bd2",
     accentSoft: "rgba(38, 139, 210, 0.1)",
     success: "#859900",
@@ -87,6 +92,7 @@ export const themeMap: Record<ThemeName, ThemeDefinition> = {
     border: "rgba(189, 147, 249, 0.18)",
     text: "#f8f8f2",
     textMuted: "#b9b6d3",
+    textRead: "#d1d1cc",
     accent: "#ffb86c",
     accentSoft: "rgba(255, 184, 108, 0.15)",
     success: "#50fa7b",
@@ -102,6 +108,7 @@ export const themeMap: Record<ThemeName, ThemeDefinition> = {
     border: "rgba(136, 192, 208, 0.16)",
     text: "#e5eef6",
     textMuted: "#aab9cb",
+    textRead: "#d8dee9",
     accent: "#88c0d0",
     accentSoft: "rgba(136, 192, 208, 0.14)",
     success: "#a3be8c",
@@ -117,6 +124,7 @@ export const themeMap: Record<ThemeName, ThemeDefinition> = {
     border: "rgba(255, 183, 197, 0.15)",
     text: "#fce4ec",
     textMuted: "#b39393",
+    textRead: "#d8b4bc",
     accent: "#ffb1b1",
     accentSoft: "rgba(255, 177, 177, 0.18)",
     success: "#a8e6cf",
@@ -132,6 +140,7 @@ export const themeMap: Record<ThemeName, ThemeDefinition> = {
     border: "rgba(244, 143, 177, 0.16)",
     text: "#f8bbd0",
     textMuted: "#ba6b6c",
+    textRead: "#d8a6b1",
     accent: "#f48fb1",
     accentSoft: "rgba(244, 143, 177, 0.18)",
     success: "#81c784",
@@ -147,6 +156,7 @@ export const themeMap: Record<ThemeName, ThemeDefinition> = {
     border: "rgba(192, 132, 252, 0.02)",
     text: "#e0e0ff",
     textMuted: "#94a3b8",
+    textRead: "#b0b0d0",
     accent: "#c084fc",
     accentSoft: "rgba(192, 132, 252, 0.15)",
     success: "#6366f1",
@@ -162,6 +172,7 @@ export const themeMap: Record<ThemeName, ThemeDefinition> = {
     border: "rgba(102, 153, 155, 0.12)",
     text: "#f1f5f9cd",
     textMuted: "#94a3b8c6",
+    textRead: "#cbd5e1",
     accent: "#66999B",
     accentSoft: "rgba(102, 153, 155, 0.15)",
     success: "#7dd3fc",
@@ -177,6 +188,7 @@ export const themeMap: Record<ThemeName, ThemeDefinition> = {
     border: "rgba(220, 80, 120, 0.10)",
     text: "#4a2030",
     textMuted: "#9a6b7a",
+    textRead: "#6a3a4c",
     accent: "#e8375a",
     accentSoft: "rgba(232, 55, 90, 0.10)",
     success: "#3cb371",
@@ -193,6 +205,12 @@ const fontFamilyMap: Record<AppFont, string> = {
   "geist-mono": "Geist Mono",
 };
 
+const readFontFamilyMap: Record<ReadFont, string> = {
+  atkinson: "Atkinson Hyperlegible",
+  lexend: "Lexend",
+  inter: "Inter",
+};
+
 export function applyTheme(settings: AppSettings) {
   const theme = themeMap[settings.theme] ?? themeMap[DEFAULT_THEME_NAME];
   const root = document.documentElement;
@@ -204,6 +222,7 @@ export function applyTheme(settings: AppSettings) {
   root.style.setProperty("--border", theme.border);
   root.style.setProperty("--text", theme.text);
   root.style.setProperty("--text-muted", theme.textMuted);
+  root.style.setProperty("--text-read", theme.textRead);
   root.style.setProperty("--accent", theme.accent);
   root.style.setProperty("--accent-soft", theme.accentSoft);
   const successColor = settings.successColor && settings.successColor !== defaultSettings.successColor
@@ -219,7 +238,12 @@ export function applyTheme(settings: AppSettings) {
   root.style.setProperty("--font-size-base", `${settings.baseFontSize}px`);
   root.style.setProperty("--line-height-base", settings.lineHeight.toString());
 
-  const appFont = fontFamilyMap[settings.font] ?? fontFamilyMap["jetbrains-mono"];
-  root.style.setProperty("--font-main", `"${appFont}", ui-monospace, monospace`);
+  const isReadMode = settings.interactionMode === "read";
+  const appFont = isReadMode
+    ? (readFontFamilyMap[settings.readFont] ?? readFontFamilyMap["inter"])
+    : (fontFamilyMap[settings.font] ?? fontFamilyMap["jetbrains-mono"]);
+
+  const fontFallback = isReadMode ? "system-ui, -apple-system, sans-serif" : "ui-monospace, monospace";
+  root.style.setProperty("--font-main", `"${appFont}", ${fontFallback}`);
   root.setAttribute("data-theme", settings.theme);
 }

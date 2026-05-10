@@ -63,6 +63,9 @@ export type ThemeName = (typeof THEME_NAMES)[number];
 export const APP_FONTS = ["jetbrains-mono", "fira-code", "geist-mono"] as const;
 export type AppFont = (typeof APP_FONTS)[number];
 
+export const READ_FONTS = ["atkinson", "lexend", "inter"] as const;
+export type ReadFont = (typeof READ_FONTS)[number];
+
 /**
  * Durations for typing tests in seconds.
  */
@@ -199,6 +202,7 @@ export interface AnalyticsSummary {
 export interface AppSettings {
   theme: ThemeName;
   font: AppFont;
+  readFont: ReadFont;
   readerMode: ReaderMode;
   interactionMode: InteractionMode;
   baseFontSize: number;

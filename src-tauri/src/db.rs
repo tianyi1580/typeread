@@ -173,6 +173,7 @@ impl Database {
                 id INTEGER PRIMARY KEY CHECK (id = 1),
                 theme TEXT NOT NULL,
                 type_font TEXT NOT NULL,
+                read_font TEXT NOT NULL DEFAULT 'inter',
                 reader_mode TEXT NOT NULL,
                 interaction_mode TEXT NOT NULL,
                 base_font_size INTEGER NOT NULL DEFAULT 18,
@@ -203,6 +204,7 @@ impl Database {
                 id,
                 theme,
                 type_font,
+                read_font,
                 reader_mode,
                 interaction_mode,
                 base_font_size,
@@ -224,6 +226,7 @@ impl Database {
                 1,
                 'catppuccin-macchiato',
                 'jetbrains-mono',
+                'inter',
                 'scroll',
                 'type',
                 18,
@@ -454,23 +457,12 @@ impl Database {
             "INTEGER NOT NULL DEFAULT 0",
         )?;
 
-        // Drop legacy column that causes panics if it exists (NOT NULL without default)
-        let has_read_font = {
-            let mut stmt = conn.prepare("PRAGMA table_info(settings)")?;
-            let mut rows = stmt.query([])?;
-            let mut found = false;
-            while let Some(row) = rows.next()? {
-                let name: String = row.get(1)?;
-                if name == "read_font" {
-                    found = true;
-                    break;
-                }
-            }
-            found
-        };
-        if has_read_font {
-            conn.execute_batch("ALTER TABLE settings DROP COLUMN read_font")?;
-        }
+        ensure_column(
+            conn,
+            "settings",
+            "read_font",
+            "TEXT NOT NULL DEFAULT 'inter'",
+        )?;
 
         ensure_column(
             conn,
@@ -1316,6 +1308,7 @@ impl Database {
             SELECT
                 theme,
                 type_font,
+                read_font,
                 reader_mode,
                 interaction_mode,
                 base_font_size,
@@ -1340,22 +1333,23 @@ impl Database {
                 Ok(AppSettings {
                     theme: row.get(0)?,
                     font: row.get(1)?,
-                    reader_mode: row.get(2)?,
-                    interaction_mode: row.get(3)?,
-                    base_font_size: row.get(4)?,
-                    line_height: row.get(5)?,
-                    tab_to_skip: row.get::<_, i64>(6)? == 1,
-                    ignore_quotation_marks: row.get::<_, i64>(7)? == 1,
-                    ignored_characters: row.get(8)?,
-                    focus_mode: row.get::<_, i64>(9)? == 1,
-                    keyboard_layout: row.get(10)?,
-                    custom_keyboard_layout: row.get(11)?,
-                    smooth_caret: row.get::<_, i64>(12)? == 1,
-                    type_test_duration: row.get(13)?,
-                    versus_bot_cpm: row.get(14)?,
-                    practice_word_bank_type: row.get(15)?,
-                    error_color: row.get(16)?,
-                    success_color: row.get(17)?,
+                    read_font: row.get(2)?,
+                    reader_mode: row.get(3)?,
+                    interaction_mode: row.get(4)?,
+                    base_font_size: row.get(5)?,
+                    line_height: row.get(6)?,
+                    tab_to_skip: row.get::<_, i64>(7)? == 1,
+                    ignore_quotation_marks: row.get::<_, i64>(8)? == 1,
+                    ignored_characters: row.get(9)?,
+                    focus_mode: row.get::<_, i64>(10)? == 1,
+                    keyboard_layout: row.get(11)?,
+                    custom_keyboard_layout: row.get(12)?,
+                    smooth_caret: row.get::<_, i64>(13)? == 1,
+                    type_test_duration: row.get(14)?,
+                    versus_bot_cpm: row.get(15)?,
+                    practice_word_bank_type: row.get(16)?,
+                    error_color: row.get(17)?,
+                    success_color: row.get(18)?,
                 })
             },
         )
@@ -1369,27 +1363,29 @@ impl Database {
             UPDATE settings
             SET theme = ?1,
                 type_font = ?2,
-                reader_mode = ?3,
-                interaction_mode = ?4,
-                base_font_size = ?5,
-                line_height = ?6,
-                tab_to_skip = ?7,
-                ignore_quotation_marks = ?8,
-                ignored_characters = ?9,
-                focus_mode = ?10,
-                keyboard_layout = ?11,
-                custom_keyboard_layout = ?12,
-                smooth_caret = ?13,
-                type_test_duration = ?14,
-                versus_bot_cpm = ?15,
-                practice_word_bank_type = ?16,
-                error_color = ?17,
-                success_color = ?18
+                read_font = ?3,
+                reader_mode = ?4,
+                interaction_mode = ?5,
+                base_font_size = ?6,
+                line_height = ?7,
+                tab_to_skip = ?8,
+                ignore_quotation_marks = ?9,
+                ignored_characters = ?10,
+                focus_mode = ?11,
+                keyboard_layout = ?12,
+                custom_keyboard_layout = ?13,
+                smooth_caret = ?14,
+                type_test_duration = ?15,
+                versus_bot_cpm = ?16,
+                practice_word_bank_type = ?17,
+                error_color = ?18,
+                success_color = ?19
             WHERE id = 1
             "#,
             params![
                 settings.theme,
                 settings.font,
+                settings.read_font,
                 settings.reader_mode,
                 settings.interaction_mode,
                 settings.base_font_size,
