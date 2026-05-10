@@ -136,43 +136,23 @@ export function TypingLayer({
       .map((token, index) => ({ token, index: start + index }));
   }, [tokens, visibleRange, windowStart, interactionMode]);
 
-  // Typewriter Transform Logic
-  useLayoutEffect(() => {
-    const el = currentWordRef.current;
-    if (noScroll || visibleRange || interactionMode === "read" || !el || !containerRef.current) return;
+  const parentHeightRef = useRef<number>(0);
+  useEffect(() => {
+    const parent = containerRef.current?.parentElement;
+    if (!parent) return;
 
-    const currentCaret = caretPosRef.current;
-    const currentOffsetTop = currentCaret.opacity > 0 ? currentCaret.top : el.offsetTop;
-    const currentHeight = currentCaret.opacity > 0 ? currentCaret.height : el.offsetHeight;
+    // Initial read
+    parentHeightRef.current = parent.clientHeight;
 
-    // Find the wrapper container to calculate the vertical center
-    const parentContainer = containerRef.current.parentElement;
-    if (!parentContainer) return;
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        parentHeightRef.current = entry.contentRect.height;
+      }
+    });
 
-    const parentHeight = parentContainer.clientHeight;
-    
-    // We want the currentOffsetTop + currentHeight/2 to be exactly at parentHeight/2.
-    // So the transform should offset the layer by:
-    const targetY = (parentHeight / 2) - currentOffsetTop - (currentHeight / 2);
-    
-    // Check if this is a manual jump (e.g. initial mount or clicking a word)
-    const currentIndex = snapshot.currentWordIndex;
-    const isManualJump = lastWordIndex.current === -1 || Math.abs(currentIndex - lastWordIndex.current) > 1;
-
-    // Apply the transform directly
-    containerRef.current.style.transform = `translate3d(0, ${targetY}px, 0)`;
-    
-    // Only animate if it's a normal typing progression, not a manual jump
-    if (isManualJump) {
-      containerRef.current.style.transition = "none";
-    } else {
-      containerRef.current.style.transition = "transform 300ms cubic-bezier(0.25, 1, 0.5, 1)";
-    }
-
-    typewriterOffsetRef.current = targetY;
-    lastWordIndex.current = currentIndex;
-    lastOffsetTop.current = currentOffsetTop;
-  }, [snapshot.currentWordIndex, snapshot.words[snapshot.currentWordIndex]?.typed.length, visibleRange, noScroll, interactionMode]);
+    observer.observe(parent);
+    return () => observer.disconnect();
+  }, []);
 
   const [isJumping, setIsJumping] = useState(false);
   const jumpTimeoutRef = useRef<any>(null);
@@ -236,6 +216,26 @@ export function TypingLayer({
       prevIdxRef.current = snapshot.currentWordIndex;
       isJumpingRef.current = isJumping;
 
+      // Compute Typewriter Layout Transform without triggering reflows
+      if (!noScroll && !visibleRange && interactionMode !== "read" && parentHeightRef.current > 0) {
+        const targetY = (parentHeightRef.current / 2) - newTop - (newHeight / 2);
+
+        // We only want to apply the transition if it's a normal typing progression
+        const isManualJump = lastWordIndex.current === -1 || indexJump;
+
+        // Only update DOM if the target actually changed to prevent compositor thrashing
+        if (typewriterOffsetRef.current !== targetY) {
+          containerRef.current.style.transform = `translate3d(0, ${targetY}px, 0)`;
+          if (isManualJump) {
+            containerRef.current.style.transition = "none";
+          } else {
+            containerRef.current.style.transition = "transform 300ms cubic-bezier(0.25, 1, 0.5, 1)";
+          }
+          typewriterOffsetRef.current = targetY;
+        }
+        lastWordIndex.current = snapshot.currentWordIndex;
+      }
+
       if (isJumping) {
         if (jumpTimeoutRef.current) clearTimeout(jumpTimeoutRef.current);
         jumpTimeoutRef.current = setTimeout(() => {
@@ -293,7 +293,7 @@ export function TypingLayer({
               p.vx = (Math.random() - 0.5) * 0.4;
               p.vy = (Math.random() - 0.5) * 0.6;
               p.life = 1.0;
-              p.decay = 0.02 + Math.random() * 0.01;
+              p.decay = 0.025 + Math.random() * 0.02;
               p.size = (0.7 + Math.random() * 0.7) * baseSize;
               p.color = Math.random() > 0.5 ? "#c084fc" : "#a78bfa";
               p.gravity = 0;
@@ -421,71 +421,71 @@ export function TypingLayer({
 
   return (
     <>
-    <div
-      ref={containerRef}
-      style={{
-        paddingTop: noScroll ? undefined : "0",
-        paddingBottom: noScroll ? undefined : (interactionMode === "read" ? "100vh" : "50vh"),
-      }}
-      className={cn(
-        "relative overflow-hidden whitespace-pre-wrap text-[var(--text)]",
-        className,
-      )}
-    >
-      {effectiveSmoothCaret && (
-        <div
-          ref={caretRef}
-          className={cn(
-            "absolute z-50 w-[2px] bg-[var(--accent)]",
-            settings.theme === "nebula-drift" && "caret-cosmic-pulse",
-            settings.theme === "rainy-window" && "caret-liquid-bead",
-            settings.theme === "satin-heart" && "caret-silk-glint"
-          )}
-          style={{
-            position: "absolute",
-            top: 0,
-            left: 0,
-            height: caretPosRef.current.height,
-            transform: `translate3d(${caretPosRef.current.left - 0.5}px, ${caretPosRef.current.top + (caretPosRef.current.height * 0.1)}px, 0)`,
-            opacity: caretPosRef.current.opacity,
-            transformOrigin: "bottom",
-            transition: isJumpingRef.current ? "none" : (settings.theme === "satin-heart" ? "transform 50ms cubic-bezier(0.34, 1.56, 0.64, 1), height 50ms cubic-bezier(0.34, 1.56, 0.64, 1), opacity 100ms" : "transform 60ms ease-out, height 60ms ease-out, opacity 100ms"),
-            pointerEvents: "none",
-            willChange: "transform",
-          }}
-        />
-      )}
+      <div
+        ref={containerRef}
+        style={{
+          paddingTop: noScroll ? undefined : "0",
+          paddingBottom: noScroll ? undefined : (interactionMode === "read" ? "100vh" : "50vh"),
+        }}
+        className={cn(
+          "relative overflow-hidden whitespace-pre-wrap text-[var(--text)]",
+          className,
+        )}
+      >
+        {effectiveSmoothCaret && (
+          <div
+            ref={caretRef}
+            className={cn(
+              "absolute z-50 w-[2px] bg-[var(--accent)]",
+              settings.theme === "nebula-drift" && "caret-cosmic-pulse",
+              settings.theme === "rainy-window" && "caret-liquid-bead",
+              settings.theme === "satin-heart" && "caret-silk-glint"
+            )}
+            style={{
+              position: "absolute",
+              top: 0,
+              left: 0,
+              height: caretPosRef.current.height,
+              transform: `translate3d(${caretPosRef.current.left - 0.5}px, ${caretPosRef.current.top + (caretPosRef.current.height * 0.1)}px, 0)`,
+              opacity: caretPosRef.current.opacity,
+              transformOrigin: "bottom",
+              transition: isJumpingRef.current ? "none" : (settings.theme === "satin-heart" ? "transform 50ms cubic-bezier(0.34, 1.56, 0.64, 1), height 50ms cubic-bezier(0.34, 1.56, 0.64, 1), opacity 100ms" : "transform 60ms ease-out, height 60ms ease-out, opacity 100ms"),
+              pointerEvents: "none",
+              willChange: "transform",
+            }}
+          />
+        )}
 
-      {interactionMode === "read" && visibleTokens.length > 0 && tokens[visibleTokens[0].index].start > (visibleRange?.start ?? 0) && (
-        <span style={{ visibility: "hidden", whiteSpace: "pre-wrap", wordBreak: "break-word" }} aria-hidden="true">
-          {chapterText.substring(visibleRange?.start ?? 0, tokens[visibleTokens[0].index].start)}
-        </span>
-      )}
-      {visibleTokens.map(({ token, index }) => (
-        <Word
-          key={token.id}
-          ref={index === snapshot.currentWordIndex ? currentWordRef : null}
-          index={index}
-          token={token}
-          state={snapshot.words[index]}
-          isCurrent={index === snapshot.currentWordIndex}
-          isCompleted={index < snapshot.currentWordIndex}
-          isUpcoming={index > snapshot.currentWordIndex}
-          distance={Math.abs(index - snapshot.currentWordIndex)}
-          faded={faded && !visibleRange}
-          compareOptions={compareOptions}
-          onClick={onWordClick}
-          interactionMode={interactionMode}
-          smoothCaret={effectiveSmoothCaret}
-          botCursorIndex={botCursorIndex}
-        />
-      ))}
-      {interactionMode === "read" && visibleTokens.length > 0 && tokens[visibleTokens[visibleTokens.length - 1].index].end < (visibleRange?.end ?? chapterText.length) && (
-        <span style={{ visibility: "hidden", whiteSpace: "pre-wrap", wordBreak: "break-word" }} aria-hidden="true">
-          {chapterText.substring(tokens[visibleTokens[visibleTokens.length - 1].index].end, visibleRange?.end ?? chapterText.length)}
-        </span>
-      )}
-    </div>
+        {interactionMode === "read" && visibleTokens.length > 0 && tokens[visibleTokens[0].index].start > (visibleRange?.start ?? 0) && (
+          <span style={{ visibility: "hidden", whiteSpace: "pre-wrap", wordBreak: "break-word" }} aria-hidden="true">
+            {chapterText.substring(visibleRange?.start ?? 0, tokens[visibleTokens[0].index].start)}
+          </span>
+        )}
+        {visibleTokens.map(({ token, index }) => (
+          <Word
+            key={token.id}
+            ref={index === snapshot.currentWordIndex ? currentWordRef : null}
+            index={index}
+            token={token}
+            state={snapshot.words[index]}
+            isCurrent={index === snapshot.currentWordIndex}
+            isCompleted={index < snapshot.currentWordIndex}
+            isUpcoming={index > snapshot.currentWordIndex}
+            distance={Math.abs(index - snapshot.currentWordIndex)}
+            faded={faded && !visibleRange}
+            compareOptions={compareOptions}
+            onClick={onWordClick}
+            interactionMode={interactionMode}
+            smoothCaret={effectiveSmoothCaret}
+            botCursorIndex={botCursorIndex}
+          />
+        ))}
+        {interactionMode === "read" && visibleTokens.length > 0 && tokens[visibleTokens[visibleTokens.length - 1].index].end < (visibleRange?.end ?? chapterText.length) && (
+          <span style={{ visibility: "hidden", whiteSpace: "pre-wrap", wordBreak: "break-word" }} aria-hidden="true">
+            {chapterText.substring(tokens[visibleTokens[visibleTokens.length - 1].index].end, visibleRange?.end ?? chapterText.length)}
+          </span>
+        )}
+      </div>
       {(settings.theme === "nebula-drift" || settings.theme === "rainy-window" || settings.theme === "satin-heart") && (
         <CaretTrail ref={caretTrailRef} particles={particlePool.current} textContainerRef={containerRef} />
       )}
