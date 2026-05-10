@@ -246,11 +246,12 @@ export function ReaderView({
     const lineHeightPx = Math.round(fontSize * lineHeight);
 
     // Internal overhead accounts for:
-    // 1. ReaderView top/bottom padding: pt-20 (80px) + pb-6 (24px) = 104px
-    // 2. SpreadPage top/bottom padding: pt-8 (32px) + pb-5 (20px) = 52px
-    // 3. SpreadPage title: approx 16px height + mb-4 (16px) = 32px
-    // Total vertical overhead: 104 (grid) + 32 (page pt) + 32 (title) + 32 (buffer) = 200px
-    const verticalOverhead = 200;
+    // 1. ReaderView top/bottom padding: pt-12 (48px) + pb-4 (16px) = 64px
+    // 2. SpreadPage top/bottom padding: pt-6 (24px) + pb-0 (0px) = 24px
+    // 3. SpreadPage title: approx 14px height + mb-3 (12px) = 26px
+    // Total vertical overhead: 64 (grid) + 24 (page pt) + 26 (title) = 114px
+    // We'll use 120px to be safe in read mode, and 160px in type mode.
+    const verticalOverhead = interactionMode === "read" ? 110 : 160;
     const measuredHeight = availableHeight || (typeof window !== "undefined" ? window.innerHeight : 800);
     const usableHeight = measuredHeight - verticalOverhead;
     const maxLines = Math.max(5, Math.floor(usableHeight / lineHeightPx));
@@ -260,18 +261,20 @@ export function ReaderView({
     // 2. Grid gap: gap-6 = 24px
     // 3. SpreadPage side padding: px-6 = 24px each side = 48px total
     // Per page horizontal overhead: (48 + 24 + 48*2) / 2 = 84px
-    const horizontalOverhead = 84;
+    // Horizontal overhead: approx 64px per page
+    const horizontalOverhead = 64;
     const usableWidth = (availableWidth || (typeof window !== "undefined" ? window.innerWidth : 1200)) / 2 - horizontalOverhead;
 
-    // Using 0.7 for a more conservative balance to avoid overflow with wider fonts.
-    const charsPerLine = Math.max(20, Math.floor(usableWidth / (fontSize * 0.72)));
+    // Use a narrower multiplier for proportional reading fonts to allow more characters per line.
+    const multiplier = interactionMode === "read" ? 0.52 : 0.68;
+    const charsPerLine = Math.max(20, Math.floor(usableWidth / (fontSize * multiplier)));
 
     return {
       maxLines,
       lineHeightPx,
       charsPerLine,
     };
-  }, [settings.baseFontSize, settings.lineHeight, availableHeight, availableWidth]);
+  }, [settings.baseFontSize, settings.lineHeight, availableHeight, availableWidth, interactionMode]);
 
   const pageRanges = useMemo(() => paginateText(normalizedText, maxLines, charsPerLine, tokens), [normalizedText, maxLines, charsPerLine, tokens]);
   const pages = useMemo(() => pageRanges.map((range) => normalizedText.substring(range.start, range.end)), [normalizedText, pageRanges]);
@@ -1013,7 +1016,11 @@ export function ReaderView({
           {loadingBook && <p className="mb-4 text-sm text-[var(--text-muted)]">Loading book…</p>}
 
           {readerMode === "scroll" ? (
-            <div className={cn("mx-auto flex-1 w-full max-w-5xl overflow-hidden flex flex-col px-4 md:px-6 pb-24 pt-24", readerFontClass)}>
+            <div className={cn(
+              "mx-auto flex-1 w-full max-w-5xl overflow-hidden flex flex-col px-4 md:px-6 pt-24 transition-all duration-500",
+              interactionMode === "read" ? "pb-12" : "pb-24",
+              readerFontClass
+            )}>
               <div
                 ref={scrollContainerRef}
                 onScroll={handleScroll}
@@ -1044,7 +1051,10 @@ export function ReaderView({
               </div>
             </div>
           ) : (
-            <div className="grid h-full w-full gap-6 lg:grid-cols-2 pt-20 pb-6 px-4 md:px-6">
+            <div className={cn(
+              "grid h-full w-full gap-6 lg:grid-cols-2 px-4 md:px-6 transition-all duration-500",
+              interactionMode === "read" ? "pt-12 pb-4" : "pt-20 pb-10"
+            )}>
               <SpreadPage title={`Page ${pageIndex + 1}`} style={settings} maxLines={maxLines} lineHeightPx={lineHeightPx}>
                 {visibleLeft && (
                   <TypingLayer
@@ -1231,7 +1241,7 @@ function SpreadPage({
   return (
     <div
       className={cn(
-        "flex h-full flex-col overflow-hidden rounded-[34px] px-6 pb-0 pt-8 font-[var(--font-main)]",
+        "flex h-full flex-col overflow-hidden rounded-[34px] px-6 pb-0 pt-6 font-[var(--font-main)]",
         style.theme === "rainy-window" || style.theme === "satin-heart"
           ? "liquid-glass-soft"
           : cn(
@@ -1243,7 +1253,7 @@ function SpreadPage({
       )}
       style={{ fontSize: `${style.baseFontSize}px`, lineHeight: `${lineHeightPx}px` }}
     >
-      <p className="mb-4 shrink-0 text-xs uppercase tracking-[0.24em] text-[var(--text-muted)]">{title}</p>
+      <p className="mb-3 shrink-0 text-[10px] font-black uppercase tracking-[0.24em] text-[var(--text-muted)] opacity-80">{title}</p>
       <div
         className="overflow-hidden whitespace-pre-wrap"
         style={{

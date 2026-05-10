@@ -425,7 +425,7 @@ export function TypingLayer({
         ref={containerRef}
         style={{
           paddingTop: noScroll ? undefined : "0",
-          paddingBottom: noScroll ? undefined : (interactionMode === "read" ? "100vh" : "50vh"),
+          paddingBottom: noScroll ? undefined : "50vh",
         }}
         className={cn(
           "relative overflow-hidden whitespace-pre-wrap text-[var(--text)] will-change-transform",
