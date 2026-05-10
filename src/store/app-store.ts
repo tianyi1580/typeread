@@ -54,7 +54,7 @@ interface AppState {
 export const defaultSettings: AppSettings = {
   theme: "catppuccin-macchiato",
   font: "jetbrains-mono",
-  readerMode: "scroll",
+  readerMode: "spread",
   interactionMode: "type",
   baseFontSize: 18,
   lineHeight: 1.7,

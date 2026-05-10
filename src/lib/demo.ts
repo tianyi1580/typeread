@@ -10,7 +10,7 @@ import { buildProfileProgress } from "./progression";
 export const demoSettings: AppSettings = {
   theme: "sepia",
   font: "jetbrains-mono",
-  readerMode: "scroll",
+  readerMode: "spread",
   interactionMode: "type",
   baseFontSize: 19,
   lineHeight: 1.75,

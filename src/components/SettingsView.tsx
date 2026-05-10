@@ -399,9 +399,6 @@ export function SettingsView({
                 <div className="space-y-3">
                   <p className="text-xs font-black uppercase tracking-[0.3em] text-[var(--text-muted)]">Default Layout</p>
                   <div className="inline-flex rounded-full border border-[var(--border)] bg-[var(--panel-soft)] p-1.5 shadow-inner">
-                    <TogglePill active={settings.readerMode === "scroll"} onClick={() => onChange({ ...settings, readerMode: "scroll" })}>
-                      Single Page Scroll
-                    </TogglePill>
                     <TogglePill active={settings.readerMode === "spread"} onClick={() => onChange({ ...settings, readerMode: "spread" })}>
                       2-Page Spread
                     </TogglePill>

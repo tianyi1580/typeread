@@ -428,7 +428,7 @@ export function TypingLayer({
           paddingBottom: noScroll ? undefined : (interactionMode === "read" ? "100vh" : "50vh"),
         }}
         className={cn(
-          "relative overflow-hidden whitespace-pre-wrap text-[var(--text)]",
+          "relative overflow-hidden whitespace-pre-wrap text-[var(--text)] will-change-transform",
           className,
         )}
       >
@@ -705,14 +705,19 @@ const CaretTrail = memo(forwardRef(({ particles, textContainerRef }: { particles
     const vw = canvas.width / dpr;
     const vh = canvas.height / dpr;
 
+    const now = performance.now();
+    let dt = lastFrameTime.current === 0 ? 1 : (now - lastFrameTime.current) / 16.666;
+    if (dt > 10) dt = 10;
+    if (dt < 0.1) dt = 1;
+
     for (let i = 0; i < len; i++) {
       const p = currentParticles[i];
       if (!p.active) continue;
 
-      p.x += p.vx;
-      p.y += p.vy;
-      if (p.gravity) p.vy += p.gravity;
-      p.life -= p.decay;
+      p.x += p.vx * dt;
+      p.y += p.vy * dt;
+      if (p.gravity) p.vy += p.gravity * dt;
+      p.life -= p.decay * dt;
 
       if (p.life <= 0) {
         p.active = false;
@@ -800,7 +805,7 @@ const CaretTrail = memo(forwardRef(({ particles, textContainerRef }: { particles
     }
 
     if (hasActiveNow) {
-      lastFrameTime.current = performance.now();
+      lastFrameTime.current = now;
       animationFrameId.current = requestAnimationFrame(render);
     } else {
       isLoopRunning.current = false;

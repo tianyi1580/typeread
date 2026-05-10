@@ -78,9 +78,6 @@ export function Hud({
             </Button>
           </div>
           <div className="rounded-full bg-[var(--panel-soft)] p-1">
-            <Button variant={readerMode === "scroll" ? "primary" : "ghost"} onClick={() => onReaderModeChange("scroll")}>
-              Scroll
-            </Button>
             <Button variant={readerMode === "spread" ? "primary" : "ghost"} onClick={() => onReaderModeChange("spread")}>
               Spread
             </Button>
