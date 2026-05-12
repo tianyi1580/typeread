@@ -98,7 +98,7 @@ To release a new version of TypeRead, run the standard npm version command:
 npm version <patch|minor|major>
 git push origin main --follow-tags
 
-npm version v0.1.9
+npm version v0.1.10
 git push origin main --follow-tags
 
 ```
