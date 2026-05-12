@@ -6,7 +6,6 @@ zen mode - no need to type caps or punctuation?
 
 graphics settings?
 remove transition time analytics involving spacebar
-Read text color
 
 
 progression unlocks:
