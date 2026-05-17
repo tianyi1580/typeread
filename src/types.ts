@@ -54,6 +54,7 @@ export const THEME_NAMES = [
   "nebula-drift",
   "rainy-window",
   "satin-heart",
+  "everfrost-silence",
 ] as const;
 export type ThemeName = (typeof THEME_NAMES)[number];
 

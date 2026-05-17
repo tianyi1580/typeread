@@ -195,6 +195,22 @@ export const themeMap: Record<ThemeName, ThemeDefinition> = {
     danger: "#e8375a",
     shadow: "rgba(180, 100, 130, 0.12)",
   },
+  "everfrost-silence": {
+    name: "Everfrost Silence",
+    background: "#02040a",
+    panel: "rgba(15, 23, 42, 0.45)",
+    panelSoft: "rgba(15, 23, 42, 0.15)",
+    panelPopout: "rgba(15, 23, 42, 0.95)",
+    border: "rgba(186, 230, 253, 0.10)",
+    text: "#f8fafc",
+    textMuted: "#64748b",
+    textRead: "#bae6fd",
+    accent: "#bae6fd",
+    accentSoft: "rgba(186, 230, 253, 0.15)",
+    success: "#38bdf8",
+    danger: "#f43f5e",
+    shadow: "rgba(0, 0, 0, 0.55)",
+  },
 };
 
 const DEFAULT_THEME_NAME: ThemeName = "catppuccin-macchiato";

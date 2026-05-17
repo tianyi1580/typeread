@@ -330,3 +330,54 @@ textarea {
   -webkit-app-region: no-drag !important;
   pointer-events: auto !important;
 }
+
+/* --- Premium Caret: Frost Trail & Crystalline Shimmer --- */
+.caret-frost-trail {
+  background: linear-gradient(to bottom, rgba(248, 250, 252, 0.4), rgba(248, 250, 252, 1), rgba(248, 250, 252, 0.4)) !important;
+  box-shadow: 
+    0 0 10px rgba(186, 230, 253, 0.8),    /* Glowing cyan core */
+    0 0 20px rgba(125, 211, 252, 0.35),   /* Breathing outer blue aura */
+    inset 0 0 1px rgba(255, 255, 255, 0.6) !important;
+  border-radius: 99px;
+  width: 3px !important;
+  overflow: hidden !important;
+}
+
+/* Hardware accelerated sliding ice-sheen */
+.caret-frost-trail::after {
+  content: "";
+  position: absolute;
+  top: -20px;
+  left: 0;
+  width: 100%;
+  height: 20px;
+  background: linear-gradient(
+    to bottom,
+    transparent,
+    rgba(255, 255, 255, 0.98),
+    rgba(186, 230, 253, 0.6),
+    transparent
+  );
+  animation: frost-shimmer-slide 2.8s cubic-bezier(0.25, 1, 0.5, 1) infinite;
+  border-radius: 99px;
+  will-change: top;
+}
+
+@keyframes frost-shimmer-slide {
+  0%, 20% {
+    top: -25px;
+  }
+  80%, 100% {
+    top: 105%;
+  }
+}
+
+/* Glassmorphism theme override to prevent blur-lag on low-end GPUs */
+[data-theme="everfrost-silence"] .backdrop-blur-2xl:not(.fixed):not(.absolute),
+[data-theme="everfrost-silence"] .backdrop-blur-xl:not(.fixed):not(.absolute),
+[data-theme="everfrost-silence"] .backdrop-blur-lg:not(.fixed):not(.absolute),
+[data-theme="everfrost-silence"] .backdrop-blur-md:not(.fixed):not(.absolute),
+[data-theme="everfrost-silence"] .backdrop-blur-sm:not(.fixed):not(.absolute) {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}

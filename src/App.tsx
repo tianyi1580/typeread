@@ -10,6 +10,7 @@ import { ShopView } from "./components/ShopView";
 import { NebulaBackground } from "./components/NebulaBackground";
 import { RainyWindowBackground } from "./components/RainyWindowBackground";
 import { SatinHeartBackground } from "./components/SatinHeartBackground";
+import { EverfrostBackground } from "./components/EverfrostBackground";
 import { Button } from "./components/ui/button";
 import { Card } from "./components/ui/card";
 import { demoAnalytics, demoBook, demoSettings } from "./lib/demo";
@@ -521,7 +522,7 @@ export default function App() {
         activeTab === "reader" ? "flex h-screen flex-col overflow-hidden" : "min-h-screen",
       )}
       style={{
-        backgroundImage: settings?.theme === "nebula-drift" || settings?.theme === "rainy-window" || settings?.theme === "satin-heart"
+        backgroundImage: settings?.theme === "nebula-drift" || settings?.theme === "rainy-window" || settings?.theme === "satin-heart" || settings?.theme === "everfrost-silence"
           ? "none"
           : `radial-gradient(circle at top left, ${theme.accentSoft}, transparent 26%), radial-gradient(circle at bottom right, ${theme.panelSoft}, transparent 22%)`,
       }}
@@ -532,6 +533,9 @@ export default function App() {
       )}
       {settings?.theme === "satin-heart" && (
         <SatinHeartBackground density={activeTab === "reader" ? 0 : 1} />
+      )}
+      {settings?.theme === "everfrost-silence" && (
+        <EverfrostBackground density={activeTab === "reader" ? 0 : 1} />
       )}
       <div
         className={cn(

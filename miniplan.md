@@ -4,9 +4,10 @@
 The **Everfrost Silence** theme aims to capture the serene, quiet atmosphere of a midnight snowfall. It prioritized focus and tranquility, using a cool, dark palette with high-fidelity particle effects.
 
 ### Color Palette
-- **Background**: Midnight Blue (`#050810`) to Deep Charcoal (`#0a0c14`).
-- **Accent/Text**: Frost White (`#f0f9ff`) and Pale Cyan (`#e0f2fe`).
-- **Muted Text**: Cold Slate (`#475569`).
+- **Background**: Obsidian Midnight (`#02040a`) to Deep Slate (`#0f172a`).
+- **Accent/Text**: Frost White (`#f8fafc`) and Icy Cyan (`#bae6fd`).
+- **Muted Text**: Glacial Slate (`#64748b`).
+- **Glass Panel**: `rgba(15, 23, 42, 0.45)` with a subtle `#bae6fd10` border.
 
 ## 2. Background Implementation: `EverfrostBackground.tsx`
 The background will utilize a high-performance Canvas-based snow system, similar to the `RainyWindowBackground` but with slower, more graceful physics.
@@ -18,14 +19,14 @@ The background will utilize a high-performance Canvas-based snow system, similar
   - **Foreground Layer**: Larger, sharp flakes with detailed movement.
 - **Drift Physics**: Flakes will have a horizontal "sway" (sine wave oscillation) to simulate light wind.
 - **Atmospheric Depth**:
-  - Soft bluish-gray radial gradients (blobs) to create depth.
-  - A "Frost Vignette" around the screen edges using a subtle SVG noise filter.
+  - Soft Indigo-Slate radial gradients (`#1e293b`) to create perceived depth.
+  - A "Frost Vignette" (`#bae6fd05`) around the screen edges using a subtle SVG noise filter.
 
 ## 3. Premium Caret Animation: "Frost Trail"
 The "Frost Trail" caret is designed to feel crystalline and responsive.
 
 ### Visual Style
-- **Caret**: A sleek, two-pixel wide frost-white bar (`#f0f9ff`) with a subtle `#7dd3fc` outer glow (breathing effect).
+- **Caret**: A sleek, two-pixel wide frost-white bar (`#f8fafc`) with a soft `#7dd3fc` outer glow (breathing effect).
 - **Particles ("Crystal Flurry")**:
   - **Emission**: Triggered by caret movement (typing).
   - **Sprites**: Pre-rendered six-sided snowflake sprites (3-4 variations).

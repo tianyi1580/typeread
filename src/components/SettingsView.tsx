@@ -102,7 +102,7 @@ export function SettingsView({
       >
         <aside className={cn(
           "border-r border-[var(--border)] p-5",
-          settings.theme === "rainy-window" || settings.theme === "nebula-drift" || settings.theme === "satin-heart"
+          settings.theme === "rainy-window" || settings.theme === "nebula-drift" || settings.theme === "satin-heart" || settings.theme === "everfrost-silence"
             ? "bg-[color-mix(in_srgb,var(--bg)_98%,transparent)]"
             : "bg-[color-mix(in_srgb,var(--panel-soft)_80%,transparent)]"
         )}>
@@ -132,7 +132,7 @@ export function SettingsView({
 
         <div className={cn(
           "overflow-y-auto p-6 lg:p-8",
-          settings.theme === "rainy-window" || settings.theme === "nebula-drift" || settings.theme === "satin-heart" ? "bg-[var(--panel-popout)]" : ""
+          settings.theme === "rainy-window" || settings.theme === "nebula-drift" || settings.theme === "satin-heart" || settings.theme === "everfrost-silence" ? "bg-[var(--panel-popout)]" : ""
         )}>
           {section === "appearance" && (
             <div className="space-y-8">
@@ -247,7 +247,7 @@ export function SettingsView({
                             )}>
                               {theme.name}
                             </span>
-                            {(key === "nebula-drift" || key === "rainy-window" || key === "satin-heart") && !locked && (
+                            {(key === "nebula-drift" || key === "rainy-window" || key === "satin-heart" || key === "everfrost-silence") && !locked && (
                               <span className="text-[9px] font-bold uppercase tracking-[0.1em] text-[var(--text-muted)] opacity-60">
                                 Premium Theme
                               </span>

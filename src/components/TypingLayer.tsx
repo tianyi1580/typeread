@@ -159,10 +159,12 @@ export function TypingLayer({
   const stompTimeoutRef = useRef<any>(null);
 
   // Pre-allocated particle pool for zero-allocation typing effects
-  const PARTICLE_POOL_SIZE = 200;
+  const PARTICLE_POOL_SIZE = 250;
   const particlePool = useRef<any[]>(
     Array.from({ length: PARTICLE_POOL_SIZE }, () => ({
-      x: 0, y: 0, vx: 0, vy: 0, life: 0, decay: 0, size: 0, color: "", active: false, gravity: 0, isWater: false, isPill: false, isHeart: false, isSilk: false
+      x: 0, y: 0, vx: 0, vy: 0, life: 0, decay: 0, size: 0, color: "", active: false, gravity: 0,
+      isWater: false, isPill: false, isHeart: false, isSilk: false,
+      isSnow: false, rotation: 0, rotSpeed: 0
     }))
   );
   const nextParticleIdx = useRef(0);
@@ -242,9 +244,10 @@ export function TypingLayer({
           isJumpingRef.current = false;
           if (caretRef.current && !isStretchingRef.current) {
             const isSilk = settings.theme === "satin-heart";
+            const isSnow = settings.theme === "everfrost-silence";
             caretRef.current.style.transition = isSilk
               ? "transform 50ms cubic-bezier(0.34, 1.56, 0.64, 1), height 50ms cubic-bezier(0.34, 1.56, 0.64, 1), opacity 100ms"
-              : "transform 60ms ease-out, height 60ms ease-out, opacity 100ms";
+              : (isSnow ? "transform 75ms ease-out, height 75ms ease-out, opacity 100ms" : "transform 60ms ease-out, height 60ms ease-out, opacity 100ms");
           }
           jumpTimeoutRef.current = null;
         }, 50);
@@ -256,6 +259,7 @@ export function TypingLayer({
       const dist = Math.sqrt(dx * dx + dy * dy);
 
       const isSilk = settings.theme === "satin-heart";
+      const isSnow = settings.theme === "everfrost-silence";
       if (caretRef.current) {
         const style = caretRef.current.style;
         style.transform = `translate3d(${newLeft - 0.5}px, ${newTop + (newHeight * 0.1)}px, 0)`;
@@ -263,9 +267,9 @@ export function TypingLayer({
         style.opacity = "1";
         const defaultTransition = isSilk
           ? "transform 50ms cubic-bezier(0.34, 1.56, 0.64, 1), height 50ms cubic-bezier(0.34, 1.56, 0.64, 1), opacity 100ms"
-          : "transform 60ms ease-out, height 60ms ease-out, opacity 100ms";
+          : (isSnow ? "transform 75ms ease-out, height 75ms ease-out, opacity 100ms" : "transform 60ms ease-out, height 60ms ease-out, opacity 100ms");
 
-        style.transition = isJumping ? "none" : (isStretchingRef.current ? "transform 40ms ease-out, height 40ms ease-out" : defaultTransition);
+        style.transition = isJumping ? "none" : (isStretchingRef.current ? "transform 35ms ease-out, height 35ms ease-out" : defaultTransition);
       }
 
       // Update the ref after the DOM so the next React render is in sync
@@ -275,10 +279,53 @@ export function TypingLayer({
       const isNebula = settings.theme === "nebula-drift";
       const isRainy = settings.theme === "rainy-window";
 
-      if ((isNebula || isRainy || isSilk) && dist > 0.1 && dist < 2000) {
+      if ((isNebula || isRainy || isSilk || isSnow) && dist > 0.1 && dist < 2000) {
         const baseSize = Math.max(1, newHeight * 0.06);
 
-        if (isNebula) {
+        if (isSnow) {
+          // --- Keystroke Squeeze Stomp ---
+          isStretchingRef.current = true;
+          if (caretRef.current) {
+            caretRef.current.style.transform = `translate3d(${newLeft - 0.5}px, ${newTop + (newHeight * 0.1)}px, 0) scaleY(1.25) scaleX(0.75)`;
+            caretRef.current.style.transition = "transform 35ms ease-out, height 35ms ease-out";
+          }
+          if (stompTimeoutRef.current) clearTimeout(stompTimeoutRef.current);
+          stompTimeoutRef.current = setTimeout(() => {
+            isStretchingRef.current = false;
+            if (caretRef.current) {
+              const p = caretPosRef.current;
+              caretRef.current.style.transform = `translate3d(${p.left - 0.5}px, ${p.top + (p.height * 0.1)}px, 0) scaleY(1) scaleX(1)`;
+              caretRef.current.style.transition = isJumpingRef.current ? "none" : "all 75ms ease-out";
+            }
+            stompTimeoutRef.current = null;
+          }, 75);
+
+          // --- Crystal Flurry Particle Generation ---
+          const count = dist > 15 ? 4 : 2;
+          const stompDir = dx < 0 ? 1 : -1;
+
+          for (let i = 0; i < count; i++) {
+            const p = getInactiveParticle(particlePool.current, nextParticleIdx);
+            if (p) {
+              p.active = true;
+              p.isWater = false;
+              p.isHeart = false;
+              p.isSilk = false;
+              p.isSnow = true;
+              p.x = newLeft + (Math.random() - 0.5) * 4;
+              p.y = newTop + newHeight * Math.random();
+              p.vx = stompDir * (0.4 + Math.random() * 0.8);
+              p.vy = (Math.random() - 0.3) * 0.5;
+              p.gravity = 0.04;
+              p.life = 1.0;
+              p.decay = 0.015 + Math.random() * 0.02;
+              p.size = (0.5 + Math.random() * 0.8) * baseSize;
+              p.color = Math.random() > 0.4 ? "#f8fafc" : "#bae6fd";
+              p.rotation = Math.random() * 360;
+              p.rotSpeed = (Math.random() - 0.5) * 6;
+            }
+          }
+        } else if (isNebula) {
           const count = dist > 30 ? 2 : 1;
           for (let i = 0; i < count; i++) {
             const t = i / count;
@@ -288,6 +335,7 @@ export function TypingLayer({
               p.isWater = false;
               p.isHeart = false;
               p.isSilk = false;
+              p.isSnow = false;
               p.x = prev.left + dx * t + (Math.random() - 0.5) * 2;
               p.y = prev.top + dy * t + (Math.random() * newHeight);
               p.vx = (Math.random() - 0.5) * 0.4;
@@ -306,7 +354,7 @@ export function TypingLayer({
             if (caretRef.current) {
               // PRESERVE the position while applying the scale
               caretRef.current.style.transform = `translate3d(${newLeft - 0.5}px, ${newTop + (newHeight * 0.1)}px, 0) scaleY(1.3) scaleX(0.7)`;
-              caretRef.current.style.transition = "all 40ms ease-out";
+              caretRef.current.style.transition = "transform 40ms ease-out, height 40ms ease-out";
             }
             if (stompTimeoutRef.current) clearTimeout(stompTimeoutRef.current);
             stompTimeoutRef.current = setTimeout(() => {
@@ -332,6 +380,7 @@ export function TypingLayer({
               p.isWater = true;
               p.isHeart = false;
               p.isSilk = false;
+              p.isSnow = false;
               p.x = newLeft + startXOffset + (Math.random() - 0.5) * 1.5;
               const pos = Math.random();
               p.y = newTop + newHeight * pos;
@@ -353,7 +402,6 @@ export function TypingLayer({
             }
           }
         } else if (isSilk && dist > 1) {
-          // Increased density and randomness for heart particles
           const count = dist > 30 ? (Math.random() > 0.5 ? 2 : 1) : 1;
           for (let i = 0; i < count; i++) {
             if (Math.random() > 0.15) {
@@ -363,13 +411,14 @@ export function TypingLayer({
                 p.isWater = false;
                 p.isHeart = true;
                 p.isSilk = true;
+                p.isSnow = false;
                 p.x = newLeft + (Math.random() - 0.5) * 8;
                 p.y = newTop + (newHeight / 2) + (Math.random() - 0.5) * 10;
                 p.vx = (Math.random() - 0.5) * 0.4;
-                p.vy = -(0.4 + Math.random() * 0.5); // Slightly faster drift
+                p.vy = -(0.4 + Math.random() * 0.5);
                 p.life = 1.0;
-                p.decay = 0.01 + Math.random() * 0.015; // Longer life
-                p.size = (0.8 + Math.random() * 0.8) * baseSize; // Larger size
+                p.decay = 0.01 + Math.random() * 0.015;
+                p.size = (0.8 + Math.random() * 0.8) * baseSize;
                 p.color = Math.random() > 0.5 ? "#f43f5e" : "#fb7185";
                 p.gravity = 0;
               }
@@ -439,7 +488,8 @@ export function TypingLayer({
               "absolute z-50 w-[2px] bg-[var(--accent)]",
               settings.theme === "nebula-drift" && "caret-cosmic-pulse",
               settings.theme === "rainy-window" && "caret-liquid-bead",
-              settings.theme === "satin-heart" && "caret-silk-glint"
+              settings.theme === "satin-heart" && "caret-silk-glint",
+              settings.theme === "everfrost-silence" && "caret-frost-trail"
             )}
             style={{
               position: "absolute",
@@ -449,7 +499,7 @@ export function TypingLayer({
               transform: `translate3d(${caretPosRef.current.left - 0.5}px, ${caretPosRef.current.top + (caretPosRef.current.height * 0.1)}px, 0)`,
               opacity: caretPosRef.current.opacity,
               transformOrigin: "bottom",
-              transition: isJumpingRef.current ? "none" : (settings.theme === "satin-heart" ? "transform 50ms cubic-bezier(0.34, 1.56, 0.64, 1), height 50ms cubic-bezier(0.34, 1.56, 0.64, 1), opacity 100ms" : "transform 60ms ease-out, height 60ms ease-out, opacity 100ms"),
+              transition: isJumpingRef.current ? "none" : (settings.theme === "satin-heart" ? "transform 50ms cubic-bezier(0.34, 1.56, 0.64, 1), height 50ms cubic-bezier(0.34, 1.56, 0.64, 1), opacity 100ms" : (settings.theme === "everfrost-silence" ? "transform 75ms ease-out, height 75ms ease-out, opacity 100ms" : "transform 60ms ease-out, height 60ms ease-out, opacity 100ms")),
               pointerEvents: "none",
               willChange: "transform",
             }}
@@ -717,6 +767,7 @@ const CaretTrail = memo(forwardRef(({ particles, textContainerRef }: { particles
       p.x += p.vx * dt;
       p.y += p.vy * dt;
       if (p.gravity) p.vy += p.gravity * dt;
+      if (p.isSnow) p.rotation += p.rotSpeed * dt;
       p.life -= p.decay * dt;
 
       if (p.life <= 0) {
@@ -764,6 +815,35 @@ const CaretTrail = memo(forwardRef(({ particles, textContainerRef }: { particles
         const highlightSize = Math.max(0.2, p.size * 0.4);
         ctx.arc(drawX - p.size * 0.15, drawY - p.size * 0.15, highlightSize, 0, Math.PI * 2);
         ctx.fill();
+      } else if (p.isSnow) {
+        // Draw falling crystal star/flakes
+        if (lastMode !== "source-over") {
+          ctx.globalCompositeOperation = "source-over";
+          lastMode = "source-over";
+        }
+        
+        ctx.globalAlpha = Math.max(0, p.life * 0.85);
+        ctx.save();
+        ctx.translate(drawX, drawY);
+        ctx.rotate((p.rotation * Math.PI) / 180);
+        
+        ctx.strokeStyle = p.color;
+        ctx.lineWidth = 1.0;
+        const size = p.size * 2;
+        
+        ctx.beginPath();
+        for (let c = 0; c < 6; c++) {
+          ctx.moveTo(0, 0);
+          ctx.lineTo(0, -size);
+          // Tiny barbs
+          ctx.moveTo(0, -size * 0.5);
+          ctx.lineTo(-size * 0.25, -size * 0.65);
+          ctx.moveTo(0, -size * 0.5);
+          ctx.lineTo(size * 0.25, -size * 0.65);
+          ctx.rotate(Math.PI / 3);
+        }
+        ctx.stroke();
+        ctx.restore();
       } else if (p.isHeart) {
         if (lastMode !== "source-over") {
           ctx.globalCompositeOperation = "source-over";
