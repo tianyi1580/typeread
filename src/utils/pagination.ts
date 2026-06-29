@@ -122,8 +122,10 @@ export function paginateText(
 
       // Check again after separator
       if (linesUsed > safeMaxLines) {
-        // If the separator pushed us over, we stop BEFORE this word to ensure 
-        // the next page starts with this word and its potentially layout-critical separator.
+        // The word itself fit on the page — only its trailing whitespace pushed us
+        // over.  Include the word on the current page (trailing whitespace at the
+        // end of a page is not visible) and let the next page start fresh.
+        bestBreakIndex = i;
         break;
       }
       
